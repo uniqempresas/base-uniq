@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+.opencode/node_modules/
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+vite-log.txt
+dev.out
+dev.err
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Generated
+/src/generated/prisma
+
+# Test artifacts
+teste-login.png
+.playwright-mcp/
+
+# Misc
+commit_vendas.sh
+
+# Deepwork progress
+.slim/deepwork/

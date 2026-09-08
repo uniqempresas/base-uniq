@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UNIQ Empresas — Painel do Plano de 5 Semanas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --grafite:#1f2937; --menta:#86cb92; --menta-soft:#e2f2e5;
+    --cinza-claro:#efefef; --cinza-verde:#627271; --branco:#fff;
+    --border:#e3e6e5; --radius:8px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Poppins',system-ui,-apple-system,Segoe UI,Helvetica Neue,Arial,sans-serif;background:var(--cinza-claro);color:var(--grafite);line-height:1.55;font-size:15px}
+  .container{max-width:1120px;margin:0 auto;padding:24px 20px 60px}
+
+  /* HERO */
+  .hero{background:var(--grafite);color:#fff;border-radius:var(--radius);padding:28px;box-shadow:0 12px 28px rgba(31,41,55,.18)}
+  .hero h1{font-size:24px;font-weight:700}
+  .hero h1 span{color:var(--menta)}
+  .hero .sub{font-size:13px;color:#c7d2ce;margin-top:6px}
+  .hero-row{display:flex;flex-wrap:wrap;gap:18px;align-items:center;justify-content:space-between;margin-top:14px}
+  .hero-badge{background:var(--menta);color:var(--grafite);font-weight:600;font-size:12px;padding:8px 14px;border-radius:999px;text-transform:uppercase;letter-spacing:.05em}
+  .hero meta{font-size:12px;color:#c7d2ce}
+
+  /* STATS */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:20px 0}
+  .stat{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:15px}
+  .stat .num{font-size:24px;font-weight:700}
+  .stat .lbl{font-size:12px;color:var(--cinza-verde);margin-top:3px}
+  .ok{color:#3f9b5c}.warn{color:#e08a34}.bad{color:#d9534f}.nid{color:var(--cinza-verde)}
+
+  .section-title{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--cinza-verde);margin:28px 0 12px;display:flex;align-items:center;gap:8px}
+  .section-title::after{content:"";flex:1;height:1px;background:var(--border)}
+
+  /* CHAIN */
+  .chain{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+  .chain-ol{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+  .chain-step{background:#fafbfa;border:1px solid var(--border);border-radius:6px;padding:14px}
+  .chain-step b{display:block;font-size:13px}
+  .chain-step code{font-size:11.5px;color:var(--cinza-verde)}
+  .chain-note{font-size:12px;color:var(--cinza-verde);margin-top:12px;background:var(--menta-soft);border:1px solid #d0e8d4;border-radius:6px;padding:10px 12px}
+
+  /* WEEK */
+  .week{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:22px;margin-bottom:16px;box-shadow:0 3px 10px rgba(0,0,0,.05);position:relative;overflow:hidden}
+  .week::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px}
+  .wk1::before{background:#5aa9d6}.wk2::before{background:#e0b04a}.wk3::before{background:#e08a34}.wk4::before{background:#d9534f}.wk5::before{background:#1f2937}
+  .week-head{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;justify-content:space-between}
+  .week-badge{font-size:12px;font-weight:700;color:#fff;padding:4px 12px;border-radius:999px}
+  .wb1{background:#5aa9d6}.wb2{background:#e0b04a}.wb3{background:#e08a34}.wb4{background:#d9534f}.wb5{background:#1f2937}
+  .week-title{font-size:19px;font-weight:700}
+  .week-goal{font-size:14px;margin-top:6px;font-weight:500;color:var(--grafite)}
+  .week-goal b{color:var(--cinza-verde)}
+  .dl{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+  .tag{font-size:11.5px;padding:4px 10px;border-radius:99px;font-weight:600;background:#eef1f0;color:var(--cinza-verde)}
+  .tag-tb{background:#eef3f8;color:#3d6b93}
+  .tasks{margin-top:12px}
+  .task{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-radius:6px;font-size:13.5px}
+  .task:nth-child(odd){background:#fafbfa}
+  .dot{width:16px;height:16px;border-radius:50%;flex-shrink:0;margin-top:3px;border:2px solid}
+  .todo{border-color:var(--cinza-verde);background:transparent}
+  .fund{border-color:#e0b04a;background:#f6e3c0}
+  .urgent{border-color:#d9534f;background:#f7d5d3}
+  .task code{font-size:12px;color:var(--cinza-verde)}
+  .gate{margin-top:12px;padding:11px 13px;border-radius:6px;background:#f2f6f3;border:1px solid #dceadd;font-size:13px;color:#33644a;font-weight:500}
+  .gate b{color:var(--grafite)}
+
+  /* PANELS */
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:720px){.two-col{grid-template-columns:1fr}}
+  .panel{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:18px}
+  .panel h3{font-size:15px;font-weight:700;margin-bottom:10px}
+  .panel ul{list-style:none}
+  .panel li{font-size:13px;padding:7px 0;border-bottom:1px dashed var(--border);display:flex;gap:8px;align-items:baseline}
+  .panel li:last-child{border-bottom:none}
+  .p-ok{color:#3f9b5c;font-weight:600}
+  .p-warn{color:#e0b04a;font-weight:600}
+  .p-bad{color:#d9534f;font-weight:600}
+  .p-nid{color:var(--cinza-verde)}
+  .panel code{font-size:11.5px}
+  footer{text-align:center;margin-top:34px;font-size:12px;color:var(--cinza-verde)}
+  footer code{font-size:11px}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HERO -->
+  <header class="hero">
+    <h1>UNIQ <span>Empresas</span></h1>
+    <div class="sub">Painel do plano de 5 semanas — Conectar a Base UNIQ (Produto → Funil)</div>
+    <div class="hero-row">
+      <span class="hero-badge">Aprovado · 07/09/2026</span>
+      <span class="hero meta">CEO + Orchestrator (SDD) · Fonte: <code>tracking/TRACKING.md</code></span>
+    </div>
+  </header>
+
+  <!-- STATUS -->
+  <div class="stats">
+    <div class="stat"><div class="num ok">✓</div><div class="lbl">Diagnóstico concluído</div></div>
+    <div class="stat"><div class="num ok">✓</div><div class="lbl">Decisão #0 resolvida</div></div>
+    <div class="stat"><div class="num ok">✓</div><div class="lbl">Backend rico (dados reais)</div></div>
+    <div class="stat"><div class="num bad">✗</div><div class="lbl">Front ↔ Back conectado</div></div>
+    <div class="stat"><div class="num nid">1/5</div><div class="lbl">Semana atual: 1 (não iniciada)</div></div>
+  </div>
+
+  <!-- CHAIN -->
+  <div class="section-title">A cadeia de demonstração (espinha do plano)</div>
+  <div class="chain">
+    <div class="chain-ol">
+      <div class="chain-step">
+        <b>1 · Mensagem no WhatsApp</b>
+        <code>crm_chat_conversas</code><br>
+        <code>crm_chat_mensagens</code>
+      </div>
+      <div class="chain-step">
+        <b>2 · Conversa no CRM</b>
+        <code>tela lê as tabelas de chat</code><br>
+        <code>dado real, não mock</code>
+      </div>
+      <div class="chain-step">
+        <b>3 · Pedido vira lead/cliente</b>
+        <code>crm_leads / me_cliente</code>
+      </div>
+      <div class="chain-step">
+        <b>4 · Pedido contabilizado</b>
+        <code>RPC registrar_venda</code><br>
+        <code>me_venda + me_contas_receber</code>
+      </div>
+    </div>
+    <div class="chain-note">🎯 As tabelas e a RPC <b>já existem</b> no banco. O trabalho é conectar o front, renderizar e disparar a RPC quando houver pedido.</div>
+  </div>
+
+  <!-- SEMANA 1 -->
+  <div class="week wk1">
+    <div class="week-head"><div class="week-title">Semana 1 — Fio de Prumo</div><span class="week-badge wb1">S1</span></div>
+    <div class="week-goal">Provar a arquitetura: <b>uma mensagem real</b> atravessando o sistema.</div>
+    <div class="dl"><span class="tag">Não é construir tudo</span><span class="tag tag-tb">crm_chat_conversas · crm_chat_mensagens</span></div>
+    <div class="tasks">
+      <div class="task"><span class="dot todo"></span> Corrigir o project URL do Supabase (front → banco oficial)</div>
+      <div class="task"><span class="dot todo"></span> Consulta real de conversa (saindo do banco, não de mock)</div>
+      <div class="task"><span class="dot todo"></span> Login funcional com usuário/empresa reais</div>
+      <div class="task"><span class="dot todo"></span> Renderizar 1 conversa real numa tela do CRM</div>
+    </div>
+    <div class="gate"><b>Gate:</b>&nbsp;1 conversa real do WhatsApp aparece na tela, vinda do banco.</div>
+  </div>
+
+  <!-- SEMANA 2 -->
+  <div class="week wk2">
+    <div class="week-head"><div class="week-title">Semana 2 — Cadeia completa na HQ Gráfica</div><span class="week-badge wb2">S2</span></div>
+    <div class="week-goal">A demonstração inteira em <b>um negócio real</b> (HQ Gráfica).</div>
+    <div class="dl"><span class="tag tag-tb">crm_leads · me_cliente · me_venda · me_contas_receber</span><span class="tag">RPC registrar_venda</span></div>
+    <div class="tasks">
+      <div class="task"><span class="dot todo"></span> Pedido do WhatsApp aparece no CRM como lead/cliente</div>
+      <div class="task"><span class="dot todo"></span> Pedido contabilizado via RPC <code>registrar_venda</code></div>
+      <div class="task"><span class="dot fund"></span> Fundador opera de verdade (responde cliente real pela Base)</div>
+      <div class="task"><span class="dot todo"></span> Corrigir o que quebrar no uso real</div>
+    </div>
+    <div class="gate"><b>Gate:</b>&nbsp;fundador opera a HQ Gráfica pela Base UNIQ sem caderno.</div>
+  </div>
+
+  <!-- SEMANA 3 -->
+  <div class="week wk3">
+    <div class="week-head"><div class="week-title">Semana 3 — Reutilização (Doceê) + Material</div><span class="week-badge wb3">S3</span></div>
+    <div class="week-goal">Provar que é <b>lego</b> (default + vertical) e gerar material de venda.</div>
+    <div class="dl"><span class="tag">Doceê · 2º negócio</span><span class="tag">Case em vídeo</span><span class="tag tag-tb">landing + proposta + termo</span></div>
+    <div class="tasks">
+      <div class="task"><span class="dot todo"></span> Replicar a cadeia para a Doceê (esposa opera)</div>
+      <div class="task"><span class="dot todo"></span> Gravar a operação em vídeo (case interno)</div>
+      <div class="task"><span class="dot todo"></span> Landing · proposta comercial · termo de co-fundador</div>
+      <div class="task"><span class="dot todo"></span> Check final da cadeia de demonstração</div>
+    </div>
+    <div class="gate"><b>Gate:</b>&nbsp;visita à ótica liberada.</div>
+  </div>
+
+  <!-- SEMANA 4 -->
+  <div class="week wk4">
+    <div class="week-head"><div class="week-title">Semana 4 — Funil de Aquisição (Landing + MEL)</div><span class="week-badge wb4">S4</span></div>
+    <div class="week-goal">Automatizar o levantamento de leads — a MEL faz o SPIN, o fundador fecha. <b>Protege as 16h/semana.</b></div>
+    <div class="dl"><span class="tag tag-tb">mel_consultoria · mel_validacao_dores</span><span class="tag">híbrido: chat + WhatsApp</span><span class="tag">LGPD</span></div>
+    <div class="tasks">
+      <div class="task"><span class="dot todo"></span> Landing com botão "Falar com a MEL"</div>
+      <div class="task"><span class="dot todo"></span> Chat na landing: MEL se apresenta → captura WhatsApp cedo</div>
+      <div class="task"><span class="dot todo"></span> MEL conduz SPIN e grava em <code>mel_consultoria</code> + <code>mel_validacao_dores</code></div>
+      <div class="task"><span class="dot todo"></span> Documento de necessidades renderizado na Base UNIQ</div>
+      <div class="task"><span class="dot urgent"></span> LGPD resolvido ANTES de subir (política + consentimento + retenção)</div>
+    </div>
+    <div class="gate"><b>Regra:</b>&nbsp;funil não entra no ar antes da cadeia de demonstração funcionar.</div>
+  </div>
+
+  <!-- SEMANA 5 -->
+  <div class="week wk5">
+    <div class="week-head"><div class="week-title">Semana 5 — Integração Funil ↔ Base + 1º Lead Real</div><span class="week-badge wb5">S5</span></div>
+    <div class="week-goal">Fechar o ciclo e gerar pipeline dos co-fundadores 2–4.</div>
+    <div class="dl"><span class="tag">ciclo completo</span><span class="tag">1º lead real</span></div>
+    <div class="tasks">
+      <div class="task"><span class="dot todo"></span> Fluxo completo: landing → SPIN → doc na plataforma → retorno humano</div>
+      <div class="task"><span class="dot todo"></span> Primeiro lead real passando pelo funil</div>
+      <div class="task"><span class="dot todo"></span> Ajustes finos</div>
+    </div>
+    <div class="gate"><b>Entregável:</b>&nbsp;ciclo de aquisição operando de ponta a ponta.</div>
+  </div>
+
+  <div class="section-title">Onde estamos</div>
+  <div class="two-col">
+    <div class="panel">
+      <h3>Já existe / já decidido</h3>
+      <ul>
+        <li><span class="p-ok">✓</span> Supabase oficial definido (<code>krrkfgv...</code>)</li>
+        <li><span class="p-ok">✓</span> Backend com dados reais: 18 conversas · 645 mensagens · 9 leads · 2 empresas · 3 vendas</li>
+        <li><span class="p-ok">✓</span> Modelo de dados do funil pronto (<code>mel_consultoria</code> é o SPIN estruturado)</li>
+        <li><span class="p-warn">◑</span> Funil MEL: tabelas criadas, mas vazias (ainda não rodou)</li>
+        <li><span class="p-bad">✗</span> Front aponta para o projeto errado (<code>eqyvic...</code>) — corrigir na S1</li>
+        <li><span class="p-nid">—</span> Semana 1 ainda não iniciada</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3>Pendências (destravam o caminho)</h3>
+      <ul>
+        <li><span class="p-warn">◑</span> Nº do WhatsApp do laboratório (HQ Gráfica / Doceê) → antes da S2</li>
+        <li><span class="p-warn">◑</span> Confirmar GitHub + Vercel publicando preview → S1</li>
+        <li><span class="p-bad">✗</span> LGPD para captura/armazenamento de leads → antes da S4</li>
+        <li><span class="p-nid">—</span> <code>DESIGN.md</code> restante (Voice & Tone, Imagery, Posture) → antes do funil</li>
+      </ul>
+    </div>
+  </div>
+
+  <footer>
+    UNIQ Empresas · Painel aprovado em 07/09/2026 · Identidade: <code>DESIGN.md</code> · Detalhamento técnico completo: <code>tracking/TRACKING.md</code>
+    <br>SDD permanece parado até autorização do fundador.
+  </footer>
+
+</div>
+</body>
+</html>
