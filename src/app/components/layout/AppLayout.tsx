@@ -71,6 +71,7 @@ const RAIL_ITEMS: NavRailItem[] = [
   { id: "agenda", label: "Agenda", icon: Calendar, path: "/agenda", moduloCodigo: "agenda" },
   { id: "metricas", label: "Métricas", icon: BarChart3, path: "/metricas", moduloCodigo: "metricas" },
   { id: "mel", label: "MEL", icon: Sparkles, path: "/mel", moduloCodigo: "mel" },
+  { id: "chatbot", label: "Chatbot", icon: MessageCircle, path: "/chatbot", moduloCodigo: "chatbot" },
   { id: "modulos", label: "Módulos", icon: LayoutGrid, path: "/meus-modulos", moduloCodigo: "meus-modulos" },
   { id: "configuracoes", label: "Configurações", icon: Settings, path: "/configuracoes/empresa", moduloCodigo: "configuracoes" },
 ];
@@ -180,13 +181,24 @@ const SUBNAV_SECTIONS: SubNavSection[] = [
     ],
   },
   {
+    railId: "chatbot",
+    title: "Chatbot",
+    subtitle: "Atendimento automatizado",
+    items: [
+      { id: "cb-conversas", label: "Conversas", path: "/chatbot", icon: MessageCircle },
+      { id: "cb-configuracoes", label: "Configurações", path: "/chatbot/configuracoes", icon: Settings },
+      { id: "cb-respostas", label: "Respostas automáticas", path: "/chatbot/respostas", icon: Sparkles },
+      { id: "cb-faq", label: "FAQ", path: "/chatbot/faq", icon: CheckCircle },
+      { id: "cb-estatisticas", label: "Estatísticas", path: "/chatbot/estatisticas", icon: BarChart3 },
+    ],
+  },
+  {
     railId: "modulos",
     title: "Módulos",
     subtitle: "Gerencie seus módulos",
     items: [
       { id: "m-meus", label: "Meus Módulos", path: "/meus-modulos", icon: LayoutGrid },
       { id: "m-marketplace", label: "Marketplace", path: "/marketplace", icon: Store },
-      { id: "m-chatbot", label: "Chatbot", path: "/chatbot", icon: MessageCircle },
     ],
   },
   {
@@ -234,7 +246,7 @@ export function AppLayout() {
     if (["/estoque", "/servicos", "/fornecedores"].some((path) => currentPath.startsWith(path))) {
       return "minha-empresa";
     }
-    if (currentPath.startsWith("/chatbot")) return "modulos";
+    if (currentPath.startsWith("/chatbot")) return "chatbot";
     return "dashboard";
   }, [currentPath]);
 
