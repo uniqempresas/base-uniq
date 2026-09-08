@@ -195,7 +195,7 @@ export function CadastroPage() {
 
     try {
       const res = await fetch(
-        "https://eqyvicudbrfwjynlbtie.supabase.co/functions/v1/criar-conta",
+        "https://krrkfgvdwhpelxtrdtla.supabase.co/functions/v1/criar-conta",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

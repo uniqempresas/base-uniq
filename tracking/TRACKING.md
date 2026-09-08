@@ -107,9 +107,9 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 
 | # | Ação | Onde / Tabelas envolvidas | Critério de aceite | Dep. |
 |---|---|---|---|---|
-| 1.1 | Corrigir o project URL do Supabase | `src/lib/supabase.ts` (trocar `eqyvic...` → `krrkfgv...`); revisar edge function em `CadastroPage.tsx` | `list_tables` retorna 2 empresas, 18 conversas | Decisão #0 |
-| 1.2 | Criar um hook/consulta de conversa real a partir do banco | `crm_chat_conversas`, `crm_chat_mensagens` | Dado real saindo do banco, não de mock | 1.1 |
-| 1.3 | Login funcional puxando usuário/empresa reais | `me_usuario`, `me_empresa`; `AuthContext.tsx` | Login autentica e carrega dados do usuário/empresa reais | 1.1 |
+| 1.1 | ✅ Corrigir o project URL do Supabase | `src/lib/supabase.ts` (trocar `eqyvic...` → `krrkfgv...`); revisar edge function em `CadastroPage.tsx` | `list_tables` retorna 2 empresas, 18 conversas | Decisão #0 |
+| 1.2 | ✅ Criar um hook/consulta de conversa real a partir do banco | `crm_chat_conversas`, `crm_chat_mensagens` | Dado real saindo do banco, não de mock | 1.1 |
+| 1.3 | ✅ Login funcional puxando usuário/empresa reais | `me_usuario`, `me_empresa`; `AuthContext.tsx` | Login autentica e carrega dados do usuário/empresa reais | 1.1 |
 | 1.4 | Renderizar 1 conversa real numa tela do CRM | Tela CRM (ex.: `crm/ClientesPage` ou a tela de conversa); tabelas acima | **1 conversa real do WhatsApp aparece de ponta a ponta** | 1.2, 1.3 |
 
 **Gate da semana (tudo ou nada):** uma conversa real do `crm_chat_conversas` aparece na tela, vinda do banco oficial.
@@ -206,6 +206,7 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 | P2 | **GitHub + Vercel** confirmados (preview acessível) | Semana 1 | É como o fundador valida pelo celular |
 | P3 | **LGPD** (política, consentimento, retenção) | Semana 4 (4.5) | CEO + Fundador |
 | P4 | `DESIGN.md` restante (Voice & Tone, Imagery, Posture, seções duplicadas) | Semana 4 | Antes do funil |
+| P5 | **Revisão de segurança RLS** — 54 tabelas do Supabase oficial estão com Row Level Security desabilitado; definir políticas por empresa/usuário antes de dados reais de clientes | Semana 5 / pós-cadeia de demonstração | Levantado na correção do Supabase (08/09/2026); não bloqueia S1–S4, mas é crítico antes de produção com leads reais |
 
 ---
 
