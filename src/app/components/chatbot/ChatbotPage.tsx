@@ -33,41 +33,61 @@ export function ChatbotPage() {
     // Por enquanto mantém-se apenas leitura para a cadeia de demonstração.
   };
 
-  if (loading) {
-    return (
-      <div className="h-full flex items-center justify-center bg-muted">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground text-sm">Carregando conversas...</p>
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <div className="flex-1 flex items-center justify-center bg-muted">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-muted-foreground text-sm">Carregando conversas...</p>
+          </div>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
-  if (error && conversas.length === 0) {
-    return (
-      <div className="h-full flex items-center justify-center bg-muted p-8">
-        <div className="text-center max-w-sm">
-          <p className="text-red-500 font-medium mb-2">Erro ao carregar conversas</p>
-          <p className="text-muted-foreground text-sm">{error}</p>
+    if (error && conversas.length === 0) {
+      return (
+        <div className="flex-1 flex items-center justify-center bg-muted p-8">
+          <div className="text-center max-w-sm">
+            <p className="text-red-500 font-medium mb-2">Erro ao carregar conversas</p>
+            <p className="text-muted-foreground text-sm">{error}</p>
+          </div>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
-  if (conversas.length === 0) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center bg-muted p-8">
-        <div className="bg-muted p-6 rounded-full mb-4">
-          <MessageCircle className="h-16 w-16 text-muted-foreground" />
+    if (conversas.length === 0) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center bg-muted p-8">
+          <div className="bg-muted p-6 rounded-full mb-4">
+            <MessageCircle className="h-16 w-16 text-muted-foreground" />
+          </div>
+          <h3 className="text-xl font-semibold text-foreground mb-2">Nenhuma conversa</h3>
+          <p className="text-muted-foreground text-center max-w-sm">
+            Não há conversas do WhatsApp para exibir no momento.
+          </p>
         </div>
-        <h3 className="text-xl font-semibold text-foreground mb-2">Nenhuma conversa</h3>
-        <p className="text-muted-foreground text-center max-w-sm">
-          Não há conversas do WhatsApp para exibir no momento.
-        </p>
-      </div>
+      );
+    }
+
+    return (
+      <>
+        {/* ChatList - Lista de conversas (esquerda) */}
+        <ChatList
+          conversas={conversas}
+          conversaAtiva={conversaAtiva?.id || null}
+          onSelectConversa={selecionarConversa}
+        />
+
+        {/* ChatWindow - Janeiro de chat (direita) */}
+        <ChatWindow
+          conversa={conversaAtiva}
+          mensagens={mensagens}
+          onSendMessage={handleSendMessage}
+        />
+      </>
     );
-  }
+  };
 
   return (
     <div className="h-full flex flex-col lg:flex-row">
@@ -76,22 +96,10 @@ export function ChatbotPage() {
         <ChatbotStatus status={status} onChange={atualizarStatus} />
       </div>
 
-      {/* ChatList - Lista de conversas (esquerda) */}
-      <ChatList
-        conversas={conversas}
-        conversaAtiva={conversaAtiva?.id || null}
-        onSelectConversa={selecionarConversa}
-      />
-
-      {/* ChatWindow - Janeiro de chat (direita) */}
-      <ChatWindow
-        conversa={conversaAtiva}
-        mensagens={mensagens}
-        onSendMessage={handleSendMessage}
-      />
+      {renderContent()}
 
       {/* Indicador sutil de fallback/mock */}
-      {isFallback && (
+      {isFallback && !loading && (
         <div className="fixed bottom-2 right-2 z-50 bg-amber-100 text-amber-800 text-xs px-2 py-1 rounded-md shadow">
           Modo demonstração
         </div>
