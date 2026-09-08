@@ -7,8 +7,8 @@
       "enabled": true
     },
     "vercel": {
-      "type": "remote",
-      "url": "https://mcp.vercel.com/mcp",
+      "type": "stdio",
+      "command": ["npx", "-y", "@vineethnkrishnan/vercel-mcp"],
       "enabled": true
     }
   }
