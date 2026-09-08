@@ -1,14 +1,7 @@
-/**
- * AuthContext funcional — Base UNIQ
- * Autentica via Supabase Auth e carrega perfil (me_usuario) + empresa (me_empresa) reais.
- * Tarefa 1.3
- */
-
 import {
   createContext,
   useContext,
   useState,
-  useEffect,
   useCallback,
   type ReactNode,
 } from "react";
@@ -34,22 +27,18 @@ export interface EmpresaAuth {
   slug: string | null;
 }
 
-interface AuthState {
+interface AuthContextType {
   user: User | null;
   session: Session | null;
   perfil: PerfilUsuario | null;
   empresa: EmpresaAuth | null;
   loading: boolean;
-}
-
-interface AuthContextType extends AuthState {
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Usuário demo: fallback para desenvolvimento/demo quando não há sessão real.
 const MOCK_USER = {
   id: "demo-user",
   email: "demo@baseuniq.com.br",
@@ -58,14 +47,6 @@ const MOCK_USER = {
   aud: "authenticated",
   created_at: new Date().toISOString(),
 } as User;
-
-const ESTADO_INICIAL: AuthState = {
-  user: MOCK_USER,
-  session: null,
-  perfil: null,
-  empresa: null,
-  loading: true,
-};
 
 async function carregarPerfilEEmpresa(
   userId: string
@@ -100,79 +81,48 @@ async function carregarPerfilEEmpresa(
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AuthState>(ESTADO_INICIAL);
-
-  const aplicarSessao = useCallback(async (sessionAtual: Session | null) => {
-    if (sessionAtual?.user) {
-      const { perfil, empresa } = await carregarPerfilEEmpresa(sessionAtual.user.id);
-      setState({
-        user: sessionAtual.user,
-        session: sessionAtual,
-        perfil,
-        empresa,
-        loading: false,
-      });
-    } else {
-      setState({
-        user: MOCK_USER,
-        session: null,
-        perfil: null,
-        empresa: null,
-        loading: false,
-      });
-    }
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-
-    supabase.auth.getSession().then(({ data: { session: sessionAtual } }) => {
-      if (!mounted) return;
-      aplicarSessao(sessionAtual);
-    });
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, sessionAtual) => {
-      if (!mounted) return;
-      aplicarSessao(sessionAtual);
-    });
-
-    return () => {
-      mounted = false;
-      listener.subscription.unsubscribe();
-    };
-  }, [aplicarSessao]);
+  const [user, setUser] = useState<User | null>(MOCK_USER);
+  const [session, setSession] = useState<Session | null>(null);
+  const [perfil, setPerfil] = useState<PerfilUsuario | null>(null);
+  const [empresa, setEmpresa] = useState<EmpresaAuth | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    setState((prev) => ({ ...prev, loading: true }));
+    setLoading(true);
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    if (error) {
-      setState((prev) => ({ ...prev, loading: false }));
-      return { error: error.message };
+    if (error || !data.session?.user) {
+      setLoading(false);
+      return { error: error?.message || "Falha no login" };
     }
 
-    await aplicarSessao(data.session);
+    setUser(data.session.user);
+    setSession(data.session);
+
+    const { perfil: p, empresa: e } = await carregarPerfilEEmpresa(data.session.user.id);
+    setPerfil(p);
+    setEmpresa(e);
+    setLoading(false);
+
     return {};
-  }, [aplicarSessao]);
+  }, []);
 
   const signOut = useCallback(async () => {
-    setState((prev) => ({ ...prev, loading: true }));
+    setLoading(true);
     await supabase.auth.signOut();
-    setState({
-      user: MOCK_USER,
-      session: null,
-      perfil: null,
-      empresa: null,
-      loading: false,
-    });
+    setUser(MOCK_USER);
+    setSession(null);
+    setPerfil(null);
+    setEmpresa(null);
+    setLoading(false);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ ...state, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, perfil, empresa, loading, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );
