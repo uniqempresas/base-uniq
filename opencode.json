@@ -9,6 +9,9 @@
     "vercel": {
       "type": "stdio",
       "command": ["npx", "-y", "@vineethnkrishnan/vercel-mcp"],
+      "environment": {
+        "VERCEL_TOKEN": "$VERCEL_TOKEN"
+      },
       "enabled": true
     }
   }
