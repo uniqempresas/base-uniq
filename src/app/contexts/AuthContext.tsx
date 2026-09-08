@@ -34,12 +34,15 @@ export interface EmpresaAuth {
   slug: string | null;
 }
 
-interface AuthContextType {
+interface AuthState {
   user: User | null;
   session: Session | null;
   perfil: PerfilUsuario | null;
   empresa: EmpresaAuth | null;
   loading: boolean;
+}
+
+interface AuthContextType extends AuthState {
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
 }
@@ -55,6 +58,14 @@ const MOCK_USER = {
   aud: "authenticated",
   created_at: new Date().toISOString(),
 } as User;
+
+const ESTADO_INICIAL: AuthState = {
+  user: MOCK_USER,
+  session: null,
+  perfil: null,
+  empresa: null,
+  loading: true,
+};
 
 async function carregarPerfilEEmpresa(
   userId: string
@@ -89,24 +100,26 @@ async function carregarPerfilEEmpresa(
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(MOCK_USER);
-  const [session, setSession] = useState<Session | null>(null);
-  const [perfil, setPerfil] = useState<PerfilUsuario | null>(null);
-  const [empresa, setEmpresa] = useState<EmpresaAuth | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [state, setState] = useState<AuthState>(ESTADO_INICIAL);
 
   const aplicarSessao = useCallback(async (sessionAtual: Session | null) => {
     if (sessionAtual?.user) {
-      setUser(sessionAtual.user);
-      setSession(sessionAtual);
-      const { perfil: p, empresa: e } = await carregarPerfilEEmpresa(sessionAtual.user.id);
-      setPerfil(p);
-      setEmpresa(e);
+      const { perfil, empresa } = await carregarPerfilEEmpresa(sessionAtual.user.id);
+      setState({
+        user: sessionAtual.user,
+        session: sessionAtual,
+        perfil,
+        empresa,
+        loading: false,
+      });
     } else {
-      setUser(MOCK_USER);
-      setSession(null);
-      setPerfil(null);
-      setEmpresa(null);
+      setState({
+        user: MOCK_USER,
+        session: null,
+        perfil: null,
+        empresa: null,
+        loading: false,
+      });
     }
   }, []);
 
@@ -116,7 +129,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session: sessionAtual } }) => {
       if (!mounted) return;
       aplicarSessao(sessionAtual);
-      setLoading(false);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, sessionAtual) => {
@@ -131,7 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [aplicarSessao]);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    setLoading(true);
+    setState((prev) => ({ ...prev, loading: true }));
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -139,27 +151,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (error) {
-      setLoading(false);
+      setState((prev) => ({ ...prev, loading: false }));
       return { error: error.message };
     }
 
     await aplicarSessao(data.session);
-    setLoading(false);
     return {};
   }, [aplicarSessao]);
 
   const signOut = useCallback(async () => {
-    setLoading(true);
+    setState((prev) => ({ ...prev, loading: true }));
     await supabase.auth.signOut();
-    setUser(MOCK_USER);
-    setSession(null);
-    setPerfil(null);
-    setEmpresa(null);
-    setLoading(false);
+    setState({
+      user: MOCK_USER,
+      session: null,
+      perfil: null,
+      empresa: null,
+      loading: false,
+    });
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, session, perfil, empresa, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ ...state, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );
