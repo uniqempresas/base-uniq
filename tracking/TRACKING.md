@@ -110,7 +110,7 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 | 1.1 | ✅ Corrigir o project URL do Supabase | `src/lib/supabase.ts` (trocar `eqyvic...` → `krrkfgv...`); revisar edge function em `CadastroPage.tsx` | `list_tables` retorna 2 empresas, 18 conversas | Decisão #0 |
 | 1.2 | ✅ Criar um hook/consulta de conversa real a partir do banco | `crm_chat_conversas`, `crm_chat_mensagens` | Dado real saindo do banco, não de mock | 1.1 |
 | 1.3 | ✅ Login funcional puxando usuário/empresa reais | `me_usuario`, `me_empresa`; `AuthContext.tsx` | Login autentica e carrega dados do usuário/empresa reais | 1.1 |
-| 1.4 | Renderizar 1 conversa real numa tela do CRM | Tela CRM (ex.: `crm/ClientesPage` ou a tela de conversa); tabelas acima | **1 conversa real do WhatsApp aparece de ponta a ponta** | 1.2, 1.3 |
+| 1.4 | ✅ Renderizar 1 conversa real numa tela do CRM | Tela CRM (`/chatbot`); tabelas acima | **1 conversa real do WhatsApp aparece de ponta a ponta** | 1.2, 1.3 |
 
 **Gate da semana (tudo ou nada):** uma conversa real do `crm_chat_conversas` aparece na tela, vinda do banco oficial.
 
