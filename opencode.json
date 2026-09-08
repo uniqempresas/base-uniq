@@ -8,10 +8,7 @@
     },
     "vercel": {
       "type": "stdio",
-      "command": ["npx", "-y", "@vineethnkrishnan/vercel-mcp"],
-      "environment": {
-        "VERCEL_TOKEN": "$VERCEL_TOKEN"
-      },
+      "command": ["powershell.exe", "-ExecutionPolicy", "Bypass", "-File", ".vercel/mcp-wrapper.ps1"],
       "enabled": true
     }
   }
