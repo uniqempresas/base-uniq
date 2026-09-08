@@ -7,8 +7,8 @@
       "enabled": true
     },
     "vercel": {
-      "type": "stdio",
-      "command": ["powershell.exe", "-ExecutionPolicy", "Bypass", "-File", ".vercel/mcp-wrapper.ps1"],
+      "type": "remote",
+      "url": "https://mcp.vercel.com",
       "enabled": true
     }
   }
