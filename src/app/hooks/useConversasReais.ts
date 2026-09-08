@@ -51,6 +51,7 @@ export interface UseConversasReaisReturn {
   isFallback: boolean;
   selecionarConversa: (id: string) => void;
   recarregar: () => void;
+  enviarMensagem: (conteudo: string) => void;
 }
 
 function mapStatusConversa(status: string | null): StatusConversa {
@@ -181,6 +182,29 @@ export function useConversasReais(): UseConversasReaisReturn {
       .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }, [conversaIdAtiva, mensagens]);
 
+  const enviarMensagem = useCallback((conteudo: string) => {
+    if (!conversaIdAtiva || !conteudo.trim()) return;
+
+    const novaMensagem: Mensagem = {
+      id: `msg-local-${Date.now()}`,
+      conversaId: conversaIdAtiva,
+      conteudo: conteudo.trim(),
+      tipo: "texto",
+      isBot: false,
+      timestamp: new Date(),
+      lida: true,
+    };
+
+    setMensagens((prev) => [...prev, novaMensagem]);
+    setConversas((prev) =>
+      prev.map((conv) =>
+        conv.id === conversaIdAtiva
+          ? { ...conv, ultimaMensagem: conteudo.trim(), timestamp: new Date() }
+          : conv
+      )
+    );
+  }, [conversaIdAtiva]);
+
   return {
     conversas,
     conversaAtiva,
@@ -190,5 +214,6 @@ export function useConversasReais(): UseConversasReaisReturn {
     isFallback,
     selecionarConversa,
     recarregar: carregarDados,
+    enviarMensagem,
   };
 }
