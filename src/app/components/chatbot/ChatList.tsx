@@ -44,7 +44,7 @@ function getInitials(nome: string): string {
 
 export function ChatList({ conversas, conversaAtiva, onSelectConversa }: ChatListProps) {
   return (
-    <div className="w-[300px] h-full border-r border-border bg-white flex flex-col">
+    <div className="w-full h-full bg-white flex flex-col">
       {/* Header */}
       <div className="p-4 border-b border-border">
         <h2 className="text-lg font-semibold text-foreground">Conversas</h2>

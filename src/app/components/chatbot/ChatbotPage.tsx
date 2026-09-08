@@ -2,19 +2,22 @@
  * ChatbotPage - Página principal do Chatbot
  * Layout estilo WhatsApp com lista de conversas + janela de chat
  * Integra dados reais do Supabase via useConversasReais com fallback mock.
+ * Redesign mobile-first: lista em tela cheia, chat em tela cheia com botão voltar.
  * Sprint 12 - UNIQ Empresas
  */
 
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { useConversasReais } from '../../hooks/useConversasReais';
 import { ChatList } from './ChatList';
 import { ChatWindow } from './ChatWindow';
-import { ChatbotStatus } from './ChatbotStatus';
 import { Skeleton } from '../ui/skeleton';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle, RefreshCw, MessageCircle } from 'lucide-react';
 import { Button } from '../ui/button';
 
+type MobileView = 'list' | 'chat';
+
 export function ChatbotPage() {
+  const [mobileView, setMobileView] = useState<MobileView>('list');
   const {
     conversas,
     conversaAtiva,
@@ -27,10 +30,19 @@ export function ChatbotPage() {
     enviarMensagem
   } = useConversasReais();
 
+  const handleSelectConversa = useCallback((id: string) => {
+    selecionarConversa(id);
+    setMobileView('chat');
+  }, [selecionarConversa]);
+
+  const handleBackToList = useCallback(() => {
+    setMobileView('list');
+  }, []);
+
   if (loading) {
     return (
       <div className="h-full flex flex-col lg:flex-row">
-        <div className="w-[300px] h-full border-r border-border bg-white flex flex-col p-4 gap-4">
+        <div className="w-full lg:w-[300px] h-full border-r border-border bg-white flex flex-col p-4 gap-4">
           <Skeleton className="h-6 w-32" />
           <Skeleton className="h-4 w-24" />
           <div className="space-y-3 mt-4">
@@ -45,7 +57,7 @@ export function ChatbotPage() {
             ))}
           </div>
         </div>
-        <div className="flex-1 flex items-center justify-center bg-muted">
+        <div className="hidden lg:flex flex-1 items-center justify-center bg-muted">
           <Skeleton className="h-8 w-64" />
         </div>
       </div>
@@ -72,6 +84,7 @@ export function ChatbotPage() {
     return (
       <div className="h-full flex items-center justify-center bg-muted p-4">
         <div className="bg-white rounded-lg border border-border p-6 max-w-md text-center shadow-sm">
+          <MessageCircle className="h-10 w-10 text-[#86cb92] mx-auto mb-4" />
           <h2 className="text-lg font-semibold text-foreground mb-2">Nenhuma conversa encontrada</h2>
           <p className="text-sm text-muted-foreground">
             As conversas do chatbot aparecerão aqui quando houver mensagens.
@@ -82,25 +95,35 @@ export function ChatbotPage() {
   }
 
   return (
-    <div className="h-full flex flex-col lg:flex-row">
-      {/* Status do Chatbot (só visible em mobile) */}
-      <div className="lg:hidden p-4 border-b border-border bg-white">
-        <ChatbotStatus status="online" onChange={() => {}} />
+    <div className="h-full flex flex-col lg:flex-row overflow-hidden">
+      {/* ChatList - Lista de conversas */}
+      <div
+        className={`
+          w-full lg:w-[300px] h-full bg-white flex flex-col border-r border-border
+          ${mobileView === 'chat' ? 'hidden lg:flex' : 'flex'}
+        `}
+      >
+        <ChatList
+          conversas={conversas}
+          conversaAtiva={conversaAtiva?.id || null}
+          onSelectConversa={handleSelectConversa}
+        />
       </div>
 
-      {/* ChatList - Lista de conversas (esquerda) */}
-      <ChatList
-        conversas={conversas}
-        conversaAtiva={conversaAtiva?.id || null}
-        onSelectConversa={selecionarConversa}
-      />
-
-      {/* ChatWindow - Janeiro de chat (direita) */}
-      <ChatWindow
-        conversa={conversaAtiva}
-        mensagens={mensagens}
-        onSendMessage={enviarMensagem}
-      />
+      {/* ChatWindow - Janela de chat */}
+      <div
+        className={`
+          flex-1 h-full bg-white flex flex-col
+          ${mobileView === 'list' ? 'hidden lg:flex' : 'flex'}
+        `}
+      >
+        <ChatWindow
+          conversa={conversaAtiva}
+          mensagens={mensagens}
+          onSendMessage={enviarMensagem}
+          onBack={handleBackToList}
+        />
+      </div>
     </div>
   );
 }

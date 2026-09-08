@@ -11,12 +11,13 @@ import { ScrollArea } from '../ui/scroll-area';
 import { MessageBubble } from './MessageBubble';
 import { ChatInput } from './ChatInput';
 import { Conversa, Mensagem } from '../../types/chatbot';
-import { Phone, Video, MoreVertical } from 'lucide-react';
+import { Phone, Video, MoreVertical, ArrowLeft } from 'lucide-react';
 
 interface ChatWindowProps {
   conversa: Conversa | null;
   mensagens: Mensagem[];
   onSendMessage: (mensagem: string) => void;
+  onBack?: () => void;
 }
 
 // Helper para obter iniciais do nome
@@ -29,7 +30,7 @@ function getInitials(nome: string): string {
     .slice(0, 2);
 }
 
-export function ChatWindow({ conversa, mensagens, onSendMessage }: ChatWindowProps) {
+export function ChatWindow({ conversa, mensagens, onSendMessage, onBack }: ChatWindowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll para a última mensagem
@@ -50,9 +51,20 @@ export function ChatWindow({ conversa, mensagens, onSendMessage }: ChatWindowPro
   return (
     <div className="flex-1 flex flex-col bg-white">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border bg-white">
-        <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10">
+      <div className="flex items-center justify-between p-3 lg:p-4 border-b border-border bg-white shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
+          {onBack && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onBack}
+              className="lg:hidden text-muted-foreground -ml-2"
+              aria-label="Voltar para lista de conversas"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          )}
+          <Avatar className="h-10 w-10 shrink-0">
             {conversa.clienteAvatar ? (
               <img src={conversa.clienteAvatar} alt={conversa.clienteNome} />
             ) : (
@@ -61,16 +73,16 @@ export function ChatWindow({ conversa, mensagens, onSendMessage }: ChatWindowPro
               </div>
             )}
           </Avatar>
-          <div>
-            <h3 className="font-medium text-foreground">{conversa.clienteNome}</h3>
+          <div className="min-w-0">
+            <h3 className="font-medium text-foreground truncate">{conversa.clienteNome}</h3>
             <p className="text-xs text-muted-foreground">
               {conversa.status === 'ativa' ? 'Online' : conversa.status}
             </p>
           </div>
         </div>
-        
+
         {/* Ações do header */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           <Button variant="ghost" size="icon" className="text-muted-foreground">
             <Phone className="h-5 w-5" />
           </Button>
