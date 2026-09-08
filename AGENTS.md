@@ -47,30 +47,41 @@ Antes de executar qualquer tarefa, consulte na seguinte ordem:
 
 ## 🏗️ Stack e Convenções
 
-- **Framework:** Next.js 14+ (App Router)
+- **Framework:** Vite + React + React Router
 - **UI:** shadcn/ui + Tailwind CSS
 - **Formulários:** react-hook-form + zod + @hookform/resolvers
 - **Ícones:** lucide-react
 - **Datas:** date-fns
 - **Idioma do projeto:** português (nomes de domínio, labels, mensagens de usuário)
 
+> **Nota de arquitetura:** o projeto foi gerado a partir do OpenDesign no formato Vite. A migração para Next.js está planejada para depois que as telas principais estiverem prontas, para não perder o fluxo design-to-code do OpenDesign. Novos agentes não devem migrar para Next.js sem autorização explícita do dono do projeto.
+
 ### Padrão de estrutura por módulo (seguir rigorosamente)
 
-Seguir o padrão dos módulos existentes (`app/servicos/`, `app/fornecedores/`):
+Seguir o padrão dos módulos existentes (`src/app/components/servicos/`, `src/app/components/fornecedores/`):
 
 ```
-app/
-├── <modulo>/
-│   ├── page.tsx                  # Listagem
-│   ├── novo/page.tsx             # Cadastro
-│   └── [id]/editar/page.tsx      # Edição
-├── components/<modulo>/          # Componentes do módulo
+src/app/
+├── components/<modulo>/          # Telas e componentes do módulo
 ├── hooks/                        # Hooks customizados (use-<nome>.ts)
 ├── types/                        # Tipos TypeScript por domínio
-└── lib/
-    ├── mock/                     # Mock data (frontend-only)
-    └── utils/                    # Máscaras e validadores
+├── lib/
+│   ├── mocks/                    # Mock data (frontend-only)
+│   ├── validators.ts             # Schemas zod
+│   └── masks.ts                  # Máscaras de input
+└── routes.tsx                    # Rotas do React Router
 ```
+
+## 🚀 Deploy e Git
+
+- **Repositório:** https://github.com/uniqempresas/base-uniq
+- **Branch padrão:** `master` (não `main`)
+- **Projeto Vercel:** `base-uniq` — https://vercel.com/uniq-empresas-projects/base-uniq
+- **Deploy automático:** todo push na `master` dispara um novo deploy de produção
+- **URLs de produção:**
+  - https://base-uniq.vercel.app
+  - https://base-uniq-uniq-empresas-projects.vercel.app
+- **Validação obrigatória:** após todo commit que altere telas, o agente deve verificar na Vercel se o deploy foi bem-sucedido (`state: READY`) antes de marcar a tarefa como concluída. O fundador valida pelo celular durante o dia.
 
 ### Regras de implementação
 
@@ -116,10 +127,10 @@ Estas decisões estão **fechadas** e devem ser respeitadas por todos os agentes
 - **Pitch oficial:** *"A UNIQ faz entrar mais dinheiro e mostra para onde o seu está saindo. Isso é margem."* (Vender 2 pilares — faturamento e custos — prometer o 3º — transformação — como visão.)
 - **Controle de entrega:** usar **CRM + Agenda**. Não construir módulo de gestão de entregas.
 - **Lacunas do `DESIGN.md` (restantes):** Voice & Tone e Imagery vazios; seções Tone/Messaging pillars duplicadas; Posture rules vazio. *(Verde petróleo já removido em 07/09/2026.)*
-- **GitHub + Vercel** já estão configurados?
+- ✅ **GitHub + Vercel** configurados em 07/09/2026. Repo `uniqempresas/base-uniq`, branch `master`, projeto Vercel `base-uniq`.
 - **Número de WhatsApp** que será usado no laboratório (HQ Gráfica / Doceê).
 - **LGPD** para armazenamento de conversas e dados de clientes.
 
 ---
 
-*Última atualização: 07/09/2026 — v1.1*
+*Última atualização: 07/09/2026 — v1.2*

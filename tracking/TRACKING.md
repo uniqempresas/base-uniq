@@ -120,9 +120,9 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 
 ---
 
-### 🟡 SEMANA 2 — Cadeia completa na HQ Gráfica
+### 🟡 SEMANA 2 — Cadeia completa na Doceê
 
-**WHY:** a demonstração inteira funcionando em um negócio real (HQ Gráfica). Destrava o primeiro case.
+**WHY:** a demonstração inteira funcionando em um negócio real (Doceê). A esposa do fundador testa como usuária prática, pegando o que quem está na construção deixa passar.
 
 **Tarefas:**
 
@@ -130,10 +130,10 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 |---|---|---|---|---|
 | 2.1 | Pedido do WhatsApp aparece no CRM como lead/cliente | `crm_leads` / `me_cliente`; fluxo n8n → insert | Pedido real vira registro no CRM | 1.1 (Gate S1) |
 | 2.2 | Pedido contabilizado | **RPC `registrar_venda`** → `me_venda`, `me_contas_receber` | Chamar a RPC cria a venda + conta a receber | 2.1 |
-| 2.3 | Fundador opera de verdade | — (validação humana) | Fundador responde cliente real pela Base, sem caderno | 2.1, 2.2 |
+| 2.3 | Esposa do fundador opera de verdade | — (validação humana) | Usuária prática responde cliente real pela Base, sem caderno | 2.1, 2.2 |
 | 2.4 | Corrigir o que quebrar no uso real | — | Partes da cadeia estáveis no uso real | 2.3 |
 
-**Gate:** o fundador opera a HQ Gráfica pela Base UNIQ sem voltar para o caderno/WhatsApp solto.
+**Gate:** a Doceê opera pela Base UNIQ sem voltar para o caderno/WhatsApp solto.
 
 **SDD:** SPEC da integração n8n → `crm_leads`; WIRE do fluxo "pedido → contabilizado".
 
@@ -141,7 +141,7 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 
 ---
 
-### 🟠 SEMANA 3 — Reutilização (Doceê) + Material
+### 🟠 SEMANA 3 — Reutilização (HQ Gráfica) + Material
 
 **WHY:** provar que o módulo é **lego** (default + vertical) e transformar a operação em material de venda.
 
@@ -149,7 +149,7 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 
 | # | Ação | Onde | Critério de aceite | Dep. |
 |---|---|---|---|---|
-| 3.1 | Replicar para a **Doceê** (segundo negócio) | Nova empresa em `me_empresa` + mesma cadeia | A mesma cadeia roda para outro ramo sem recriar módulo | Gate S2 |
+| 3.1 | Replicar para a **HQ Gráfica** (segundo negócio) | Nova empresa em `me_empresa` + mesma cadeia | A mesma cadeia roda para outro ramo sem recriar módulo | Gate S2 |
 | 3.2 | Gravar a operação em vídeo (case interno) | — | Case documentado (prova real, não slides) | 3.1 |
 | 3.3 | Landing · proposta comercial · termo de co-fundador | `src/app` (landing), docs | Kit de venda pronto | — |
 | 3.4 | Check final da cadeia de demonstração | — | Cadeia 100% funcional para a visita | 3.1, 3.3 |
