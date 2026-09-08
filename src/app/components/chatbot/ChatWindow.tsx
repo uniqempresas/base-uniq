@@ -18,6 +18,7 @@ interface ChatWindowProps {
   mensagens: Mensagem[];
   onSendMessage: (mensagem: string) => void;
   onBack?: () => void;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
 // Helper para obter iniciais do nome
@@ -30,7 +31,7 @@ function getInitials(nome: string): string {
     .slice(0, 2);
 }
 
-export function ChatWindow({ conversa, mensagens, onSendMessage, onBack }: ChatWindowProps) {
+export function ChatWindow({ conversa, mensagens, onSendMessage, onBack, inputRef }: ChatWindowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll para a última mensagem
@@ -96,7 +97,7 @@ export function ChatWindow({ conversa, mensagens, onSendMessage, onBack }: ChatW
       </div>
 
       {/* Área de mensagens */}
-      <ScrollArea className="flex-1 p-4 bg-muted">
+      <ScrollArea className="flex-1 p-4 bg-muted" aria-live="polite" aria-atomic="false">
         <div ref={scrollRef} className="h-full">
           {mensagens.map((mensagem) => (
             <MessageBubble
@@ -109,7 +110,7 @@ export function ChatWindow({ conversa, mensagens, onSendMessage, onBack }: ChatW
       </ScrollArea>
 
       {/* Input de mensagem */}
-      <ChatInput onSend={onSendMessage} />
+      <ChatInput ref={inputRef} onSend={onSendMessage} />
     </div>
   );
 }

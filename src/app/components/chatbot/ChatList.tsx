@@ -61,6 +61,7 @@ export function ChatList({ conversas, conversaAtiva, onSelectConversa }: ChatLis
               className={`w-full p-3 flex items-center gap-3 hover:bg-muted transition-colors text-left ${
                 conversaAtiva === conversa.id ? 'bg-muted' : ''
               }`}
+              aria-label={`Abrir conversa com ${conversa.clienteNome}`}
             >
               {/* Avatar */}
               <Avatar className="h-12 w-12">
@@ -84,7 +85,7 @@ export function ChatList({ conversas, conversaAtiva, onSelectConversa }: ChatLis
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground truncate pr-2">
+                  <span className="text-sm text-muted-foreground truncate pr-2 lg:line-clamp-1 line-clamp-2">
                     {conversa.ultimaMensagem}
                   </span>
                   {conversa.naoLidas > 0 && (

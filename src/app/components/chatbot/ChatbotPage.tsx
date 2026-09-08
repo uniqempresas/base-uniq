@@ -6,7 +6,7 @@
  * Sprint 12 - UNIQ Empresas
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useConversasReais } from '../../hooks/useConversasReais';
 import { ChatList } from './ChatList';
 import { ChatWindow } from './ChatWindow';
@@ -18,6 +18,7 @@ type MobileView = 'list' | 'chat';
 
 export function ChatbotPage() {
   const [mobileView, setMobileView] = useState<MobileView>('list');
+  const inputRef = useRef<HTMLInputElement>(null);
   const {
     conversas,
     conversaAtiva,
@@ -38,6 +39,13 @@ export function ChatbotPage() {
   const handleBackToList = useCallback(() => {
     setMobileView('list');
   }, []);
+
+  // Foca o input ao selecionar uma conversa
+  useEffect(() => {
+    if (conversaAtiva && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [conversaAtiva]);
 
   if (loading) {
     return (
@@ -122,6 +130,7 @@ export function ChatbotPage() {
           mensagens={mensagens}
           onSendMessage={enviarMensagem}
           onBack={handleBackToList}
+          inputRef={inputRef}
         />
       </div>
     </div>
