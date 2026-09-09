@@ -26,6 +26,9 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { CLIENTES, INTERACOES, NEGOCIACOES, TAG_COLORS, PIPELINE_ETAPAS, formatCurrency } from "./crmMockData";
+import { useCliente } from "../../hooks/use-cliente";
+import { ClienteOrigemBadge } from "./ClienteOrigemBadge";
+import { ClienteConversaResumo } from "./ClienteConversaResumo";
 
 function TagChip({ tag }: { tag: string }) {
   const colors = TAG_COLORS[tag] || { bg: "#efefef", text: "#627271", border: "#efefef" };
@@ -156,16 +159,18 @@ function NovaInteracaoModal({ onClose, onSuccess }: { onClose: () => void; onSuc
   );
 }
 
-type TabType = "resumo" | "interacoes" | "negociacoes" | "dados";
+type TabType = "resumo" | "interacoes" | "negociacoes" | "dados" | "conversa";
 
 export function ClienteDetalhePage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { cliente, loading, error, isFallback } = useCliente(id);
   const [activeTab, setActiveTab] = useState<TabType>("resumo");
   const [showNovaInteracao, setShowNovaInteracao] = useState(false);
   const [toast, setToast] = useState("");
 
-  const cliente = CLIENTES.find((c) => c.id === id) || CLIENTES[0];
+  // Fallback para mock enquanto carrega ou se erro
+  const clienteExibido = cliente || CLIENTES.find((c) => c.id === id) || CLIENTES[0];
   const negociacoes = NEGOCIACOES.filter((n) => n.clienteId === id || (id === "1" && n.clienteId === "1"));
 
   const showToast = (msg: string) => {
@@ -178,7 +183,20 @@ export function ClienteDetalhePage() {
     { id: "interacoes", label: "Interações", icon: MessageSquare, badge: INTERACOES.length },
     { id: "negociacoes", label: "Negociações", icon: TrendingUp, badge: negociacoes.length },
     { id: "dados", label: "Dados Completos", icon: FileText },
+    { id: "conversa", label: "Conversa", icon: MessageSquare },
   ];
+
+  if (loading) {
+    return (
+      <div className="max-w-5xl mx-auto p-4 sm:p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-[#efefef] rounded w-1/4" />
+          <div className="h-32 bg-[#efefef] rounded-2xl" />
+          <div className="h-64 bg-[#efefef] rounded-2xl" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -230,13 +248,13 @@ export function ClienteDetalhePage() {
             <div className="relative shrink-0">
               <div
                 className="w-20 h-20 rounded-2xl flex items-center justify-center text-white shadow-lg"
-                style={{ background: cliente.avatarColor, fontSize: "1.8rem", fontWeight: 800 }}
+                style={{ background: clienteExibido.avatarColor, fontSize: "1.8rem", fontWeight: 800 }}
               >
-                {cliente.initials}
+                {clienteExibido.initials}
               </div>
               <div
                 className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-[#1f2937]"
-                style={{ background: cliente.status === "ativo" ? "#86cb92" : "#627271" }}
+                style={{ background: clienteExibido.status === "ativo" ? "#86cb92" : "#627271" }}
               />
             </div>
 
@@ -244,26 +262,27 @@ export function ClienteDetalhePage() {
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-start gap-3 mb-2">
                 <h1 className="text-white" style={{ fontSize: "1.3rem", fontWeight: 800 }}>
-                  {cliente.nome}
+                  {clienteExibido.nome}
                 </h1>
                 <span
                   className="px-2.5 py-1 rounded-lg text-xs"
                   style={{
-                    background: cliente.tipo === "PF" ? "rgba(59, 130, 246, 0.2)" : "rgba(34, 197, 94, 0.2)",
-                    color: cliente.tipo === "PF" ? "#93C5FD" : "#86cb92",
+                    background: clienteExibido.tipo === "PF" ? "rgba(59, 130, 246, 0.2)" : "rgba(34, 197, 94, 0.2)",
+                    color: clienteExibido.tipo === "PF" ? "#93C5FD" : "#86cb92",
                     fontWeight: 600,
                   }}
                 >
-                  {cliente.tipo === "PF" ? "👤 Pessoa Física" : "🏢 Pessoa Jurídica"}
+                  {clienteExibido.tipo === "PF" ? "👤 Pessoa Física" : "🏢 Pessoa Jurídica"}
                 </span>
-                {cliente.status === "inativo" && (
+                <ClienteOrigemBadge origem={clienteExibido.origem} />
+                {clienteExibido.status === "inativo" && (
                   <span className="px-2.5 py-1 rounded-lg text-xs bg-[#627271]/30 text-[#627271]" style={{ fontWeight: 600 }}>
                     Inativo
                   </span>
                 )}
               </div>
               <div className="flex flex-wrap gap-1.5 mb-3">
-                {cliente.tags.map((tag) => {
+                {clienteExibido.tags.map((tag) => {
                   const colors = TAG_COLORS[tag] || {};
                   return (
                     <span
@@ -279,15 +298,15 @@ export function ClienteDetalhePage() {
               <div className="flex flex-wrap gap-4 text-[#627271] text-sm">
                 <span className="flex items-center gap-1.5">
                   <Phone size={13} />
-                  {cliente.telefone}
+                  {clienteExibido.telefone}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Mail size={13} />
-                  {cliente.email}
+                  {clienteExibido.email}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <MapPin size={13} />
-                  {cliente.cidade}
+                  {clienteExibido.cidade}
                 </span>
               </div>
             </div>
@@ -321,9 +340,9 @@ export function ClienteDetalhePage() {
           {/* Quick stats */}
           <div className="grid grid-cols-3 gap-3 mt-5 pt-5 border-t border-white/10">
             {[
-              { label: "Total em compras", value: formatCurrency(cliente.totalCompras), icon: DollarSign, color: "#1f2937" },
-              { label: "Última interação", value: cliente.ultimaInteracao, icon: Clock, color: "#93C5FD" },
-              { label: "Desde", value: cliente.dataCadastro, icon: Calendar, color: "#FCD34D" },
+              { label: "Total em compras", value: formatCurrency(clienteExibido.totalCompras), icon: DollarSign, color: "#1f2937" },
+              { label: "Última interação", value: clienteExibido.ultimaInteracao, icon: Clock, color: "#93C5FD" },
+              { label: "Desde", value: clienteExibido.dataCadastro, icon: Calendar, color: "#FCD34D" },
             ].map((stat) => {
               const Icon = stat.icon;
               return (
@@ -382,12 +401,12 @@ export function ClienteDetalhePage() {
                 <h3 className="text-[#1f2937] text-sm mb-4" style={{ fontWeight: 600 }}>Dados de Contato</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {[
-                    { label: "Telefone Principal", value: cliente.telefone, icon: Phone, action: true },
-                    { label: "WhatsApp", value: cliente.whatsapp, icon: MessageCircle, action: true },
-                    { label: "E-mail", value: cliente.email, icon: Mail, action: true },
-                    { label: "Documento", value: cliente.documento, icon: FileText },
-                    { label: "Cidade / UF", value: cliente.cidade, icon: MapPin },
-                    { label: "Vendedor Responsável", value: cliente.vendedor, icon: User },
+                    { label: "Telefone Principal", value: clienteExibido.telefone, icon: Phone, action: true },
+                    { label: "WhatsApp", value: clienteExibido.whatsapp, icon: MessageCircle, action: true },
+                    { label: "E-mail", value: clienteExibido.email, icon: Mail, action: true },
+                    { label: "Documento", value: clienteExibido.documento, icon: FileText },
+                    { label: "Cidade / UF", value: clienteExibido.cidade, icon: MapPin },
+                    { label: "Vendedor Responsável", value: clienteExibido.vendedor, icon: User },
                   ].map((item) => {
                     const Icon = item.icon;
                     return (
@@ -458,7 +477,7 @@ export function ClienteDetalhePage() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-[#627271] text-sm">Total em compras</span>
-                    <span className="text-[#1f2937] text-sm" style={{ fontWeight: 700 }}>{formatCurrency(cliente.totalCompras)}</span>
+                    <span className="text-[#1f2937] text-sm" style={{ fontWeight: 700 }}>{formatCurrency(clienteExibido.totalCompras)}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-[#627271] text-sm">Negociações ativas</span>
@@ -474,7 +493,7 @@ export function ClienteDetalhePage() {
                     <div className="flex items-center justify-between">
                       <span className="text-[#1f2937] text-sm" style={{ fontWeight: 600 }}>Total potencial</span>
                       <span className="text-[#1f2937] text-sm" style={{ fontWeight: 700 }}>
-                        {formatCurrency(cliente.totalCompras + negociacoes.filter((n) => n.etapa !== "ganho" && n.etapa !== "perdido").reduce((a, n) => a + n.valor, 0))}
+                        {formatCurrency(clienteExibido.totalCompras + negociacoes.filter((n) => n.etapa !== "ganho" && n.etapa !== "perdido").reduce((a, n) => a + n.valor, 0))}
                       </span>
                     </div>
                   </div>
@@ -488,7 +507,7 @@ export function ClienteDetalhePage() {
                   <button className="text-xs" style={{ color: "#1f2937", fontWeight: 500 }}>+ Adicionar</button>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {cliente.tags.map((tag) => <TagChip key={tag} tag={tag} />)}
+                  {clienteExibido.tags.map((tag) => <TagChip key={tag} tag={tag} />)}
                 </div>
               </div>
 
@@ -706,17 +725,17 @@ export function ClienteDetalhePage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               {[
-                { label: "Nome Completo", value: cliente.nome },
-                { label: "Tipo", value: cliente.tipo === "PF" ? "Pessoa Física" : "Pessoa Jurídica" },
-                { label: "Documento", value: cliente.documento },
-                { label: "E-mail", value: cliente.email },
-                { label: "Telefone Principal", value: cliente.telefone },
-                { label: "WhatsApp", value: cliente.whatsapp },
-                { label: "Cidade / UF", value: cliente.cidade },
-                { label: "Vendedor Responsável", value: cliente.vendedor },
-                { label: "Data de Cadastro", value: cliente.dataCadastro },
-                { label: "Status", value: cliente.status === "ativo" ? "✅ Ativo" : "⛔ Inativo" },
-                ...(cliente.aniversario ? [{ label: "Aniversário", value: cliente.aniversario }] : []),
+                { label: "Nome Completo", value: clienteExibido.nome },
+                { label: "Tipo", value: clienteExibido.tipo === "PF" ? "Pessoa Física" : "Pessoa Jurídica" },
+                { label: "Documento", value: clienteExibido.documento },
+                { label: "E-mail", value: clienteExibido.email },
+                { label: "Telefone Principal", value: clienteExibido.telefone },
+                { label: "WhatsApp", value: clienteExibido.whatsapp },
+                { label: "Cidade / UF", value: clienteExibido.cidade },
+                { label: "Vendedor Responsável", value: clienteExibido.vendedor },
+                { label: "Data de Cadastro", value: clienteExibido.dataCadastro },
+                { label: "Status", value: clienteExibido.status === "ativo" ? "✅ Ativo" : "⛔ Inativo" },
+                ...(clienteExibido.aniversario ? [{ label: "Aniversário", value: clienteExibido.aniversario }] : []),
               ].map((field) => (
                 <div key={field.label} className="border-b border-[#efefef] pb-4">
                   <p className="text-[#627271] text-xs mb-1">{field.label}</p>
@@ -727,10 +746,18 @@ export function ClienteDetalhePage() {
             <div className="mt-4 pt-4 border-t border-[#efefef]">
               <p className="text-[#627271] text-xs mb-2">Tags / Etiquetas</p>
               <div className="flex flex-wrap gap-2">
-                {cliente.tags.map((tag) => <TagChip key={tag} tag={tag} />)}
+                {clienteExibido.tags.map((tag) => <TagChip key={tag} tag={tag} />)}
               </div>
             </div>
           </div>
+        )}
+
+        {/* CONVERSA */}
+        {activeTab === "conversa" && (
+          <ClienteConversaResumo
+            clienteNome={clienteExibido.nome}
+            clienteTelefone={clienteExibido.whatsapp}
+          />
         )}
       </div>
     </div>

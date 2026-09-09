@@ -20,11 +20,14 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { CLIENTES, TAG_COLORS, formatCurrency, type Cliente } from "./crmMockData";
+import { useClientes } from "../../hooks/use-clientes";
+import { ClienteOrigemBadge } from "./ClienteOrigemBadge";
 
 type ViewMode = "cards" | "table";
 
 const TIPO_OPTIONS = ["Todos", "PF", "PJ"];
 const STATUS_OPTIONS = ["Todos", "Ativo", "Inativo"];
+const ORIGEM_OPTIONS = ["Todas", "WhatsApp", "Manual"] as const;
 const TAG_OPTIONS = ["VIP", "Prospect", "Inadimplente", "Cliente Fiel", "Lead Quente", "Inativo"];
 
 function TagChip({ tag, small = false }: { tag: string; small?: boolean }) {
@@ -103,6 +106,7 @@ function ClienteCard({ cliente, onClick }: { cliente: Cliente; onClick: () => vo
               </div>
             </div>
             <div className="flex flex-wrap gap-1 mt-2">
+              <ClienteOrigemBadge origem={cliente.origem} small />
               {cliente.tags.map((tag) => (
                 <TagChip key={tag} tag={tag} small />
               ))}
@@ -282,10 +286,12 @@ function NovoClienteModal({ onClose, onSuccess }: { onClose: () => void; onSucce
 
 export function ClientesPage() {
   const navigate = useNavigate();
+  const { clientes, loading, error, isFallback, recarregar } = useClientes();
   const [busca, setBusca] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [tipoFiltro, setTipoFiltro] = useState("Todos");
   const [statusFiltro, setStatusFiltro] = useState("Todos");
+  const [origemFiltro, setOrigemFiltro] = useState<(typeof ORIGEM_OPTIONS)[number]>("Todas");
   const [tagFiltro, setTagFiltro] = useState<string[]>([]);
   const [showFiltros, setShowFiltros] = useState(false);
   const [showNovoCliente, setShowNovoCliente] = useState(false);
@@ -296,7 +302,7 @@ export function ClientesPage() {
     setTimeout(() => setToast(""), 3000);
   };
 
-  const filteredClientes = CLIENTES.filter((c) => {
+  const filteredClientes = clientes.filter((c) => {
     const matchBusca =
       !busca ||
       c.nome.toLowerCase().includes(busca.toLowerCase()) ||
@@ -304,13 +310,15 @@ export function ClientesPage() {
       c.email.toLowerCase().includes(busca.toLowerCase());
     const matchTipo = tipoFiltro === "Todos" || c.tipo === tipoFiltro;
     const matchStatus = statusFiltro === "Todos" || (statusFiltro === "Ativo" ? c.status === "ativo" : c.status === "inativo");
+    const matchOrigem = origemFiltro === "Todas" || (origemFiltro === "WhatsApp" ? c.origem === "whatsapp" : c.origem === "manual");
     const matchTags = tagFiltro.length === 0 || tagFiltro.every((t) => c.tags.includes(t));
-    return matchBusca && matchTipo && matchStatus && matchTags;
+    return matchBusca && matchTipo && matchStatus && matchOrigem && matchTags;
   });
 
   const activeFilters = [
     tipoFiltro !== "Todos" && tipoFiltro,
     statusFiltro !== "Todos" && statusFiltro,
+    origemFiltro !== "Todas" && origemFiltro,
     ...tagFiltro,
   ].filter(Boolean) as string[];
 
@@ -340,7 +348,8 @@ export function ClientesPage() {
         <div>
           <h1 className="text-[#1f2937]" style={{ fontWeight: 700, fontSize: "1.2rem" }}>Clientes</h1>
           <p className="text-[#627271] text-sm">
-            {filteredClientes.length} de {CLIENTES.length} clientes
+            {loading ? "Carregando..." : `${filteredClientes.length} de ${clientes.length} clientes`}
+            {isFallback && !loading && <span className="ml-2 text-xs text-amber-600">(dados de demonstração)</span>}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -456,6 +465,26 @@ export function ClientesPage() {
               </div>
             </div>
             <div>
+              <label className="block text-[#627271] text-xs mb-2" style={{ fontWeight: 500 }}>Origem</label>
+              <div className="flex gap-1.5">
+                {ORIGEM_OPTIONS.map((o) => (
+                  <button
+                    key={o}
+                    onClick={() => setOrigemFiltro(o)}
+                    className="px-3 py-1.5 rounded-lg text-xs transition-all"
+                    style={{
+                      background: origemFiltro === o ? "#efefef" : "#efefef",
+                      color: origemFiltro === o ? "#1f2937" : "#627271",
+                      border: origemFiltro === o ? "1px solid #86cb92" : "1px solid transparent",
+                      fontWeight: origemFiltro === o ? 600 : 400,
+                    }}
+                  >
+                    {o}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
               <label className="block text-[#627271] text-xs mb-2" style={{ fontWeight: 500 }}>Tags</label>
               <div className="flex flex-wrap gap-1.5">
                 {TAG_OPTIONS.map((tag) => {
@@ -477,7 +506,7 @@ export function ClientesPage() {
             </div>
             {activeFilters.length > 0 && (
               <button
-                onClick={() => { setTipoFiltro("Todos"); setStatusFiltro("Todos"); setTagFiltro([]); }}
+                onClick={() => { setTipoFiltro("Todos"); setStatusFiltro("Todos"); setOrigemFiltro("Todas"); setTagFiltro([]); }}
                 className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 mt-auto"
                 style={{ fontWeight: 500 }}
               >
@@ -508,7 +537,41 @@ export function ClientesPage() {
       </div>
 
       {/* Content */}
-      {filteredClientes.length === 0 ? (
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="bg-white rounded-2xl border border-[#efefef] shadow-sm p-4 animate-pulse">
+              <div className="flex items-start gap-3 mb-3">
+                <div className="w-11 h-11 rounded-xl bg-[#efefef]" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-[#efefef] rounded w-3/4" />
+                  <div className="h-3 bg-[#efefef] rounded w-1/2" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-[#efefef]">
+                <div className="h-3 bg-[#efefef] rounded" />
+                <div className="h-3 bg-[#efefef] rounded" />
+                <div className="h-3 bg-[#efefef] rounded" />
+                <div className="h-3 bg-[#efefef] rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : error && !isFallback ? (
+        <div className="bg-white rounded-2xl border border-[#efefef] shadow-sm p-12 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-4">
+            <AlertCircle size={28} className="text-red-500" />
+          </div>
+          <h3 className="text-[#1f2937] mb-2" style={{ fontWeight: 600 }}>Erro ao carregar clientes</h3>
+          <p className="text-[#627271] text-sm mb-5">{error}</p>
+          <button
+            onClick={recarregar}
+            className="px-5 py-2.5 rounded-xl text-[#1f2937] text-sm" style={{ background: "#86cb92", fontWeight: 600 }}
+          >
+            Tentar novamente
+          </button>
+        </div>
+      ) : filteredClientes.length === 0 ? (
         <div className="bg-white rounded-2xl border border-[#efefef] shadow-sm p-12 text-center">
           <div className="w-16 h-16 rounded-2xl bg-[#efefef] flex items-center justify-center mx-auto mb-4">
             <Users size={28} className="text-[#627271]" />
@@ -523,7 +586,7 @@ export function ClientesPage() {
           </p>
           {busca || activeFilters.length > 0 ? (
             <button
-              onClick={() => { setBusca(""); setTipoFiltro("Todos"); setStatusFiltro("Todos"); setTagFiltro([]); }}
+              onClick={() => { setBusca(""); setTipoFiltro("Todos"); setStatusFiltro("Todos"); setOrigemFiltro("Todas"); setTagFiltro([]); }}
               className="px-5 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm"
               style={{ fontWeight: 500 }}
             >
@@ -590,6 +653,7 @@ export function ClientesPage() {
                     <td className="px-4 py-3 text-[#1f2937] text-xs whitespace-nowrap">{c.telefone}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1 flex-wrap max-w-[160px]">
+                        <ClienteOrigemBadge origem={c.origem} small />
                         {c.tags.slice(0, 2).map((t) => <TagChip key={t} tag={t} small />)}
                         {c.tags.length > 2 && <span className="text-[10px] text-[#627271]">+{c.tags.length - 2}</span>}
                       </div>

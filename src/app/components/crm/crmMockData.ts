@@ -29,6 +29,9 @@ export interface Cliente {
   dataCadastro: string;
   documento: string;
   aniversario?: string;
+  origem: "whatsapp" | "manual";
+  conversa_id?: string | null;
+  observacoes?: string | null;
 }
 
 export interface Interacao {
@@ -78,7 +81,7 @@ export const CLIENTES: Cliente[] = [
     cidade: "São Paulo / SP",
     vendedor: "Ana Costa",
     dataCadastro: "12/03/2024",
-    documento: "123.456.789-00",
+    documento: "123.456.789-00", origem: "manual",
     aniversario: "15/04",
   },
   {
@@ -97,7 +100,7 @@ export const CLIENTES: Cliente[] = [
     cidade: "São Paulo / SP",
     vendedor: "Carlos Lima",
     dataCadastro: "05/01/2024",
-    documento: "12.345.678/0001-90",
+    documento: "12.345.678/0001-90", origem: "manual",
   },
   {
     id: "3",
@@ -115,7 +118,7 @@ export const CLIENTES: Cliente[] = [
     cidade: "Rio de Janeiro / RJ",
     vendedor: "Ana Costa",
     dataCadastro: "18/03/2024",
-    documento: "987.654.321-00",
+    documento: "987.654.321-00", origem: "manual",
   },
   {
     id: "4",
@@ -133,7 +136,7 @@ export const CLIENTES: Cliente[] = [
     cidade: "Belo Horizonte / MG",
     vendedor: "Carlos Lima",
     dataCadastro: "22/09/2023",
-    documento: "98.765.432/0001-10",
+    documento: "98.765.432/0001-10", origem: "manual",
   },
   {
     id: "5",
@@ -151,7 +154,7 @@ export const CLIENTES: Cliente[] = [
     cidade: "São Paulo / SP",
     vendedor: "Ana Costa",
     dataCadastro: "07/07/2023",
-    documento: "456.789.123-00",
+    documento: "456.789.123-00", origem: "manual",
   },
   {
     id: "6",
@@ -169,7 +172,7 @@ export const CLIENTES: Cliente[] = [
     cidade: "Fortaleza / CE",
     vendedor: "Carlos Lima",
     dataCadastro: "14/02/2023",
-    documento: "45.678.901/0001-23",
+    documento: "45.678.901/0001-23", origem: "manual",
   },
   {
     id: "7",
@@ -187,7 +190,7 @@ export const CLIENTES: Cliente[] = [
     cidade: "Curitiba / PR",
     vendedor: "Ana Costa",
     dataCadastro: "28/03/2024",
-    documento: "321.654.987-00",
+    documento: "321.654.987-00", origem: "manual",
     aniversario: "31/03",
   },
   {
@@ -206,7 +209,7 @@ export const CLIENTES: Cliente[] = [
     cidade: "Joinville / SC",
     vendedor: "Carlos Lima",
     dataCadastro: "03/05/2023",
-    documento: "67.890.123/0001-45",
+    documento: "67.890.123/0001-45", origem: "manual",
   },
 ];
 
