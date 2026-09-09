@@ -22,6 +22,7 @@ import {
   Sparkles,
   ChevronLeft,
   ChevronRight,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -36,6 +37,8 @@ import {
   type FormaPagamento,
   type Pedido,
 } from "./pedidosMockData";
+import { usePedidos } from "../../hooks/use-pedidos";
+import { useCriarPedido } from "../../hooks/use-criar-pedido";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -164,6 +167,8 @@ function KpiCard({
 
 export function PedidosListaPage() {
   const navigate = useNavigate();
+  const { pedidos, loading, isFallback, recarregar } = usePedidos();
+  const { criarPedido, loading: criandoPedido } = useCriarPedido();
   const [search, setSearch] = useState("");
   const [periodo, setPeriodo] = useState("30dias");
   const [statusFilter, setStatusFilter] = useState<StatusPedido | "todos">("todos");
@@ -175,10 +180,19 @@ export function PedidosListaPage() {
   const [cancelModal, setCancelModal] = useState<{ id: string; numero: string } | null>(null);
   const [cancelMotivo, setCancelMotivo] = useState("");
   const [statusUpdateModal, setStatusUpdateModal] = useState<Pedido | null>(null);
+  const [showNovoPedidoModal, setShowNovoPedidoModal] = useState(false);
+  const [novoPedido, setNovoPedido] = useState({
+    clienteNome: "",
+    clienteTelefone: "",
+    descricao: "",
+    valor: "",
+    formaPagamento: "pix",
+    canal: "whatsapp",
+  });
 
   // Filter logic
   const filtered = useMemo(() => {
-    let list = filterByPeriod(PEDIDOS, periodo);
+    let list = filterByPeriod(pedidos, periodo);
     if (statusFilter !== "todos") list = list.filter((p) => p.status === statusFilter);
     if (canalFilter !== "todos") list = list.filter((p) => p.canal === canalFilter);
     if (search.trim()) {
@@ -191,7 +205,7 @@ export function PedidosListaPage() {
       );
     }
     return list;
-  }, [search, periodo, statusFilter, canalFilter]);
+  }, [pedidos, search, periodo, statusFilter, canalFilter]);
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
   const paginated = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
@@ -243,6 +257,47 @@ export function PedidosListaPage() {
     setCancelMotivo("");
   };
 
+  const handleCriarPedido = async () => {
+    if (!novoPedido.clienteNome.trim()) {
+      toast.error("Informe o nome do cliente.");
+      return;
+    }
+    if (!novoPedido.descricao.trim()) {
+      toast.error("Informe a descrição do pedido.");
+      return;
+    }
+    const valor = parseFloat(novoPedido.valor.replace(",", "."));
+    if (isNaN(valor) || valor <= 0) {
+      toast.error("Informe um valor válido.");
+      return;
+    }
+
+    const resultado = await criarPedido({
+      clienteNome: novoPedido.clienteNome,
+      clienteTelefone: novoPedido.clienteTelefone || undefined,
+      descricao: novoPedido.descricao,
+      valor,
+      formaPagamento: novoPedido.formaPagamento,
+      canal: novoPedido.canal,
+    });
+
+    if (resultado.success) {
+      toast.success("Pedido criado com sucesso!");
+      setShowNovoPedidoModal(false);
+      setNovoPedido({
+        clienteNome: "",
+        clienteTelefone: "",
+        descricao: "",
+        valor: "",
+        formaPagamento: "pix",
+        canal: "whatsapp",
+      });
+      recarregar();
+    } else {
+      toast.error(`Erro ao criar pedido: ${resultado.error}`);
+    }
+  };
+
   return (
     <div className="p-4 sm:p-6 max-w-screen-xl mx-auto space-y-5">
       {/* Page header */}
@@ -256,6 +311,14 @@ export function PedidosListaPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowNovoPedidoModal(true)}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs rounded-xl text-[#1f2937] transition-colors"
+            style={{ background: "#86cb92" }}
+          >
+            <Plus size={14} />
+            <span className="hidden sm:inline">Novo Pedido</span>
+          </button>
           <button
             onClick={handleExport}
             className="flex items-center gap-1.5 px-3 py-2 text-xs rounded-xl border border-[#efefef] text-[#1f2937] hover:bg-[#efefef] transition-colors"
@@ -274,7 +337,7 @@ export function PedidosListaPage() {
         <Sparkles size={16} style={{ color: "#7C3AED", flexShrink: 0, marginTop: 2 }} />
         <p className="text-xs" style={{ color: "#6D28D9" }}>
           <strong>MEL diz:</strong> Você tem{" "}
-          {PEDIDOS.filter((p) => p.status === "separacao").length} pedidos em separação esperando envio.
+          {pedidos.filter((p) => p.status === "separacao").length} pedidos em separação esperando envio.
           Atualize o status assim que postar! 📦
         </p>
       </div>
@@ -771,6 +834,153 @@ export function PedidosListaPage() {
             >
               Cancelar
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Novo Pedido Modal */}
+      {showNovoPedidoModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-2xl bg-green-100 flex items-center justify-center">
+                <Plus size={18} className="text-green-600" />
+              </div>
+              <div>
+                <p className="text-[#1f2937]" style={{ fontWeight: 700 }}>
+                  Novo Pedido
+                </p>
+                <p className="text-xs text-[#627271]">
+                  Registre um pedido manual
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs text-[#1f2937] mb-1.5 block" style={{ fontWeight: 600 }}>
+                  Nome do cliente *
+                </label>
+                <input
+                  type="text"
+                  className="w-full border border-[#efefef] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
+                  placeholder="Ex: Maria Silva"
+                  value={novoPedido.clienteNome}
+                  onChange={(e) => setNovoPedido({ ...novoPedido, clienteNome: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-[#1f2937] mb-1.5 block" style={{ fontWeight: 600 }}>
+                  Telefone (opcional)
+                </label>
+                <input
+                  type="text"
+                  className="w-full border border-[#efefef] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
+                  placeholder="(11) 99999-9999"
+                  value={novoPedido.clienteTelefone}
+                  onChange={(e) => setNovoPedido({ ...novoPedido, clienteTelefone: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-[#1f2937] mb-1.5 block" style={{ fontWeight: 600 }}>
+                  Descrição do pedido *
+                </label>
+                <textarea
+                  className="w-full border border-[#efefef] rounded-xl p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
+                  rows={3}
+                  placeholder="Ex: 2 caixas de salgado + 1 bolo de chocolate"
+                  value={novoPedido.descricao}
+                  onChange={(e) => setNovoPedido({ ...novoPedido, descricao: e.target.value })}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-[#1f2937] mb-1.5 block" style={{ fontWeight: 600 }}>
+                    Valor total *
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full border border-[#efefef] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
+                    placeholder="R$ 0,00"
+                    value={novoPedido.valor}
+                    onChange={(e) => setNovoPedido({ ...novoPedido, valor: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-[#1f2937] mb-1.5 block" style={{ fontWeight: 600 }}>
+                    Forma pagamento
+                  </label>
+                  <select
+                    className="w-full border border-[#efefef] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
+                    value={novoPedido.formaPagamento}
+                    onChange={(e) => setNovoPedido({ ...novoPedido, formaPagamento: e.target.value })}
+                  >
+                    <option value="pix">PIX</option>
+                    <option value="dinheiro">Dinheiro</option>
+                    <option value="cartao_credito">Cartão de Crédito</option>
+                    <option value="cartao_debito">Cartão de Débito</option>
+                    <option value="boleto">Boleto</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-[#1f2937] mb-1.5 block" style={{ fontWeight: 600 }}>
+                  Canal
+                </label>
+                <select
+                  className="w-full border border-[#efefef] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
+                  value={novoPedido.canal}
+                  onChange={(e) => setNovoPedido({ ...novoPedido, canal: e.target.value })}
+                >
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="manual">Manual</option>
+                  <option value="telefone">Telefone</option>
+                  <option value="loja">Loja Virtual</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-6">
+              <button
+                className="flex-1 px-4 py-2.5 rounded-xl border border-[#efefef] text-sm text-[#1f2937] hover:bg-[#efefef] transition-colors"
+                onClick={() => {
+                  setShowNovoPedidoModal(false);
+                  setNovoPedido({
+                    clienteNome: "",
+                    clienteTelefone: "",
+                    descricao: "",
+                    valor: "",
+                    formaPagamento: "pix",
+                    canal: "whatsapp",
+                  });
+                }}
+                disabled={criandoPedido}
+              >
+                Cancelar
+              </button>
+              <button
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                style={{ background: "#2e7d32" }}
+                onClick={handleCriarPedido}
+                disabled={criandoPedido}
+              >
+                {criandoPedido ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" />
+                    Criando...
+                  </>
+                ) : (
+                  <>
+                    <Plus size={14} />
+                    Criar Pedido
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
