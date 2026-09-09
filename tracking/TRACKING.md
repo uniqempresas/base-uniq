@@ -142,6 +142,14 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 - SPEC: `tracking/specs/SPEC-Semana2-T2.1-PedidoWhatsApp-CRM.md`
 - WIRE: `tracking/wireframe/WIRE-Semana2-T2.1-LeadsWhatsApp.md`
 
+**Implementação concluída (T2.1):**
+- `/crm/clientes` integrado ao Supabase (`crm_leads`) com fallback mock
+- Badge de origem WhatsApp/Manual nos cards e tabela
+- Filtro por origem (WhatsApp / Manual / Todas)
+- `/crm/clientes/:id` com badge de origem e nova aba "Conversa" (resumo das mensagens)
+- Hooks `use-clientes` e `use-cliente` criados
+- Componentes `ClienteOrigemBadge` e `ClienteConversaResumo` criados
+
 **Número confirmado:** `5511919153508` (Doceê / HQ Gráfica) — usar este canal ao duplicar o fluxo n8n.
 
 ---
