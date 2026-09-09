@@ -36,6 +36,7 @@ import {
   type Pedido,
 } from "./pedidosMockData";
 import { useRegistrarVenda } from "../../hooks/use-registrar-venda";
+import { usePedido } from "../../hooks/use-pedido";
 
 function StatusBadge({ status, large }: { status: StatusPedido; large?: boolean }) {
   const cfg = STATUS_CONFIG[status];
@@ -85,9 +86,9 @@ function Section({
 export function PedidoDetalhePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [pedido, setPedido] = useState<Pedido | undefined>(() =>
-    PEDIDOS.find((p) => p.id === id)
-  );
+  const { pedido: pedidoReal, loading, isFallback } = usePedido(id);
+  const [pedidoLocal, setPedidoLocal] = useState<Pedido | undefined>(undefined);
+  const pedido = pedidoLocal || pedidoReal;
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showTrackingModal, setShowTrackingModal] = useState(false);
@@ -97,6 +98,31 @@ export function PedidoDetalhePage() {
   const [trackingCode, setTrackingCode] = useState(pedido?.codigoRastreio || "");
   const [newStatus, setNewStatus] = useState<StatusPedido | null>(null);
   const { registrarVenda, loading: registrandoVenda } = useRegistrarVenda();
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="p-4 sm:p-6 max-w-screen-lg mx-auto space-y-5">
+        <div className="flex items-center gap-4">
+          <div className="w-9 h-9 rounded-xl bg-[#efefef] animate-pulse" />
+          <div className="space-y-2">
+            <div className="h-6 w-48 bg-[#efefef] rounded animate-pulse" />
+            <div className="h-4 w-32 bg-[#efefef] rounded animate-pulse" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2 space-y-4">
+            <div className="h-40 bg-[#efefef] rounded-2xl animate-pulse" />
+            <div className="h-64 bg-[#efefef] rounded-2xl animate-pulse" />
+          </div>
+          <div className="space-y-4">
+            <div className="h-48 bg-[#efefef] rounded-2xl animate-pulse" />
+            <div className="h-32 bg-[#efefef] rounded-2xl animate-pulse" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!pedido) {
     return (
@@ -145,7 +171,7 @@ export function PedidoDetalhePage() {
         codigoRastreio: newStatus === "enviado" ? trackingCode : undefined,
       },
     ];
-    setPedido({ ...pedido, status: newStatus, timeline, codigoRastreio: newStatus === "enviado" ? trackingCode : pedido.codigoRastreio });
+    setPedidoLocal({ ...pedido, status: newStatus, timeline, codigoRastreio: newStatus === "enviado" ? trackingCode : pedido.codigoRastreio });
     toast.success(`Status atualizado para "${cfg.label}"! 🎉`);
     setShowStatusModal(false);
     setNewStatus(null);
@@ -153,7 +179,7 @@ export function PedidoDetalhePage() {
 
   const handleTrackingAdd = () => {
     if (!trackingCode.trim()) return;
-    setPedido({
+    setPedidoLocal({
       ...pedido,
       codigoRastreio: trackingCode,
       status: "enviado",
@@ -177,7 +203,7 @@ export function PedidoDetalhePage() {
       toast.error("Informe o motivo com pelo menos 10 caracteres.");
       return;
     }
-    setPedido({
+    setPedidoLocal({
       ...pedido,
       status: "cancelado",
       motivoCancelamento: cancelMotivo,
@@ -303,7 +329,7 @@ export function PedidoDetalhePage() {
             className="ml-auto px-3 py-1.5 rounded-lg text-xs text-white shrink-0"
             style={{ background: "#D97706" }}
             onClick={() => {
-              setPedido({ ...pedido, statusPagamento: "confirmado", status: "pago", timeline: [...pedido.timeline, { status: "pago", dataHora: new Date().toISOString(), responsavel: "Maria Silva", observacao: "Pagamento confirmado manualmente" }] });
+              setPedidoLocal({ ...pedido, statusPagamento: "confirmado", status: "pago", timeline: [...pedido.timeline, { status: "pago", dataHora: new Date().toISOString(), responsavel: "Maria Silva", observacao: "Pagamento confirmado manualmente" }] });
               toast.success("Pagamento confirmado manualmente!");
             }}
           >
