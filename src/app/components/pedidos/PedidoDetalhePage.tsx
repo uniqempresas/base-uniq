@@ -316,25 +316,38 @@ export function PedidoDetalhePage() {
       </div>
 
       {/* MEL tip for pending payment */}
-      {pedido.statusPagamento === "pendente" && (
+      {pedido.statusPagamento === "pendente" && !isCanceled && (
         <div
           className="flex items-center gap-3 p-3.5 rounded-2xl border"
           style={{ background: "#FFFBEB", borderColor: "#FDE68A" }}
         >
           <AlertTriangle size={16} style={{ color: "#D97706", flexShrink: 0 }} />
           <p className="text-xs" style={{ color: "#92400E" }}>
-            <strong>Atenção:</strong> Este pedido está aguardando confirmação de pagamento. Não processe o envio antes de confirmar!
+            <strong>Pagamento pendente.</strong> Você pode processar o pedido mesmo assim.
           </p>
           <button
             className="ml-auto px-3 py-1.5 rounded-lg text-xs text-white shrink-0"
             style={{ background: "#D97706" }}
             onClick={() => {
-              setPedidoLocal({ ...pedido, statusPagamento: "confirmado", status: "pago", timeline: [...pedido.timeline, { status: "pago", dataHora: new Date().toISOString(), responsavel: "Maria Silva", observacao: "Pagamento confirmado manualmente" }] });
-              toast.success("Pagamento confirmado manualmente!");
+              setPedidoLocal({ ...pedido, statusPagamento: "confirmado", timeline: [...pedido.timeline, { status: pedido.status, dataHora: new Date().toISOString(), responsavel: "Maria Silva", observacao: "Pagamento confirmado manualmente" }] });
+              toast.success("Pagamento confirmado!");
             }}
           >
             Confirmar pagamento
           </button>
+        </div>
+      )}
+
+      {/* Payment confirmed badge */}
+      {pedido.statusPagamento === "confirmado" && !isCanceled && (
+        <div
+          className="flex items-center gap-3 p-3.5 rounded-2xl border"
+          style={{ background: "#F0FDF4", borderColor: "#BBF7D0" }}
+        >
+          <CheckCircle size={16} style={{ color: "#16A34A", flexShrink: 0 }} />
+          <p className="text-xs" style={{ color: "#166534" }}>
+            <strong>Pagamento confirmado.</strong> {PAGAMENTO_LABELS[pedido.formaPagamento]}
+          </p>
         </div>
       )}
 

@@ -837,10 +837,9 @@ export function formatDateTime(isoStr: string): string {
   });
 }
 
-// Status flow — what statuses are valid next steps
+// Status flow — fulfillment independente de pagamento
 export const NEXT_STATUS: Partial<Record<StatusPedido, StatusPedido[]>> = {
-  aguardando: ["pago", "cancelado"],
-  pago: ["separacao", "cancelado"],
+  aguardando: ["separacao", "cancelado"],
   separacao: ["enviado", "cancelado"],
   enviado: ["entregue"],
   entregue: [],
