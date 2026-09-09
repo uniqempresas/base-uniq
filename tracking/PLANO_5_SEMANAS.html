@@ -62,8 +62,10 @@
   .task:nth-child(odd){background:#fafbfa}
   .dot{width:16px;height:16px;border-radius:50%;flex-shrink:0;margin-top:3px;border:2px solid}
   .todo{border-color:var(--cinza-verde);background:transparent}
+  .done{border-color:#3f9b5c;background:#3f9b5c;color:#fff}
   .fund{border-color:#e0b04a;background:#f6e3c0}
   .urgent{border-color:#d9534f;background:#f7d5d3}
+  .task-done{text-decoration:line-through;color:var(--cinza-verde)}
   .task code{font-size:12px;color:var(--cinza-verde)}
   .gate{margin-top:12px;padding:11px 13px;border-radius:6px;background:#f2f6f3;border:1px solid #dceadd;font-size:13px;color:#33644a;font-weight:500}
   .gate b{color:var(--grafite)}
@@ -103,8 +105,8 @@
     <div class="stat"><div class="num ok">✓</div><div class="lbl">Diagnóstico concluído</div></div>
     <div class="stat"><div class="num ok">✓</div><div class="lbl">Decisão #0 resolvida</div></div>
     <div class="stat"><div class="num ok">✓</div><div class="lbl">Backend rico (dados reais)</div></div>
-    <div class="stat"><div class="num bad">✗</div><div class="lbl">Front ↔ Back conectado</div></div>
-    <div class="stat"><div class="num nid">1/5</div><div class="lbl">Semana atual: 1 (não iniciada)</div></div>
+    <div class="stat"><div class="num ok">✓</div><div class="lbl">Front ↔ Back conectado</div></div>
+    <div class="stat"><div class="num nid">2/5</div><div class="lbl">Semana atual: 2 (próxima)</div></div>
   </div>
 
   <!-- CHAIN -->
@@ -140,12 +142,12 @@
     <div class="week-goal">Provar a arquitetura: <b>uma mensagem real</b> atravessando o sistema.</div>
     <div class="dl"><span class="tag">Não é construir tudo</span><span class="tag tag-tb">crm_chat_conversas · crm_chat_mensagens</span></div>
     <div class="tasks">
-      <div class="task"><span class="dot todo"></span> Corrigir o project URL do Supabase (front → banco oficial)</div>
-      <div class="task"><span class="dot todo"></span> Consulta real de conversa (saindo do banco, não de mock)</div>
-      <div class="task"><span class="dot todo"></span> Login funcional com usuário/empresa reais</div>
-      <div class="task"><span class="dot todo"></span> Renderizar 1 conversa real numa tela do CRM</div>
+      <div class="task"><span class="dot done"></span> <span class="task-done">Corrigir o project URL do Supabase (front → banco oficial)</span></div>
+      <div class="task"><span class="dot done"></span> <span class="task-done">Consulta real de conversa (saindo do banco, não de mock)</span></div>
+      <div class="task"><span class="dot done"></span> <span class="task-done">Login funcional com usuário/empresa reais</span></div>
+      <div class="task"><span class="dot done"></span> <span class="task-done">Renderizar 1 conversa real numa tela do CRM</span></div>
     </div>
-    <div class="gate"><b>Gate:</b>&nbsp;1 conversa real do WhatsApp aparece na tela, vinda do banco.</div>
+    <div class="gate"><b>Gate:</b>&nbsp;✓ 1 conversa real do WhatsApp aparece na tela, vinda do banco.</div>
   </div>
 
   <!-- SEMANA 2 -->
@@ -213,15 +215,15 @@
         <li><span class="p-ok">✓</span> Backend com dados reais: 18 conversas · 645 mensagens · 9 leads · 2 empresas · 3 vendas</li>
         <li><span class="p-ok">✓</span> Modelo de dados do funil pronto (<code>mel_consultoria</code> é o SPIN estruturado)</li>
         <li><span class="p-warn">◑</span> Funil MEL: tabelas criadas, mas vazias (ainda não rodou)</li>
-        <li><span class="p-bad">✗</span> Front aponta para o projeto errado (<code>eqyvic...</code>) — corrigir na S1</li>
-        <li><span class="p-nid">—</span> Semana 1 ainda não iniciada</li>
+        <li><span class="p-ok">✓</span> Front corrigido para o Supabase oficial (<code>krrkfgv...</code>)</li>
+        <li><span class="p-ok">✓</span> Semana 1 concluída — conversa real renderizada em /chatbot</li>
       </ul>
     </div>
     <div class="panel">
       <h3>Pendências (destravam o caminho)</h3>
       <ul>
         <li><span class="p-warn">◑</span> Nº do WhatsApp do laboratório (Doceê / HQ Gráfica) → antes da S2</li>
-        <li><span class="p-warn">◑</span> Confirmar GitHub + Vercel publicando preview → S1</li>
+        <li><span class="p-ok">✓</span> GitHub + Vercel configurados e publicando em produção</li>
         <li><span class="p-bad">✗</span> LGPD para captura/armazenamento de leads → antes da S4</li>
         <li><span class="p-nid">—</span> <code>DESIGN.md</code> restante (Voice & Tone, Imagery, Posture) → antes do funil</li>
       </ul>
