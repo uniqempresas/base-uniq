@@ -129,7 +129,7 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 | # | Ação | Onde / Tabelas | Critério de aceite | Dep. |
 |---|---|---|---|---|
 | 2.1 | ✅ Pedido do WhatsApp aparece no CRM como lead/cliente | `crm_leads` / `me_cliente`; fluxo n8n → insert | Pedido real vira registro no CRM | 1.1 (Gate S1) |
-| 2.2 | Pedido contabilizado | **RPC `registrar_venda`** → `me_venda`, `me_contas_receber` | Chamar a RPC cria a venda + conta a receber | 2.1 |
+| 2.2 | ✅ Pedido contabilizado | **RPC `registrar_venda`** → `me_venda`, `me_contas_receber` | Chamar a RPC cria a venda + conta a receber | 2.1 |
 | 2.3 | Esposa do fundador opera de verdade | — (validação humana) | Usuária prática responde cliente real pela Base, sem caderno | 2.1, 2.2 |
 | 2.4 | Corrigir o que quebrar no uso real | — | Partes da cadeia estáveis no uso real | 2.3 |
 
@@ -147,6 +147,18 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 - Badge de origem WhatsApp/Manual nos cards e tabela
 - Filtro por origem (WhatsApp / Manual / Todas)
 - `/crm/clientes/:id` com badge de origem e nova aba "Conversa" (resumo das mensagens)
+
+**Documentos criados (T2.2):**
+- PRD: `tracking/plans/PRD-Semana2-T2.2-ContabilizarVenda.md`
+- SPEC: `tracking/specs/SPEC-Semana2-T2.2-ContabilizarVenda.md`
+- WIRE: `tracking/wireframe/WIRE-Semana2-T2.2-ContabilizarVenda.md`
+
+**Implementação concluída (T2.2):**
+- Hook `useRegistrarVenda` com fallback para empresa/cliente padrão
+- Botão "Contabilizar venda" em `/vendas/pedidos/:id` (visível quando pagamento confirmado)
+- Modal de confirmação com resumo do pedido
+- Chamada à RPC `registrar_venda` criando venda + conta a receber
+- Feedback visual: toast sucesso/erro + badge "Venda contabilizada"
 - Hooks `use-clientes` e `use-cliente` criados
 - Componentes `ClienteOrigemBadge` e `ClienteConversaResumo` criados
 

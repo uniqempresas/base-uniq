@@ -20,6 +20,8 @@ import {
   Sparkles,
   AlertTriangle,
   Clock,
+  DollarSign,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -33,6 +35,7 @@ import {
   type StatusPedido,
   type Pedido,
 } from "./pedidosMockData";
+import { useRegistrarVenda } from "../../hooks/use-registrar-venda";
 
 function StatusBadge({ status, large }: { status: StatusPedido; large?: boolean }) {
   const cfg = STATUS_CONFIG[status];
@@ -88,9 +91,12 @@ export function PedidoDetalhePage() {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showTrackingModal, setShowTrackingModal] = useState(false);
+  const [showContabilizarModal, setShowContabilizarModal] = useState(false);
+  const [vendaContabilizada, setVendaContabilizada] = useState(false);
   const [cancelMotivo, setCancelMotivo] = useState("");
   const [trackingCode, setTrackingCode] = useState(pedido?.codigoRastreio || "");
   const [newStatus, setNewStatus] = useState<StatusPedido | null>(null);
+  const { registrarVenda, loading: registrandoVenda } = useRegistrarVenda();
 
   if (!pedido) {
     return (
@@ -198,6 +204,30 @@ export function PedidoDetalhePage() {
     window.open(`https://wa.me/55${phone}?text=${msg}`, "_blank");
   };
 
+  const handleContabilizar = async () => {
+    if (!pedido) return;
+
+    const resultado = await registrarVenda({
+      valor_total: pedido.total,
+      forma_pagamento: pedido.formaPagamento,
+      observacoes: `Venda contabilizada do pedido ${pedido.numero} - Cliente: ${pedido.cliente.nome}`,
+      origem: pedido.canal,
+      itens: pedido.itens.map((item) => ({
+        quantidade: item.quantidade,
+        valor_unitario: item.precoUnitario,
+        descricao: item.nome,
+      })),
+    });
+
+    if (resultado.success) {
+      setVendaContabilizada(true);
+      toast.success(`Venda contabilizada! ID: ${resultado.id_venda?.slice(0, 8)}...`);
+      setShowContabilizarModal(false);
+    } else {
+      toast.error(`Erro ao contabilizar: ${resultado.error}`);
+    }
+  };
+
   return (
     <div className="p-4 sm:p-6 max-w-screen-lg mx-auto space-y-5">
       {/* Header */}
@@ -240,6 +270,21 @@ export function PedidoDetalhePage() {
               <RefreshCw size={13} />
               Atualizar status
             </button>
+          )}
+          {!isCanceled && !vendaContabilizada && pedido.statusPagamento === "confirmado" && (
+            <button
+              className="flex items-center gap-1.5 px-3 py-2 text-xs rounded-xl border border-[#2e7d32] text-[#2e7d32] hover:bg-[#e8f5e9] transition-colors"
+              onClick={() => setShowContabilizarModal(true)}
+            >
+              <DollarSign size={13} />
+              Contabilizar venda
+            </button>
+          )}
+          {vendaContabilizada && (
+            <span className="flex items-center gap-1.5 px-3 py-2 text-xs rounded-xl bg-[#e8f5e9] text-[#2e7d32] border border-[#2e7d32]">
+              <Check size={13} />
+              Venda contabilizada
+            </span>
           )}
         </div>
       </div>
@@ -787,6 +832,76 @@ export function PedidoDetalhePage() {
                 onClick={handleCancel}
               >
                 Confirmar cancelamento
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Contabilizar venda modal */}
+      {showContabilizarModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl p-6 max-w-md w-full">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-2xl bg-green-100 flex items-center justify-center">
+                <DollarSign size={18} className="text-green-600" />
+              </div>
+              <div>
+                <p className="text-[#1f2937]" style={{ fontWeight: 700 }}>
+                  Contabilizar venda?
+                </p>
+                <p className="text-xs text-[#627271]">
+                  Esta ação registra a venda no financeiro
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-[#f8f9fa] rounded-xl p-4 mb-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-[#627271]">Pedido</span>
+                <span className="font-mono text-[#1f2937]">{pedido.numero}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-[#627271]">Cliente</span>
+                <span className="text-[#1f2937]">{pedido.cliente.nome}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-[#627271]">Itens</span>
+                <span className="text-[#1f2937]">{pedido.itens.length} produto(s)</span>
+              </div>
+              <div className="border-t border-[#e5e7eb] pt-2 flex justify-between">
+                <span className="text-sm text-[#627271]">Valor total</span>
+                <span className="text-lg text-[#1f2937]" style={{ fontWeight: 700 }}>
+                  {formatCurrency(pedido.total)}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                className="flex-1 px-4 py-2.5 rounded-xl border border-[#efefef] text-sm text-[#1f2937] hover:bg-[#efefef] transition-colors"
+                onClick={() => setShowContabilizarModal(false)}
+                disabled={registrandoVenda}
+              >
+                Cancelar
+              </button>
+              <button
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                style={{ background: "#2e7d32" }}
+                onClick={handleContabilizar}
+                disabled={registrandoVenda}
+              >
+                {registrandoVenda ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" />
+                    Registrando...
+                  </>
+                ) : (
+                  <>
+                    <Check size={14} />
+                    Confirmar
+                  </>
+                )}
               </button>
             </div>
           </div>
