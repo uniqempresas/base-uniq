@@ -37,6 +37,7 @@ import {
 } from "./pedidosMockData";
 import { useRegistrarVenda } from "../../hooks/use-registrar-venda";
 import { usePedido } from "../../hooks/use-pedido";
+import { useAtualizarStatusPedido } from "../../hooks/use-atualizar-status-pedido";
 
 function StatusBadge({ status, large }: { status: StatusPedido; large?: boolean }) {
   const cfg = STATUS_CONFIG[status];
@@ -98,6 +99,7 @@ export function PedidoDetalhePage() {
   const [trackingCode, setTrackingCode] = useState(pedido?.codigoRastreio || "");
   const [newStatus, setNewStatus] = useState<StatusPedido | null>(null);
   const { registrarVenda, loading: registrandoVenda } = useRegistrarVenda();
+  const { atualizarStatus, loading: atualizandoStatus } = useAtualizarStatusPedido();
 
   // Loading state
   if (loading) {
@@ -152,7 +154,7 @@ export function PedidoDetalhePage() {
   const isCanceled = pedido.status === "cancelado";
   const isDelivered = pedido.status === "entregue";
 
-  const handleStatusUpdate = () => {
+  const handleStatusUpdate = async () => {
     if (!newStatus) return;
     if (newStatus === "enviado" && !trackingCode.trim()) {
       toast.error("Informe o código de rastreio para marcar como Enviado.");
@@ -171,6 +173,18 @@ export function PedidoDetalhePage() {
         codigoRastreio: newStatus === "enviado" ? trackingCode : undefined,
       },
     ];
+
+    // Persiste no banco quando o pedido é real (não mock)
+    if (!isFallback) {
+      const res = await atualizarStatus({ id: pedido.id, status: newStatus });
+      if (!res.success) {
+        toast.error(`Erro ao atualizar status: ${res.error}`);
+        setShowStatusModal(false);
+        setNewStatus(null);
+        return;
+      }
+    }
+
     setPedidoLocal({ ...pedido, status: newStatus, timeline, codigoRastreio: newStatus === "enviado" ? trackingCode : pedido.codigoRastreio });
     toast.success(`Status atualizado para "${cfg.label}"! 🎉`);
     setShowStatusModal(false);
@@ -198,11 +212,21 @@ export function PedidoDetalhePage() {
     setShowTrackingModal(false);
   };
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
     if (!cancelMotivo.trim() || cancelMotivo.trim().length < 10) {
       toast.error("Informe o motivo com pelo menos 10 caracteres.");
       return;
     }
+
+    // Persiste no banco quando o pedido é real (não mock)
+    if (!isFallback) {
+      const res = await atualizarStatus({ id: pedido.id, status: "cancelado" });
+      if (!res.success) {
+        toast.error(`Erro ao cancelar: ${res.error}`);
+        return;
+      }
+    }
+
     setPedidoLocal({
       ...pedido,
       status: "cancelado",

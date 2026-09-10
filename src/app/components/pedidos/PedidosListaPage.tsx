@@ -181,7 +181,7 @@ export function PedidosListaPage() {
   const [showActionsMenu, setShowActionsMenu] = useState<string | null>(null);
   const [cancelModal, setCancelModal] = useState<{ id: string; numero: string } | null>(null);
   const [cancelMotivo, setCancelMotivo] = useState("");
-  const [statusUpdateModal, setStatusUpdateModal] = useState<Pedido | null>(null);
+  const [statusUpdateModal, setStatusUpdateModal] = useState<{ pedidos: Pedido[] } | null>(null);
   const [showNovoPedidoModal, setShowNovoPedidoModal] = useState(false);
   const [novoPedido, setNovoPedido] = useState({
     clienteNome: "",
@@ -525,7 +525,13 @@ export function PedidosListaPage() {
           <div className="flex gap-2">
             <button
               className="px-3 py-1.5 text-xs rounded-xl text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors"
-              onClick={() => { toast.success(`Status atualizado para ${selectedIds.size} pedido(s)!`); setSelectedIds(new Set()); }}
+              onClick={() => {
+                const selecionados = pedidos.filter((p) => selectedIds.has(p.id));
+                if (selecionados.length > 0) {
+                  setStatusUpdateModal({ pedidos: selecionados });
+                  setSelectedIds(new Set());
+                }
+              }}
             >
               Atualizar status
             </button>
@@ -754,7 +760,7 @@ export function PedidosListaPage() {
                             </button>
                             <button
                               className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#1f2937] hover:bg-[#efefef] transition-colors"
-                              onClick={() => { setStatusUpdateModal(pedido); setShowActionsMenu(null); }}
+                              onClick={() => { setStatusUpdateModal({ pedidos: [pedido] }); setShowActionsMenu(null); }}
                             >
                               <RefreshCw size={14} />
                               Atualizar status
@@ -887,40 +893,56 @@ export function PedidosListaPage() {
               Atualizar status
             </p>
             <p className="text-xs text-[#627271] mb-4">
-              Pedido {statusUpdateModal.numero} — status atual:{" "}
-              <strong>{STATUS_CONFIG[statusUpdateModal.status].label}</strong>
+              {statusUpdateModal.pedidos.length > 1
+                ? `${statusUpdateModal.pedidos.length} pedidos selecionados`
+                : `Pedido ${statusUpdateModal.pedidos[0].numero} — status atual: `}
+              {statusUpdateModal.pedidos.length === 1 && (
+                <strong>{STATUS_CONFIG[statusUpdateModal.pedidos[0].status].label}</strong>
+              )}
             </p>
             <div className="space-y-2 mb-5">
               {(["aguardando", "pago", "separacao", "enviado", "entregue"] as StatusPedido[]).map(
                 (s) => {
                   const cfg = STATUS_CONFIG[s];
-                  const isCurrent = s === statusUpdateModal.status;
+                  const allCurrent = statusUpdateModal.pedidos.every((p) => p.status === s);
                   return (
                     <button
                       key={s}
-                      disabled={isCurrent}
+                      disabled={allCurrent}
                       className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all disabled:opacity-40"
                       style={{
-                        borderColor: isCurrent ? cfg.borderColor : "#efefef",
-                        background: isCurrent ? cfg.bg : "white",
+                        borderColor: allCurrent ? cfg.borderColor : "#efefef",
+                        background: allCurrent ? cfg.bg : "white",
                       }}
                       onClick={async () => {
                         if (!statusUpdateModal) return;
-                        const res = await atualizarStatus({ id: statusUpdateModal.id, status: s });
-                        if (res.success) {
-                          toast.success(`Status atualizado para "${cfg.label}"!`);
+                        const ids = statusUpdateModal.pedidos.map((p) => p.id);
+                        let ok = true;
+                        let firstError: string | undefined;
+                        for (const id of ids) {
+                          const res = await atualizarStatus({ id, status: s });
+                          if (!res.success) {
+                            ok = false;
+                            firstError = res.error;
+                            break;
+                          }
+                        }
+                        if (ok) {
+                          toast.success(
+                            `Status atualizado para "${cfg.label}" em ${ids.length} pedido(s)!`
+                          );
                           recarregar();
                         } else {
-                          toast.error(`Erro: ${res.error}`);
+                          toast.error(`Erro: ${firstError}`);
                         }
                         setStatusUpdateModal(null);
                       }}
                     >
                       <span style={{ fontSize: 18 }}>{cfg.icon}</span>
-                      <span className="text-sm" style={{ fontWeight: isCurrent ? 700 : 500, color: isCurrent ? cfg.color : "#1f2937" }}>
+                      <span className="text-sm" style={{ fontWeight: allCurrent ? 700 : 500, color: allCurrent ? cfg.color : "#1f2937" }}>
                         {cfg.label}
                       </span>
-                      {isCurrent && (
+                      {allCurrent && (
                         <span className="ml-auto text-[10px] rounded-full px-2 py-0.5" style={{ background: cfg.borderColor, color: cfg.color, fontWeight: 600 }}>
                           Atual
                         </span>
