@@ -166,7 +166,8 @@ export function CadastroPage() {
     }
     if (step === 1) {
       if (form.empresa.trim().length < 2) newErrors.empresa = "Informe o nome da empresa";
-      if (form.cnpj.replace(/\D/g, "").length < 14) newErrors.cnpj = "CNPJ inválido";
+      // CNPJ é opcional — só valida se foi preenchido
+      if (form.cnpj.trim() && form.cnpj.replace(/\D/g, "").length < 14) newErrors.cnpj = "CNPJ inválido";
       if (form.telefone.replace(/\D/g, "").length < 10) newErrors.telefone = "Telefone inválido";
       if (!form.ramoAtuacao) newErrors.ramoAtuacao = "Selecione o ramo de atuação";
       if (!form.numeroFuncionarios) newErrors.numeroFuncionarios = "Selecione o número de funcionários";
@@ -437,7 +438,7 @@ export function CadastroPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-[#1f2937] text-sm font-medium mb-1.5 block">CNPJ</Label>
+                  <Label className="text-[#1f2937] text-sm font-medium mb-1.5 block">CNPJ (opcional)</Label>
                   <div className="relative">
                     <Input
                       type="text"
