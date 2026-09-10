@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
+import { useAuth } from "../contexts/AuthContext";
 import { PEDIDOS, type Pedido, type StatusPedido } from "../components/pedidos/pedidosMockData";
 
 interface DBVenda {
@@ -114,6 +115,7 @@ export interface UsePedidoReturn {
 }
 
 export function usePedido(id: string | undefined): UsePedidoReturn {
+  const { empresa } = useAuth();
   const [pedido, setPedido] = useState<Pedido | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -130,12 +132,32 @@ export function usePedido(id: string | undefined): UsePedidoReturn {
     setIsFallback(false);
 
     try {
+      // Busca empresa_id do contexto ou primeira disponível
+      let empresaId = empresa?.id;
+
+      if (!empresaId) {
+        const { data: empresas } = await supabase
+          .from("me_empresa")
+          .select("id")
+          .limit(1);
+
+        if (empresas && empresas.length > 0) {
+          empresaId = empresas[0].id;
+        }
+      }
+
       // Tenta buscar do banco
-      const { data: dbVenda, error: vendaError } = await supabase
+      let query = supabase
         .from("me_venda")
         .select("*")
-        .eq("id", id)
-        .maybeSingle();
+        .eq("id", id);
+
+      // Filtra por empresa se disponível
+      if (empresaId) {
+        query = query.eq("empresa_id", empresaId);
+      }
+
+      const { data: dbVenda, error: vendaError } = await query.maybeSingle();
 
       if (vendaError) throw vendaError;
 
@@ -143,11 +165,16 @@ export function usePedido(id: string | undefined): UsePedidoReturn {
         // Busca dados do cliente se houver cliente_id
         let cliente: DBCliente | null = null;
         if (dbVenda.cliente_id) {
-          const { data: clienteData } = await supabase
+          let clienteQuery = supabase
             .from("me_cliente")
             .select("id, nome_cliente, telefone, email, documento")
-            .eq("id", dbVenda.cliente_id)
-            .maybeSingle();
+            .eq("id", dbVenda.cliente_id);
+
+          if (empresaId) {
+            clienteQuery = clienteQuery.eq("empresa_id", empresaId);
+          }
+
+          const { data: clienteData } = await clienteQuery.maybeSingle();
           cliente = clienteData;
         }
 
@@ -178,7 +205,7 @@ export function usePedido(id: string | undefined): UsePedidoReturn {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, empresa]);
 
   useEffect(() => {
     carregarPedido();

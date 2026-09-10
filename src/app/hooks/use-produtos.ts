@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
+import { useAuth } from "../contexts/AuthContext";
 import {
   PRODUTOS,
   type Produto,
@@ -67,6 +68,7 @@ export interface UseProdutosReturn {
 }
 
 export function useProdutos(): UseProdutosReturn {
+  const { empresa } = useAuth();
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,11 +80,32 @@ export function useProdutos(): UseProdutosReturn {
     setIsFallback(false);
 
     try {
-      const { data: dbProdutos, error: produtosError } = await supabase
+      // Busca empresa_id do contexto ou primeira disponível
+      let empresaId = empresa?.id;
+
+      if (!empresaId) {
+        const { data: empresas } = await supabase
+          .from("me_empresa")
+          .select("id")
+          .limit(1);
+
+        if (empresas && empresas.length > 0) {
+          empresaId = empresas[0].id;
+        }
+      }
+
+      let query = supabase
         .from("me_produto")
         .select("*")
         .eq("ativo", true)
         .order("nome_produto");
+
+      // Filtra por empresa se disponível
+      if (empresaId) {
+        query = query.eq("empresa_id", empresaId);
+      }
+
+      const { data: dbProdutos, error: produtosError } = await query;
 
       if (produtosError) throw produtosError;
 
@@ -104,7 +127,7 @@ export function useProdutos(): UseProdutosReturn {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [empresa]);
 
   useEffect(() => {
     carregarDados();

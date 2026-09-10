@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useAuth } from "../../contexts/AuthContext";
 import {
   TrendingUp,
   TrendingDown,
@@ -132,8 +133,11 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export function DashboardPage() {
+  const { perfil } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [showQuickSale, setShowQuickSale] = useState(false);
+
+  const nomeUsuario = perfil?.nome_usuario || "Usuário";
 
   const getGreeting = () => {
     const h = new Date().getHours();
@@ -165,7 +169,7 @@ export function DashboardPage() {
         <div>
           <p className="text-[#627271] text-sm capitalize">{today}</p>
           <h1 className="text-[#1f2937]" style={{ fontWeight: 700, fontSize: "1.3rem" }}>
-            {getGreeting()}, Maria! 👋
+            {getGreeting()}, {nomeUsuario}! 👋
           </h1>
         </div>
         <div className="flex items-center gap-2">

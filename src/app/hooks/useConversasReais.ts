@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "../../lib/supabase";
+import { useAuth } from "../contexts/AuthContext";
 import type { Conversa, Mensagem, StatusConversa, TipoMensagem } from "../types/chatbot";
 import { mockConversas, mockMensagens } from "../lib/mocks/chatbot";
 
@@ -102,6 +103,7 @@ function mapMensagem(db: DBMensagem): Mensagem {
 }
 
 export function useConversasReais(): UseConversasReaisReturn {
+  const { empresa } = useAuth();
   const [conversas, setConversas] = useState<Conversa[]>([]);
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [conversaIdAtiva, setConversaIdAtiva] = useState<string | null>(null);
@@ -115,10 +117,31 @@ export function useConversasReais(): UseConversasReaisReturn {
     setIsFallback(false);
 
     try {
-      const { data: dbConversas, error: conversasError } = await supabase
+      // Busca empresa_id do contexto ou primeira disponível
+      let empresaId = empresa?.id;
+
+      if (!empresaId) {
+        const { data: empresas } = await supabase
+          .from("me_empresa")
+          .select("id")
+          .limit(1);
+
+        if (empresas && empresas.length > 0) {
+          empresaId = empresas[0].id;
+        }
+      }
+
+      let query = supabase
         .from("crm_chat_conversas")
         .select("*")
         .order("criado_em", { ascending: false });
+
+      // Filtra por empresa se disponível
+      if (empresaId) {
+        query = query.eq("empresa_id", empresaId);
+      }
+
+      const { data: dbConversas, error: conversasError } = await query;
 
       if (conversasError) throw conversasError;
 
@@ -157,7 +180,7 @@ export function useConversasReais(): UseConversasReaisReturn {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [empresa]);
 
   useEffect(() => {
     carregarDados();

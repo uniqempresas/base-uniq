@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
+import { useAuth } from "../contexts/AuthContext";
 import { PEDIDOS, type Pedido, type StatusPedido } from "../components/pedidos/pedidosMockData";
 
 interface DBVenda {
@@ -115,6 +116,7 @@ export interface UsePedidosReturn {
 }
 
 export function usePedidos(): UsePedidosReturn {
+  const { empresa } = useAuth();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -126,10 +128,31 @@ export function usePedidos(): UsePedidosReturn {
     setIsFallback(false);
 
     try {
-      const { data: dbVendas, error: vendasError } = await supabase
+      // Busca empresa_id do contexto ou primeira disponível
+      let empresaId = empresa?.id;
+
+      if (!empresaId) {
+        const { data: empresas } = await supabase
+          .from("me_empresa")
+          .select("id")
+          .limit(1);
+
+        if (empresas && empresas.length > 0) {
+          empresaId = empresas[0].id;
+        }
+      }
+
+      let query = supabase
         .from("me_venda")
         .select("*")
         .order("criado_em", { ascending: false });
+
+      // Filtra por empresa se disponível
+      if (empresaId) {
+        query = query.eq("empresa_id", empresaId);
+      }
+
+      const { data: dbVendas, error: vendasError } = await query;
 
       if (vendasError) throw vendasError;
 
@@ -150,10 +173,17 @@ export function usePedidos(): UsePedidosReturn {
       let clientesMap: Map<string, DBCliente> = new Map();
 
       if (clienteIds.length > 0) {
-        const { data: clientesData } = await supabase
+        let clientesQuery = supabase
           .from("me_cliente")
           .select("id, nome_cliente, telefone, email, documento")
           .in("id", clienteIds);
+
+        // Filtra clientes por empresa também
+        if (empresaId) {
+          clientesQuery = clientesQuery.eq("empresa_id", empresaId);
+        }
+
+        const { data: clientesData } = await clientesQuery;
 
         if (clientesData) {
           clientesMap = new Map(
@@ -177,7 +207,7 @@ export function usePedidos(): UsePedidosReturn {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [empresa]);
 
   useEffect(() => {
     carregarDados();

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
+import { useAuth } from "../contexts/AuthContext";
 import type { Cliente, ClienteOrigem } from "../types/clientes";
 import { mockClientes } from "../lib/mocks/clientes";
 
@@ -106,6 +107,7 @@ export interface UseClienteReturn {
 }
 
 export function useCliente(id: string | undefined): UseClienteReturn {
+  const { empresa } = useAuth();
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -123,11 +125,31 @@ export function useCliente(id: string | undefined): UseClienteReturn {
     setIsFallback(false);
 
     try {
-      const { data: dbLead, error: leadError } = await supabase
+      // Busca empresa_id do contexto ou primeira disponível
+      let empresaId = empresa?.id;
+
+      if (!empresaId) {
+        const { data: empresas } = await supabase
+          .from("me_empresa")
+          .select("id")
+          .limit(1);
+
+        if (empresas && empresas.length > 0) {
+          empresaId = empresas[0].id;
+        }
+      }
+
+      let query = supabase
         .from("crm_leads")
         .select("*")
-        .eq("id", id)
-        .single();
+        .eq("id", id);
+
+      // Filtra por empresa se disponível
+      if (empresaId) {
+        query = query.eq("empresa_id", empresaId);
+      }
+
+      const { data: dbLead, error: leadError } = await query.single();
 
       if (leadError) throw leadError;
 
@@ -149,7 +171,7 @@ export function useCliente(id: string | undefined): UseClienteReturn {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, empresa]);
 
   useEffect(() => {
     carregarDados();
