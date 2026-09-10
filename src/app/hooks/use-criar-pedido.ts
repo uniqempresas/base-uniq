@@ -19,10 +19,10 @@ export interface CriarPedidoResult {
 
 const FORMA_PAGAMENTO_CODIGO: Record<string, number> = {
   dinheiro: 1,
-  pix: 2,
-  cartao_credito: 3,
-  cartao_debito: 4,
-  boleto: 5,
+  cartao_credito: 2,
+  cartao_debito: 2,
+  pix: 3,
+  boleto: 3,
 };
 
 export function useCriarPedido() {
