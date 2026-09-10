@@ -185,8 +185,17 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 - Lista de produtos integrada ao banco
 - Loading skeleton e indicador de fallback
 - Recarrega lista após criar produto
-- Hooks `use-clientes` e `use-cliente` criados
-- Componentes `ClienteOrigemBadge` e `ClienteConversaResumo` criados
+- Modal de criação corrigido (agora salva no banco)
+- Exclusão de produto (soft delete) com modal de confirmação
+- Botão excluir disponível no grid (hover) e na lista
+- Grid mobile com gap reduzido
+
+**Ajustes adicionais (T2.5):**
+- Lista de pedidos (`/vendas/pedidos`) com cards mobile otimizados
+- KPIs e filtros enxutos no mobile
+- Fluxo de status do pedido desacoplado de pagamento
+- Nome do cliente exibido corretamente na lista de pedidos
+- `usePedido` (detalhe) integrado ao banco
 
 **Número confirmado:** `5511919153508` (Doceê / HQ Gráfica) — usar este canal ao duplicar o fluxo n8n.
 
