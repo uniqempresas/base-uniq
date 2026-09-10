@@ -71,7 +71,7 @@ function MargemChip({ pct }: { pct: number }) {
 }
 
 /* ─────────── Product Grid Card ─────────── */
-function ProdutoGridCard({ produto, onClick }: { produto: Produto; onClick: () => void }) {
+function ProdutoGridCard({ produto, onClick, onDelete }: { produto: Produto; onClick: () => void; onDelete: () => void }) {
   const [hovered, setHovered] = useState(false);
   const catColors = CATEGORIA_COLORS[produto.categoria] || CATEGORIA_COLORS["Outros"];
   const margem = calcMargem(produto.precoCusto, produto.precoVenda);
@@ -131,6 +131,15 @@ function ProdutoGridCard({ produto, onClick }: { produto: Produto; onClick: () =
             className="w-8 h-8 rounded-xl bg-white flex items-center justify-center shadow-sm hover:bg-[#efefef]"
           >
             <Copy size={14} className="text-[#1f2937]" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            className="w-8 h-8 rounded-xl bg-white flex items-center justify-center shadow-sm hover:bg-red-50"
+          >
+            <Trash2 size={14} className="text-red-500" />
           </button>
         </div>
       </div>
@@ -933,9 +942,14 @@ export function ProdutosPage() {
           )}
         </div>
       ) : viewMode === "grid" ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-4">
           {filteredProdutos.map((p) => (
-            <ProdutoGridCard key={p.id} produto={p} onClick={() => navigate(`/estoque/produtos/${p.id}`)} />
+            <ProdutoGridCard
+              key={p.id}
+              produto={p}
+              onClick={() => navigate(`/estoque/produtos/${p.id}`)}
+              onDelete={() => setProdutoParaExcluir(p)}
+            />
           ))}
         </div>
       ) : (
