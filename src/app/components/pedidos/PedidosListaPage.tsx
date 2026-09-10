@@ -342,55 +342,86 @@ export function PedidosListaPage() {
         </p>
       </div>
 
-      {/* KPI Cards - 2 colunas no mobile */}
+      {/* KPI Cards - mobile: 2 compactos, desktop: 4 completos */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-        <KpiCard
-          title="Total vendido"
-          value={formatCurrency(totalValor)}
-          subtitle={`${periodo === "hoje" ? "hoje" : periodo === "7dias" ? "nos últimos 7 dias" : "nos últimos 30 dias"}`}
-          trend={trendValor}
-          icon={DollarSign}
-          iconColor="#86cb92"
-          iconBg="#efefef"
-        />
-        <KpiCard
-          title="Pedidos realizados"
-          value={String(qtdPedidos)}
-          subtitle="excluindo cancelados"
-          trend={trendQtd}
-          icon={ShoppingBag}
-          iconColor="#0284C7"
-          iconBg="#F0F9FF"
-        />
-        <KpiCard
-          title="Ticket médio"
-          value={formatCurrency(ticketMedio)}
-          subtitle="por pedido"
-          trend={5}
-          icon={BarChart2}
-          iconColor="#7C3AED"
-          iconBg="#F5F3FF"
-        />
-        <KpiCard
-          title="Taxa de entrega"
-          value={`${filtered.length > 0 ? Math.round((filtered.filter((p) => p.status === "entregue").length / filtered.filter((p) => p.status !== "cancelado").length) * 100) || 0 : 0}%`}
-          subtitle="pedidos entregues"
-          trend={3}
-          icon={CheckCircle}
-          iconColor="#D97706"
-          iconBg="#FFFBEB"
-        />
+        {/* Mobile: só total e quantidade */}
+        <div className="lg:hidden col-span-2 grid grid-cols-2 gap-2">
+          <div className="bg-white rounded-xl border border-[#efefef] p-3 shadow-sm">
+            <div className="flex items-center gap-2 mb-1">
+              <DollarSign size={14} style={{ color: "#86cb92" }} />
+              <span className="text-xs text-[#627271]">Total vendido</span>
+            </div>
+            <p className="text-lg text-[#1f2937]" style={{ fontWeight: 700 }}>
+              {formatCurrency(totalValor)}
+            </p>
+            <p className="text-[10px] text-[#627271]">
+              {periodo === "hoje" ? "hoje" : periodo === "7dias" ? "últimos 7 dias" : "últimos 30 dias"}
+            </p>
+          </div>
+          <div className="bg-white rounded-xl border border-[#efefef] p-3 shadow-sm">
+            <div className="flex items-center gap-2 mb-1">
+              <ShoppingBag size={14} style={{ color: "#0284C7" }} />
+              <span className="text-xs text-[#627271]">Pedidos</span>
+            </div>
+            <p className="text-lg text-[#1f2937]" style={{ fontWeight: 700 }}>
+              {qtdPedidos}
+            </p>
+            <p className="text-[10px] text-[#627271]">
+              {filtered.filter((p) => p.status === "entregue").length} entregues
+            </p>
+          </div>
+        </div>
+
+        {/* Desktop: todos os 4 KPIs */}
+        <div className="hidden lg:contents">
+          <KpiCard
+            title="Total vendido"
+            value={formatCurrency(totalValor)}
+            subtitle={`${periodo === "hoje" ? "hoje" : periodo === "7dias" ? "nos últimos 7 dias" : "nos últimos 30 dias"}`}
+            trend={trendValor}
+            icon={DollarSign}
+            iconColor="#86cb92"
+            iconBg="#efefef"
+          />
+          <KpiCard
+            title="Pedidos realizados"
+            value={String(qtdPedidos)}
+            subtitle="excluindo cancelados"
+            trend={trendQtd}
+            icon={ShoppingBag}
+            iconColor="#0284C7"
+            iconBg="#F0F9FF"
+          />
+          <KpiCard
+            title="Ticket médio"
+            value={formatCurrency(ticketMedio)}
+            subtitle="por pedido"
+            trend={5}
+            icon={BarChart2}
+            iconColor="#7C3AED"
+            iconBg="#F5F3FF"
+          />
+          <KpiCard
+            title="Taxa de entrega"
+            value={`${filtered.length > 0 ? Math.round((filtered.filter((p) => p.status === "entregue").length / filtered.filter((p) => p.status !== "cancelado").length) * 100) || 0 : 0}%`}
+            subtitle="pedidos entregues"
+            trend={3}
+            icon={CheckCircle}
+            iconColor="#D97706"
+            iconBg="#FFFBEB"
+          />
+        </div>
       </div>
 
-      {/* Search + Filters */}
-      <div className="bg-white rounded-2xl border border-[#efefef] p-4 shadow-sm space-y-3">
-        <div className="flex flex-col sm:flex-row gap-3">
+      {/* Search + Filters - mobile: compacto, desktop: completo */}
+      <div className="bg-white rounded-2xl border border-[#efefef] p-3 sm:p-4 shadow-sm space-y-3">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           {/* Search */}
           <div className="relative flex-1">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#627271]" />
             <input
               type="text"
-              placeholder="Buscar por nº do pedido ou cliente..."
+              placeholder="Buscar pedido ou cliente..."
               className="w-full pl-9 pr-4 py-2.5 text-sm border border-[#efefef] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#86cb92]/30 focus:border-[#86cb92] bg-[#efefef]"
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
@@ -408,7 +439,7 @@ export function PedidosListaPage() {
           {/* Period select */}
           <div className="relative">
             <select
-              className="appearance-none pl-3 pr-8 py-2.5 text-sm border border-[#efefef] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#86cb92]/30 bg-[#efefef] text-[#1f2937]"
+              className="appearance-none pl-3 pr-8 py-2.5 text-sm border border-[#efefef] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#86cb92]/30 bg-[#efefef] text-[#1f2937] w-full sm:w-auto"
               value={periodo}
               onChange={(e) => { setPeriodo(e.target.value); setPage(1); }}
             >
@@ -419,17 +450,17 @@ export function PedidosListaPage() {
             <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#627271] pointer-events-none" />
           </div>
 
-          {/* Toggle filters */}
+          {/* Toggle filters - icon only no mobile */}
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-1.5 px-3 py-2.5 text-sm rounded-xl border transition-colors ${
+            className={`flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm rounded-xl border transition-colors ${
               showFilters || statusFilter !== "todos" || canalFilter !== "todos"
                 ? "border-[#86cb92] text-[#1f2937] bg-[#efefef]"
                 : "border-[#efefef] text-[#1f2937] hover:bg-[#efefef]"
             }`}
           >
             <Filter size={14} />
-            <span>Filtros</span>
+            <span className="hidden sm:inline">Filtros</span>
             {(statusFilter !== "todos" || canalFilter !== "todos") && (
               <span
                 className="w-4 h-4 rounded-full text-[10px] flex items-center justify-center text-[#1f2937]"
@@ -443,7 +474,7 @@ export function PedidosListaPage() {
 
         {/* Expanded filters */}
         {showFilters && (
-          <div className="flex flex-wrap gap-3 pt-1 border-t border-[#efefef]">
+          <div className="flex flex-wrap gap-2 sm:gap-3 pt-2 border-t border-[#efefef]">
             <div className="relative">
               <select
                 className="appearance-none pl-3 pr-8 py-2 text-sm border border-[#efefef] rounded-xl bg-white text-[#1f2937] focus:outline-none focus:ring-2 focus:ring-[#86cb92]/30"
