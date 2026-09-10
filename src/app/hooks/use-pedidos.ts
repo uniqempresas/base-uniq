@@ -17,6 +17,14 @@ interface DBVenda {
   criado_em: string;
 }
 
+interface DBCliente {
+  id: string;
+  nome_cliente: string;
+  telefone: string | null;
+  email: string | null;
+  documento: string | null;
+}
+
 function mapStatusVenda(status: string): StatusPedido {
   const map: Record<string, StatusPedido> = {
     pendente: "aguardando",
@@ -53,16 +61,28 @@ function gerarNumeroPedido(id: string): string {
   return `PD-${new Date().getFullYear()}-${hash}`;
 }
 
-function mapVendaToPedido(db: DBVenda): Pedido {
+function formatTelefone(telefone: string | null | undefined): string {
+  if (!telefone) return "";
+  const nums = telefone.replace(/\D/g, "");
+  if (nums.length === 11) {
+    return `(${nums.slice(0, 2)}) ${nums.slice(2, 7)}-${nums.slice(7)}`;
+  }
+  if (nums.length === 10) {
+    return `(${nums.slice(0, 2)}) ${nums.slice(2, 6)}-${nums.slice(6)}`;
+  }
+  return telefone;
+}
+
+function mapVendaToPedido(db: DBVenda, cliente?: DBCliente | null): Pedido {
   return {
     id: db.id,
     numero: gerarNumeroPedido(db.id),
     dataHora: db.criado_em,
     cliente: {
-      nome: "Cliente",
-      telefone: "",
-      email: "",
-      documento: "",
+      nome: cliente?.nome_cliente || "Cliente sem nome",
+      telefone: formatTelefone(cliente?.telefone),
+      email: cliente?.email || "",
+      documento: cliente?.documento || "",
       tipo: "pf",
     },
     canal: mapCanalVenda(db.canal_venda),
@@ -122,7 +142,33 @@ export function usePedidos(): UsePedidosReturn {
         return;
       }
 
-      setPedidos(vendasValidas.map(mapVendaToPedido));
+      // Busca todos os clientes de uma vez (mais eficiente)
+      const clienteIds = vendasValidas
+        .map((v) => v.cliente_id)
+        .filter((id): id is string => id !== null);
+
+      let clientesMap: Map<string, DBCliente> = new Map();
+
+      if (clienteIds.length > 0) {
+        const { data: clientesData } = await supabase
+          .from("me_cliente")
+          .select("id, nome_cliente, telefone, email, documento")
+          .in("id", clienteIds);
+
+        if (clientesData) {
+          clientesMap = new Map(
+            (clientesData as DBCliente[]).map((c) => [c.id, c])
+          );
+        }
+      }
+
+      // Mapeia vendas com dados dos clientes
+      const pedidosMapeados = vendasValidas.map((venda) => {
+        const cliente = venda.cliente_id ? clientesMap.get(venda.cliente_id) : null;
+        return mapVendaToPedido(venda, cliente);
+      });
+
+      setPedidos(pedidosMapeados);
     } catch (err) {
       console.error("[usePedidos] Erro ao buscar dados reais:", err);
       setPedidos(PEDIDOS);

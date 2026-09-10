@@ -299,14 +299,14 @@ export function PedidosListaPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-screen-xl mx-auto space-y-5">
+    <div className="p-3 sm:p-6 max-w-screen-xl mx-auto space-y-3 sm:space-y-5">
       {/* Page header */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-2">
         <div>
-          <h1 className="text-[#1f2937]" style={{ fontWeight: 700, fontSize: 20 }}>
+          <h1 className="text-[#1f2937]" style={{ fontWeight: 700, fontSize: 18 }}>
             Pedidos
           </h1>
-          <p className="text-sm text-[#627271] mt-0.5">
+          <p className="text-xs sm:text-sm text-[#627271] mt-0.5">
             {filtered.length} pedido{filtered.length !== 1 ? "s" : ""} encontrado{filtered.length !== 1 ? "s" : ""}
           </p>
         </div>
@@ -318,6 +318,7 @@ export function PedidosListaPage() {
           >
             <Plus size={14} />
             <span className="hidden sm:inline">Novo Pedido</span>
+            <span className="sm:hidden">Novo</span>
           </button>
           <button
             onClick={handleExport}
@@ -329,21 +330,20 @@ export function PedidosListaPage() {
         </div>
       </div>
 
-      {/* MEL tip */}
+      {/* MEL tip - compacto no mobile */}
       <div
-        className="flex items-start gap-3 p-3.5 rounded-2xl border"
+        className="flex items-start gap-2 p-3 rounded-xl border"
         style={{ background: "#F5F3FF", borderColor: "#DDD6FE" }}
       >
-        <Sparkles size={16} style={{ color: "#7C3AED", flexShrink: 0, marginTop: 2 }} />
+        <Sparkles size={14} style={{ color: "#7C3AED", flexShrink: 0, marginTop: 1 }} />
         <p className="text-xs" style={{ color: "#6D28D9" }}>
-          <strong>MEL diz:</strong> Você tem{" "}
-          {pedidos.filter((p) => p.status === "separacao").length} pedidos em separação esperando envio.
-          Atualize o status assim que postar! 📦
+          <strong>MEL diz:</strong>{" "}
+          {pedidos.filter((p) => p.status === "separacao").length} pedidos em separação aguardando envio 📦
         </p>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* KPI Cards - 2 colunas no mobile */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
         <KpiCard
           title="Total vendido"
           value={formatCurrency(totalValor)}
@@ -506,7 +506,7 @@ export function PedidosListaPage() {
         </div>
       )}
 
-      {/* Table */}
+      {/* Table/Cards */}
       <div className="bg-white rounded-2xl border border-[#efefef] shadow-sm overflow-hidden">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
@@ -532,8 +532,70 @@ export function PedidosListaPage() {
           </div>
         ) : (
           <>
-            {/* Table header */}
-            <div className="overflow-x-auto">
+            {/* Cards para mobile - sem scroll horizontal */}
+            <div className="md:hidden divide-y divide-[#efefef]">
+              {paginated.map((pedido) => (
+                <div
+                  key={pedido.id}
+                  className={`p-3 active:bg-[#efefef]/50 transition-colors ${
+                    selectedIds.has(pedido.id) ? "bg-[#efefef]/50" : ""
+                  }`}
+                  onClick={() => navigate(`/vendas/pedidos/${pedido.id}`)}
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleSelect(pedido.id); }}
+                        className="p-1 -ml-1"
+                      >
+                        {selectedIds.has(pedido.id) ? (
+                          <CheckSquare size={18} style={{ color: "#1f2937" }} />
+                        ) : (
+                          <Square size={18} className="text-[#627271]" />
+                        )}
+                      </button>
+                      <span
+                        className="text-[#1f2937] text-sm"
+                        style={{ fontWeight: 700, fontFamily: "monospace" }}
+                      >
+                        {pedido.numero}
+                      </span>
+                      <CanalBadge canal={pedido.canal} />
+                    </div>
+                    <span
+                      className="text-[#1f2937] text-sm"
+                      style={{
+                        fontWeight: 700,
+                        color: pedido.status === "cancelado" ? "#627271" : "#1f2937",
+                        textDecoration: pedido.status === "cancelado" ? "line-through" : "none",
+                      }}
+                    >
+                      {formatCurrency(pedido.total)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 ml-7">
+                    <div className="min-w-0">
+                      <p className="text-[#1f2937] text-sm truncate" style={{ fontWeight: 500 }}>
+                        {pedido.cliente.nome}
+                      </p>
+                      <p className="text-xs text-[#627271]">
+                        {formatDateTime(pedido.dataHora)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {pedido.statusPagamento === "pendente" && (
+                        <AlertCircle size={14} className="text-amber-500" />
+                      )}
+                      <StatusBadge status={pedido.status} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Tabela para desktop */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[#efefef]">
