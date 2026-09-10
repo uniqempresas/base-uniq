@@ -39,6 +39,7 @@ import {
 } from "./pedidosMockData";
 import { usePedidos } from "../../hooks/use-pedidos";
 import { useCriarPedido } from "../../hooks/use-criar-pedido";
+import { useAtualizarStatusPedido } from "../../hooks/use-atualizar-status-pedido";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -169,6 +170,7 @@ export function PedidosListaPage() {
   const navigate = useNavigate();
   const { pedidos, loading, isFallback, recarregar } = usePedidos();
   const { criarPedido, loading: criandoPedido } = useCriarPedido();
+  const { atualizarStatus } = useAtualizarStatusPedido();
   const [search, setSearch] = useState("");
   const [periodo, setPeriodo] = useState("30dias");
   const [statusFilter, setStatusFilter] = useState<StatusPedido | "todos">("todos");
@@ -902,8 +904,15 @@ export function PedidosListaPage() {
                         borderColor: isCurrent ? cfg.borderColor : "#efefef",
                         background: isCurrent ? cfg.bg : "white",
                       }}
-                      onClick={() => {
-                        toast.success(`Status atualizado para "${cfg.label}"!`);
+                      onClick={async () => {
+                        if (!statusUpdateModal) return;
+                        const res = await atualizarStatus({ id: statusUpdateModal.id, status: s });
+                        if (res.success) {
+                          toast.success(`Status atualizado para "${cfg.label}"!`);
+                          recarregar();
+                        } else {
+                          toast.error(`Erro: ${res.error}`);
+                        }
                         setStatusUpdateModal(null);
                       }}
                     >
