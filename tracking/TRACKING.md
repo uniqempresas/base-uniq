@@ -132,6 +132,7 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 | 2.2 | ✅ Pedido contabilizado | **RPC `registrar_venda`** → `me_venda`, `me_contas_receber` | Chamar a RPC cria a venda + conta a receber | 2.1 |
 | 2.3 | ✅ Pedidos integrados ao banco + criação manual | `me_venda` / `me_cliente` | Pedido criado manualmente aparece na lista | 2.2 |
 | 2.4 | Corrigir o que quebrar no uso real | — | Partes da cadeia estáveis no uso real | 2.3 |
+| 2.5 | ✅ CRUD de produtos integrado ao Supabase | `me_produto` | Produto cadastrado aparece na lista | 2.3 |
 
 **Gate:** a Doceê opera pela Base UNIQ sem voltar para o caderno/WhatsApp solto.
 
@@ -171,6 +172,19 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 - Botão "Novo Pedido" + modal de criação manual
 - Lista de pedidos integrada ao banco com fallback mock
 - Cliente criado automaticamente se não existir
+
+**Documentos criados (T2.5):**
+- PRD: `tracking/plans/PRD-Semana2-T2.5-ProdutosBanco.md`
+- SPEC: `tracking/specs/SPEC-Semana2-T2.5-ProdutosBanco.md`
+- WIRE: `tracking/wireframe/WIRE-Semana2-T2.5-ProdutosBanco.md`
+
+**Implementação concluída (T2.5):**
+- Hook `useProdutos` com fallback para mock
+- Hook `useCriarProduto` inserindo em `me_produto`
+- Hook `useAtualizarProduto` para edição
+- Lista de produtos integrada ao banco
+- Loading skeleton e indicador de fallback
+- Recarrega lista após criar produto
 - Hooks `use-clientes` e `use-cliente` criados
 - Componentes `ClienteOrigemBadge` e `ClienteConversaResumo` criados
 

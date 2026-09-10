@@ -544,6 +544,73 @@ Estabelecida em 01/08/2026. Ordem de prioridade para manter o foco na Fase 1:
 
 ---
 
+## 🤖 Arquitetura Multi-Tenant da Melissa
+
+> ✅ **Definido em 09/09/2026** — arquitetura para atender múltiplos clientes UNIQ.
+
+### Visão Geral
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    N8N (VPS única)                       │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐ │
+│  │ Workflow    │  │ Workflow    │  │ Workflow        │ │
+│  │ Doceê       │  │ HQ Gráfica  │  │ Cliente N       │ │
+│  │ (Melissa 1) │  │ (Melissa 2) │  │ (Melissa N)     │ │
+│  └──────┬──────┘  └──────┬──────┘  └────────┬────────┘ │
+└─────────┼────────────────┼─────────────────┼───────────┘
+          │                │                 │
+    ┌─────┴─────┐    ┌─────┴─────┐     ┌─────┴─────┐
+    │ Evolution │    │ Evolution │     │ Evolution │
+    │ WhatsApp  │    │ WhatsApp  │     │ WhatsApp  │
+    │ Doceê     │    │ HQ Gráfica│     │ Cliente N │
+    └───────────┘    └───────────┘     └───────────┘
+```
+
+### Decisões de Arquitetura
+
+| Aspecto | Decisão | Rationale |
+|---------|---------|-----------|
+| **N8N** | Mesma VPS para todos os clientes (por enquanto) | Custo/simplicidade; migrar para VPS dedicada ou robusta no futuro |
+| **LLM** | OpenRouter (repassado ao cliente) | Custo variável proporcional ao uso |
+| **Isolamento** | Workflow separado por cliente | Cada Melissa tem seu fluxo, memória e configuração |
+| **Pedidos** | Entram como "aguardando" | Esposa valida antes de mudar status |
+
+### Fluxo do Pedido Automático
+
+```
+Cliente manda msg no WhatsApp
+    ↓
+Evolution API → webhook → N8N (workflow do cliente)
+    ↓
+Melissa (LLM via OpenRouter) processa
+    ↓
+┌─────────────────────────────────────────┐
+│  Tools disponíveis:                     │
+│  • criar_cliente(nome, telefone)        │
+│  • criar_pedido(cliente_id, itens, ...) │
+└─────────────────────────────────────────┘
+    ↓
+Só chama tool se tiver TODOS os campos obrigatórios
+    ↓
+INSERT em me_venda (status: "aguardando")
+    ↓
+Pedido aparece na Base UNIQ
+    ↓
+Esposa valida → muda status → contabiliza
+```
+
+### Tools da Melissa (contrato)
+
+| Tool | Campos obrigatórios | Campos opcionais |
+|------|---------------------|------------------|
+| `criar_cliente` | `nome`, `telefone` | `email`, `documento` |
+| `criar_pedido` | `cliente_id`, `itens[]`, `valor_total` | `observacoes`, `forma_pagamento` |
+
+> **Nota:** Para `criar_pedido` com itens estruturados, ideal ter produtos cadastrados (`me_produto`). Alternativa: descrição livre com valor total.
+
+---
+
 ## 🏗️ Estado Real da Infraestrutura (07/09/2026)
 
 > Levantamento declarado pelo fundador. Ainda não inspecionado diretamente pelo CEO.

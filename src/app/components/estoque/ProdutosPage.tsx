@@ -29,6 +29,8 @@ import {
   getEstoqueStatusConfig,
   type Produto,
 } from "./estoqueMockData";
+import { useProdutos } from "../../hooks/use-produtos";
+import { useCriarProduto } from "../../hooks/use-criar-produto";
 
 type ViewMode = "grid" | "list";
 
@@ -583,8 +585,10 @@ function NovoProdutoModal({
 /* ─────────── Main Page ─────────── */
 export function ProdutosPage() {
   const navigate = useNavigate();
-  const [busca, setBusca] = useState("");
+  const { produtos, loading, isFallback, recarregar } = useProdutos();
+  const { criarProduto, loading: criandoProduto } = useCriarProduto();
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [busca, setBusca] = useState("");
   const [catFiltro, setCatFiltro] = useState("Todas");
   const [statusEstoque, setStatusEstoque] = useState("Todos");
   const [statusProduto, setStatusProduto] = useState("Todos");
@@ -597,7 +601,10 @@ export function ProdutosPage() {
     setTimeout(() => setToast(""), 3000);
   };
 
-  const filteredProdutos = PRODUTOS.filter((p) => {
+  // Categorias dinâmicas baseadas nos produtos
+  const CATEGORIAS_DINAMICAS = [...new Set(produtos.map((p) => p.categoria))];
+
+  const filteredProdutos = produtos.filter((p) => {
     const matchBusca =
       !busca ||
       p.nome.toLowerCase().includes(busca.toLowerCase()) ||
@@ -632,26 +639,53 @@ export function ProdutosPage() {
         </div>
       )}
 
-      {showNovoProduto && (
-        <NovoProdutoModal
-          onClose={() => setShowNovoProduto(false)}
-          onSuccess={() => {
-            setShowNovoProduto(false);
-            showToast("Produto cadastrado com sucesso! 🎉");
-          }}
-        />
+      {/* Loading skeleton */}
+      {loading && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <div key={i} className="bg-white rounded-2xl border border-[#efefef] overflow-hidden">
+              <div className="h-36 bg-[#efefef] animate-pulse" />
+              <div className="p-3 space-y-2">
+                <div className="h-4 bg-[#efefef] rounded animate-pulse w-3/4" />
+                <div className="h-3 bg-[#efefef] rounded animate-pulse w-1/2" />
+                <div className="h-5 bg-[#efefef] rounded animate-pulse w-1/3" />
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
-      {/* Header */}
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h1 className="text-[#1f2937]" style={{ fontWeight: 700, fontSize: "1.2rem" }}>
-            Produtos
-          </h1>
-          <p className="text-[#627271] text-sm">
-            {filteredProdutos.length} de {PRODUTOS.length} produtos
-          </p>
+      {/* Fallback indicator */}
+      {isFallback && !loading && (
+        <div className="mb-4 flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs">
+          <AlertTriangle size={14} />
+          Mostrando dados de exemplo. Cadastre produtos para ver dados reais.
         </div>
+      )}
+
+      {!loading && (
+        <>
+          {showNovoProduto && (
+            <NovoProdutoModal
+              onClose={() => setShowNovoProduto(false)}
+              onSuccess={() => {
+                setShowNovoProduto(false);
+                showToast("Produto cadastrado com sucesso! 🎉");
+                recarregar();
+              }}
+            />
+          )}
+
+          {/* Header */}
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h1 className="text-[#1f2937]" style={{ fontWeight: 700, fontSize: "1.2rem" }}>
+                Produtos
+              </h1>
+              <p className="text-[#627271] text-sm">
+                {filteredProdutos.length} de {produtos.length} produtos
+              </p>
+            </div>
         <div className="flex items-center gap-2">
           <button className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#efefef] bg-white text-[#1f2937] text-xs hover:bg-[#efefef] transition-colors" style={{ fontWeight: 500 }}>
             <Upload size={13} />Importar
@@ -671,26 +705,22 @@ export function ProdutosPage() {
       </div>
 
       {/* Alertas rápidos */}
-      {(PRODUTOS.some((p) => p.estoqueStatus === "zerado") || PRODUTOS.some((p) => p.estoqueStatus === "baixo")) && (
+      {(produtos.some((p) => p.estoqueStatus === "zerado") || produtos.some((p) => p.estoqueStatus === "baixo")) && (
         <div className="flex flex-wrap gap-2 mb-4">
-          {PRODUTOS.some((p) => p.estoqueStatus === "zerado") && (
-            <button
-              onClick={() => setStatusEstoque("Zerado")}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs"
-              style={{ background: "#FEF2F2", color: "#B91C1C", fontWeight: 600, border: "1px solid #FECACA" }}
-            >
-              <span className="w-2 h-2 rounded-full bg-red-500" />
-              {PRODUTOS.filter((p) => p.estoqueStatus === "zerado").length} zerado(s)
-            </button>
+          {produtos.some((p) => p.estoqueStatus === "zerado") && (
+            <span className="flex items-center gap-1 text-xs text-red-600">
+              <AlertTriangle size={12} />
+              {produtos.filter((p) => p.estoqueStatus === "zerado").length} zerado(s)
+            </span>
           )}
-          {PRODUTOS.some((p) => p.estoqueStatus === "baixo") && (
+          {produtos.some((p) => p.estoqueStatus === "baixo") && (
             <button
               onClick={() => setStatusEstoque("Baixo")}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs"
               style={{ background: "#FFFBEB", color: "#B45309", fontWeight: 600, border: "1px solid #FDE68A" }}
             >
               <span className="w-2 h-2 rounded-full bg-amber-500" />
-              {PRODUTOS.filter((p) => p.estoqueStatus === "baixo").length} estoque baixo
+              {produtos.filter((p) => p.estoqueStatus === "baixo").length} estoque baixo
             </button>
           )}
         </div>
@@ -896,6 +926,8 @@ export function ProdutosPage() {
             </table>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );
