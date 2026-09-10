@@ -133,7 +133,7 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 | 2.3 | ✅ Pedidos integrados ao banco + criação manual | `me_venda` / `me_cliente` | Pedido criado manualmente aparece na lista | 2.2 |
 | 2.4 | Corrigir o que quebrar no uso real | — | Partes da cadeia estáveis no uso real | 2.3 |
 | 2.5 | ✅ CRUD de produtos integrado ao Supabase | `me_produto` | Produto cadastrado aparece na lista | 2.3 |
-| 2.6 | 🔒 Segurança: isolar dados por empresa | Todos os hooks | Usuário só vê dados da sua empresa | Crítico |
+| 2.6 | ✅ Segurança: isolar dados por empresa | Todos os hooks | Usuário só vê dados da sua empresa | Crítico |
 
 **Gate:** a Doceê opera pela Base UNIQ sem voltar para o caderno/WhatsApp solto.
 
@@ -202,7 +202,7 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 - **Problema:** Hooks de leitura não filtravam por `empresa_id` — qualquer usuário via dados de todas as empresas
 - **Hooks afetados:** `use-clientes`, `use-cliente`, `use-pedidos`, `use-pedido`, `use-produtos`, `useConversasReais`
 - **Correção:** Adicionar `.eq("empresa_id", empresaId)` em todas as queries, usando contexto de auth
-- **Status:** 🔄 Em correção
+- **Status:** ✅ Concluído (10/09/2026) — hooks corrigidos, Dashboard usa nome real
 
 **Número confirmado:** `5511919153508` (Doceê / HQ Gráfica) — usar este canal ao duplicar o fluxo n8n.
 
