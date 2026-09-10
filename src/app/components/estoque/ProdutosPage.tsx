@@ -208,8 +208,8 @@ function NovoProdutoModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
+  const { criarProduto, loading: salvando } = useCriarProduto();
   const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     nome: "",
     sku: "",
@@ -228,10 +228,21 @@ function NovoProdutoModal({
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 1400));
-    setLoading(false);
-    onSuccess();
+
+    const resultado = await criarProduto({
+      nome: form.nome,
+      sku: form.sku || undefined,
+      categoria: form.categoria || undefined,
+      precoVenda: parseFloat(form.precoVenda) || 0,
+      precoCusto: parseFloat(form.precoCusto) || 0,
+      estoque: parseInt(form.estoque) || 0,
+    });
+
+    if (resultado.success) {
+      onSuccess();
+    } else {
+      alert(`Erro ao salvar produto: ${resultado.error}`);
+    }
   };
 
   const STEPS = ["Informações", "Preços", "Estoque"];
@@ -565,11 +576,11 @@ function NovoProdutoModal({
             <button
               type="button"
               onClick={handleSave as any}
-              disabled={loading}
+              disabled={salvando}
               className="flex-1 py-3 rounded-xl text-[#1f2937] text-sm flex items-center justify-center gap-2 disabled:opacity-70"
               style={{ background: "#86cb92", fontWeight: 600 }}
             >
-              {loading ? (
+              {salvando ? (
                 <><Loader2 size={15} className="animate-spin" />Salvando...</>
               ) : (
                 "Salvar produto 🎉"
