@@ -31,6 +31,7 @@ import {
 } from "./estoqueMockData";
 import { useProdutos } from "../../hooks/use-produtos";
 import { useCriarProduto } from "../../hooks/use-criar-produto";
+import { useAtualizarProduto } from "../../hooks/use-atualizar-produto";
 
 type ViewMode = "grid" | "list";
 
@@ -598,6 +599,7 @@ export function ProdutosPage() {
   const navigate = useNavigate();
   const { produtos, loading, isFallback, recarregar } = useProdutos();
   const { criarProduto, loading: criandoProduto } = useCriarProduto();
+  const { atualizarProduto, loading: atualizandoProduto } = useAtualizarProduto();
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [busca, setBusca] = useState("");
   const [catFiltro, setCatFiltro] = useState("Todas");
@@ -605,11 +607,29 @@ export function ProdutosPage() {
   const [statusProduto, setStatusProduto] = useState("Todos");
   const [showFiltros, setShowFiltros] = useState(false);
   const [showNovoProduto, setShowNovoProduto] = useState(false);
+  const [produtoParaExcluir, setProdutoParaExcluir] = useState<Produto | null>(null);
   const [toast, setToast] = useState("");
 
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(""), 3000);
+  };
+
+  const handleExcluirProduto = async () => {
+    if (!produtoParaExcluir) return;
+
+    const resultado = await atualizarProduto({
+      id: parseInt(produtoParaExcluir.id),
+      ativo: false,
+    });
+
+    if (resultado.success) {
+      showToast(`Produto "${produtoParaExcluir.nome}" excluído!`);
+      setProdutoParaExcluir(null);
+      recarregar();
+    } else {
+      alert(`Erro ao excluir: ${resultado.error}`);
+    }
   };
 
   // Categorias dinâmicas baseadas nos produtos
@@ -647,6 +667,49 @@ export function ProdutosPage() {
         <div className="fixed top-6 right-6 z-50 flex items-center gap-2 bg-[#86cb92] text-[#1f2937] px-4 py-3 rounded-xl shadow-lg text-sm">
           <CheckCircle2 size={16} />
           {toast}
+        </div>
+      )}
+
+      {/* Modal de confirmação de exclusão */}
+      {produtoParaExcluir && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-2xl bg-red-100 flex items-center justify-center">
+                <Trash2 size={18} className="text-red-600" />
+              </div>
+              <div>
+                <p className="text-[#1f2937]" style={{ fontWeight: 700 }}>
+                  Excluir produto?
+                </p>
+                <p className="text-xs text-[#627271]">Esta ação pode ser desfeita reativando o produto.</p>
+              </div>
+            </div>
+            <p className="text-sm text-[#1f2937] mb-4">
+              Você está excluindo <strong>"{produtoParaExcluir.nome}"</strong>.
+            </p>
+            <div className="flex gap-2">
+              <button
+                className="flex-1 px-4 py-2.5 rounded-xl border border-[#efefef] text-sm text-[#1f2937] hover:bg-[#efefef] transition-colors"
+                onClick={() => setProdutoParaExcluir(null)}
+                disabled={atualizandoProduto}
+              >
+                Cancelar
+              </button>
+              <button
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                style={{ background: "#DC2626" }}
+                onClick={handleExcluirProduto}
+                disabled={atualizandoProduto}
+              >
+                {atualizandoProduto ? (
+                  <><Loader2 size={14} className="animate-spin" />Excluindo...</>
+                ) : (
+                  "Confirmar exclusão"
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -927,7 +990,12 @@ export function ProdutosPage() {
                         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                           <button className="w-7 h-7 rounded-lg bg-[#efefef] text-[#627271] flex items-center justify-center hover:bg-[#efefef]"><Edit2 size={13} /></button>
                           <button className="w-7 h-7 rounded-lg bg-[#efefef] text-[#627271] flex items-center justify-center hover:bg-[#efefef]"><Copy size={13} /></button>
-                          <button className="w-7 h-7 rounded-lg bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100"><Trash2 size={13} /></button>
+                          <button
+                            className="w-7 h-7 rounded-lg bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100"
+                            onClick={() => setProdutoParaExcluir(p)}
+                          >
+                            <Trash2 size={13} />
+                          </button>
                         </div>
                       </td>
                     </tr>
