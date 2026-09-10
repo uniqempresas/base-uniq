@@ -413,16 +413,16 @@ export function PedidosListaPage() {
         </div>
       </div>
 
-      {/* Search + Filters - mobile: compacto, desktop: completo */}
+      {/* Search + Filters - mobile: 1 linha, desktop: completo */}
       <div className="bg-white rounded-2xl border border-[#efefef] p-3 sm:p-4 shadow-sm space-y-3">
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-          {/* Search */}
-          <div className="relative flex-1">
+        <div className="flex gap-2 sm:gap-3">
+          {/* Search - metade no mobile */}
+          <div className="relative flex-1 sm:flex-1">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#627271]" />
             <input
               type="text"
-              placeholder="Buscar pedido ou cliente..."
-              className="w-full pl-9 pr-4 py-2.5 text-sm border border-[#efefef] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#86cb92]/30 focus:border-[#86cb92] bg-[#efefef]"
+              placeholder="Buscar..."
+              className="w-full pl-9 pr-8 py-2.5 text-sm border border-[#efefef] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#86cb92]/30 focus:border-[#86cb92] bg-[#efefef]"
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             />
@@ -437,9 +437,9 @@ export function PedidosListaPage() {
           </div>
 
           {/* Period select */}
-          <div className="relative">
+          <div className="relative shrink-0">
             <select
-              className="appearance-none pl-3 pr-8 py-2.5 text-sm border border-[#efefef] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#86cb92]/30 bg-[#efefef] text-[#1f2937] w-full sm:w-auto"
+              className="appearance-none pl-3 pr-8 py-2.5 text-sm border border-[#efefef] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#86cb92]/30 bg-[#efefef] text-[#1f2937]"
               value={periodo}
               onChange={(e) => { setPeriodo(e.target.value); setPage(1); }}
             >
@@ -453,7 +453,7 @@ export function PedidosListaPage() {
           {/* Toggle filters - icon only no mobile */}
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm rounded-xl border transition-colors ${
+            className={`flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm rounded-xl border transition-colors shrink-0 ${
               showFilters || statusFilter !== "todos" || canalFilter !== "todos"
                 ? "border-[#86cb92] text-[#1f2937] bg-[#efefef]"
                 : "border-[#efefef] text-[#1f2937] hover:bg-[#efefef]"
