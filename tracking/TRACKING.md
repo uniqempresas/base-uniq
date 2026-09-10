@@ -134,6 +134,7 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 | 2.4 | Corrigir o que quebrar no uso real | — | Partes da cadeia estáveis no uso real | 2.3 |
 | 2.5 | ✅ CRUD de produtos integrado ao Supabase | `me_produto` | Produto cadastrado aparece na lista | 2.3 |
 | 2.6 | ✅ Segurança: isolar dados por empresa | Todos os hooks | Usuário só vê dados da sua empresa | Crítico |
+| 2.7 | 📋 Financeiro integrado ao banco (Receber + Pagar) | `me_contas_receber` / `me_contas_pagar` | Contabilizar venda aparece no Financeiro | 2.2 |
 
 **Gate:** a Doceê opera pela Base UNIQ sem voltar para o caderno/WhatsApp solto.
 
