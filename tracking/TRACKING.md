@@ -42,14 +42,15 @@ Conectar a **Base UNIQ** para que a demonstração `WhatsApp → CRM → pedido 
 | **Chat WhatsApp (Evolution)** | `crm_chat_conversas` | **20** (RLS por empresa) | `id`(text), `empresa_id`, `cliente_id`, `lead_id`, `status`, `modo`, `titulo`, `nome`, `canal`, `canal_id`, `canal_dados`(jsonb), `foto_contato`, `criado_em` |
 | **Mensagens** | `crm_chat_mensagens` | **647** (RLS por empresa) | `id`, `conversa_id`(text), `remetente_tipo`, `remetente_id`, `conteudo`, `tipo_conteudo`, `lido`, `metadados`(jsonb), `remetente`, `tipo`, `arquivo_url`, `canal_mensagem_id`, `status`, `criado_em` |
 | **Chat MEL** | `mel_chat` | **548** | histórico de conversas da MEL |
-| **Cliente** | `me_cliente` | **7** | `id`, `empresa_id`, `nome`, `telefone`, `email`, `documento`, `endereco`, `criado_em` |
+| **Cliente** | `me_cliente` | **7** | `id`, `empresa_id`, `nome_cliente`, `telefone`, `email`, `documento`/`cpf_cnpj`, `endereco`, `cidade`, `estado`, `origem`, `ativo`, `criado_em` |
 | **Leads** | `crm_leads` | **0** (vazio) | `id`, `empresa_id`, `nome`, `email`, `telefone`, `status`, `origem`, `cargo`, `empresa_nome`, `ltv`, `ultima_interacao`, `observacoes`, `foto_url`, `created_at` |
 | **Empresa** | `me_empresa` | **2** | `id`, `nome_fantasia`, `cnpj`, `telefone`, `email`, `slug`, `store_config`(jsonb), `logo_url`, `appearance`(jsonb) |
 | **Usuário** | `me_usuario` | **2** | `id`, `empresa_id`, `email`, `nome_usuario`, `cargo`, `role`, `ativo` |
 | **Vendas** | `me_venda` | **2** | `id`, `empresa_id`, `cliente_id`, `usuario_id`, `valor_total`, `status_venda`, `forma_pagamento`, `canal_venda`, `tipo_venda`, `npedido`, `conta_id`, `criado_em` |
-| **Produtos** | `me_produto` | **3** | catálogo de produtos |
+| **Produtos** | `me_produto` | **3** | `id`, `empresa_id`, `nome_produto`, `preco`, `preco_varejo`, `preco_custo`, `sku`, `estoque_atual`, `ativo` |
+| **Itens de venda** | `me_itens_venda` | — | `id`, `venda_id`, `empresa_id`, `produto_id`, `quantidade`, `preco_unitario`, `subtotal`, `nome_produto`, `tipo_item` |
 | **Finanças** | `me_contas_receber` / `me_contas_pagar` | **5** / **1** | contas a receber e a pagar |
-| **Tags CRM** | `me_tag` | **24** | tags configuráveis do CRM |
+| **Tags CRM** | `me_tag` | **24** | `id`, `empresa_id`, `nome`, `cor`, `ativo`, `criado_em` |
 
 ### RPC disponível para a cadeia de demonstração
 
@@ -225,7 +226,7 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 
 **Implementação concluída (T2.9 — commit `3de7bfc`, 11/09/2026):**
 - Hook `use-criar-cliente.ts` persistindo o cliente do modal "Novo Cliente" em `crm_leads` (`origem manual`, status `novo`, com tags) — resolve USO REAL #12
-- `useCriarPedido` aceita `itens` e grava os produtos selecionados em `me_itens_venda` (com `venda_id`; `valor_total` = soma dos itens)
+- `useCriarPedido` aceita `itens`: cria/usa cliente em `me_cliente` (find-or-create por `nome_cliente` + `empresa_id`), grava pedido em `me_venda` e itens em `me_itens_venda` (com `venda_id`; `valor_total` = soma dos itens)
 - `PedidosListaPage`: seção "Produtos do pedido" no modal de criação (select de `me_produto` via `useProdutos`, quantidade ±, total automático; valor manual vira somente-leitura quando há itens; descrição auto-gerada)
 - Sem itens → fluxo anterior preservado (valor manual + descrição obrigatória)
 
