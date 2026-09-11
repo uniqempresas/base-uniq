@@ -30,13 +30,14 @@ import {
   RefreshCw,
 } from "lucide-react";
 import {
-  PRODUTOS,
   MOVIMENTACOES,
   CATEGORIA_COLORS,
   formatCurrency,
   calcMargem,
   getEstoqueStatusConfig,
+  type Produto,
 } from "./estoqueMockData";
+import { useProduto } from "../../hooks/use-produto";
 
 type TabType = "geral" | "estoque" | "variacoes" | "movimentacoes";
 
@@ -46,7 +47,7 @@ function AjustarEstoqueModal({
   onClose,
   onSuccess,
 }: {
-  produto: ReturnType<typeof PRODUTOS.find> & {};
+  produto: Produto;
   onClose: () => void;
   onSuccess: () => void;
 }) {
@@ -174,16 +175,72 @@ export function ProdutoDetalhePage() {
   const [showAjuste, setShowAjuste] = useState(false);
   const [toast, setToast] = useState("");
 
-  const produto = PRODUTOS.find((p) => p.id === id) || PRODUTOS[0];
-  const movimentacoes = MOVIMENTACOES.filter((m) => m.produtoId === produto.id);
-  const margem = calcMargem(produto.precoCusto, produto.precoVenda);
-  const estoqueConfig = getEstoqueStatusConfig(produto.estoqueStatus);
-  const catColors = CATEGORIA_COLORS[produto.categoria] || CATEGORIA_COLORS["Outros"];
+  const { produto, loading, error, isFallback, recarregar } = useProduto(id);
+
+  // Movimentações: só em modo demo (mock-first); com sessão ativa vêm da base (empty state real)
+  const movimentacoes =
+    isFallback && produto
+      ? MOVIMENTACOES.filter((m) => m.produtoId === produto.id)
+      : [];
 
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(""), 3000);
   };
+
+  // ── Estados exigidos pelo hotfix (loading / error / empty) ──
+  if (loading) {
+    return (
+      <div className="max-w-5xl mx-auto p-4 sm:p-6 flex flex-col items-center justify-center py-24">
+        <Loader2 size={32} className="animate-spin text-[#627271] mb-4" />
+        <p className="text-[#627271] text-sm">Carregando produto...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-5xl mx-auto p-4 sm:p-6">
+        <div className="bg-white rounded-2xl border border-[#efefef] shadow-sm p-12 text-center">
+          <AlertTriangle size={32} className="text-red-500 mx-auto mb-3" />
+          <h3 className="text-[#1f2937] mb-2" style={{ fontWeight: 600 }}>Não foi possível carregar o produto</h3>
+          <p className="text-[#627271] text-sm mb-6">{error}</p>
+          <button
+            onClick={recarregar}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm mx-auto"
+            style={{ background: "#86cb92", color: "#1f2937", fontWeight: 600 }}
+          >
+            <RefreshCw size={15} />
+            Tentar novamente
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!produto) {
+    return (
+      <div className="max-w-5xl mx-auto p-4 sm:p-6">
+        <div className="bg-white rounded-2xl border border-[#efefef] shadow-sm p-12 text-center">
+          <Package size={32} className="text-[#627271] mx-auto mb-3" />
+          <h3 className="text-[#1f2937] mb-2" style={{ fontWeight: 600 }}>Produto não encontrado</h3>
+          <p className="text-[#627271] text-sm mb-6">Este produto não existe ou pertence a outra empresa.</p>
+          <button
+            onClick={() => navigate("/estoque/produtos")}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm mx-auto"
+            style={{ background: "#86cb92", color: "#1f2937", fontWeight: 600 }}
+          >
+            <ArrowLeft size={15} />
+            Voltar para produtos
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const margem = calcMargem(produto.precoCusto, produto.precoVenda);
+  const estoqueConfig = getEstoqueStatusConfig(produto.estoqueStatus);
+  const catColors = CATEGORIA_COLORS[produto.categoria] || CATEGORIA_COLORS["Outros"];
 
   const TABS = [
     { id: "geral", label: "Geral", icon: Package },

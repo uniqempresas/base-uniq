@@ -108,51 +108,52 @@ export interface UseClientesReturn {
 }
 
 export function useClientes(): UseClientesReturn {
-  const { empresa } = useAuth();
+  const { empresa, session, loading: authLoading } = useAuth();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFallback, setIsFallback] = useState(false);
 
   const carregarDados = useCallback(async () => {
+    if (authLoading) return;
+
     setLoading(true);
     setError(null);
     setIsFallback(false);
 
+    // MODO DEMO (sem login): usa mock — regra mock-first de 07/09/2026
+    if (!session) {
+      setClientes(mockClientes);
+      setIsFallback(true);
+      setLoading(false);
+      return;
+    }
+
+    // Logado mas empresa não resolvida: NÃO consultar outro tenant
+    const empresaId = empresa?.id;
+    if (!empresaId) {
+      setClientes([]);
+      setError("Empresa não identificada para este usuário. Recarregue a página ou faça login novamente.");
+      setIsFallback(false);
+      setLoading(false);
+      return;
+    }
+
     try {
-      // Busca empresa_id do contexto ou primeira disponível
-      let empresaId = empresa?.id;
-
-      if (!empresaId) {
-        const { data: empresas } = await supabase
-          .from("me_empresa")
-          .select("id")
-          .limit(1);
-
-        if (empresas && empresas.length > 0) {
-          empresaId = empresas[0].id;
-        }
-      }
-
-      let query = supabase
+      const { data: dbLeads, error: leadsError } = await supabase
         .from("crm_leads")
         .select("*")
+        .eq("empresa_id", empresaId)
         .order("ultima_interacao", { ascending: false });
-
-      // Filtra por empresa se disponível
-      if (empresaId) {
-        query = query.eq("empresa_id", empresaId);
-      }
-
-      const { data: dbLeads, error: leadsError } = await query;
 
       if (leadsError) throw leadsError;
 
       const leadsValidos = (dbLeads as DBLead[] | null) || [];
 
+      // 0 linhas = empresa nova = empty state real (nunca mock de outra empresa)
       if (leadsValidos.length === 0) {
-        setClientes(mockClientes);
-        setIsFallback(true);
+        setClientes([]);
+        setIsFallback(false);
         setLoading(false);
         return;
       }
@@ -160,13 +161,18 @@ export function useClientes(): UseClientesReturn {
       setClientes(leadsValidos.map(mapLeadToCliente));
     } catch (err) {
       console.error("[useClientes] Erro ao buscar dados reais:", err);
-      setClientes(mockClientes);
-      setError(err instanceof Error ? err.message : "Erro ao carregar clientes");
-      setIsFallback(true);
+      if (!session) {
+        setClientes(mockClientes);
+        setIsFallback(true);
+      } else {
+        setClientes([]);
+        setError(err instanceof Error ? err.message : "Erro ao carregar clientes");
+        setIsFallback(false);
+      }
     } finally {
       setLoading(false);
     }
-  }, [empresa]);
+  }, [empresa, session, authLoading]);
 
   useEffect(() => {
     carregarDados();

@@ -1,5 +1,7 @@
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
+import { supabase } from "../../../lib/supabase";
+import { useAuth } from "../../contexts/AuthContext";
 import {
   Building2,
   MapPin,
@@ -100,31 +102,32 @@ const ESTADOS_BR = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS",
 export function EmpresaPage() {
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
+  const { empresa, session, loading: authLoading } = useAuth();
 
-  // Dados empresa
-  const [razaoSocial, setRazaoSocial] = useState("Loja da Maria Comércio LTDA");
-  const [nomeFantasia, setNomeFantasia] = useState("Loja da Maria");
-  const [cnpj, setCnpj] = useState("12.345.678/0001-90");
+  // Dados empresa (inicializados vazios; useAuth repopula quando o contexto carregar)
+  const [razaoSocial, setRazaoSocial] = useState("");
+  const [nomeFantasia, setNomeFantasia] = useState("");
+  const [cnpj, setCnpj] = useState("");
   const [ie, setIe] = useState("");
   const [im, setIm] = useState("");
   const [logo, setLogo] = useState<string | null>(null);
 
   // Contato
-  const [telefone, setTelefone] = useState("(11) 3456-7890");
-  const [celular, setCelular] = useState("(11) 99876-5432");
-  const [email, setEmail] = useState("contato@lojadamaria.com");
-  const [site, setSite] = useState("www.lojadamaria.com");
-  const [instagram, setInstagram] = useState("@lojadamaria");
+  const [telefone, setTelefone] = useState("");
+  const [celular, setCelular] = useState("");
+  const [email, setEmail] = useState("");
+  const [site, setSite] = useState("");
+  const [instagram, setInstagram] = useState("");
   const [facebook, setFacebook] = useState("");
 
   // Endereço
-  const [cep, setCep] = useState("01310-100");
-  const [logradouro, setLogradouro] = useState("Av. Paulista");
-  const [numero, setNumero] = useState("1000");
-  const [complemento, setComplemento] = useState("Sala 42");
-  const [bairro, setBairro] = useState("Bela Vista");
-  const [cidade, setCidade] = useState("São Paulo");
-  const [estado, setEstado] = useState("SP");
+  const [cep, setCep] = useState("");
+  const [logradouro, setLogradouro] = useState("");
+  const [numero, setNumero] = useState("");
+  const [complemento, setComplemento] = useState("");
+  const [bairro, setBairro] = useState("");
+  const [cidade, setCidade] = useState("");
+  const [estado, setEstado] = useState("");
 
   // Preferências
   const [moeda, setMoeda] = useState("BRL");
@@ -141,34 +144,84 @@ export function EmpresaPage() {
   const [saving, setSaving] = useState(false);
   const [loadingCep, setLoadingCep] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Repopular quando o contexto de empresa carregar (SPEC item 5a)
+  useEffect(() => {
+    if (empresa) {
+      setNomeFantasia(empresa.nome_fantasia || "");
+      setCnpj(empresa.cnpj || "");
+      setTelefone(empresa.telefone || "");
+      setEmail(empresa.email || "");
+    }
+  }, [empresa]);
 
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3500);
   };
 
-  const handleSalvar = () => {
+  const handleSalvar = async () => {
+    // Sem empresa autenticada, não gravar em tenant errado (SPEC item 5a)
+    if (!empresa?.id) {
+      setError("Empresa não identificada para este usuário. Recarregue a página ou faça login novamente.");
+      return;
+    }
     setSaving(true);
-    setTimeout(() => {
+    setError(null);
+    try {
+      const { error: updateError } = await supabase
+        .from("me_empresa")
+        .update({
+          nome_fantasia: nomeFantasia.trim(),
+          cnpj: cnpj.trim(),
+          telefone: telefone.trim(),
+          email: email.trim(),
+        })
+        .eq("id", empresa.id);
+
+      if (updateError) throw updateError;
+      showToast("Dados da empresa atualizados!");
+    } catch (err) {
+      console.error("[EmpresaPage] Erro ao salvar empresa:", err);
+      setError(err instanceof Error ? err.message : "Erro ao salvar os dados. Tente novamente.");
+    } finally {
       setSaving(false);
-      showToast("Dados da empresa atualizados! ✅");
-    }, 1500);
+    }
   };
 
   const handleCepBlur = () => {
-    if (cep.replace(/\D/g, "").length === 8) {
-      setLoadingCep(true);
-      setTimeout(() => {
-        setLoadingCep(false);
-        // Simula autocompletar
-        setLogradouro("Av. Paulista");
-        setBairro("Bela Vista");
-        setCidade("São Paulo");
-        setEstado("SP");
-        showToast("Endereço encontrado! 📍");
-      }, 1200);
-    }
+    const cepLimpo = cep.replace(/\D/g, "");
+    if (cepLimpo.length !== 8) return;
+    setLoadingCep(true);
+    fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.erro) {
+          setError("CEP não encontrado. Verifique e tente novamente.");
+        } else {
+          setError(null);
+          setLogradouro(data.logradouro || logradouro);
+          setBairro(data.bairro || bairro);
+          setCidade(data.localidade || cidade);
+          setEstado(data.uf || estado);
+          setComplemento(data.complemento || complemento);
+          showToast("Endereço encontrado!");
+        }
+      })
+      .catch(() => setError("Não foi possível consultar o CEP. Verifique sua internet."))
+      .finally(() => setLoadingCep(false));
   };
+
+  // Estado de loading enquanto o contexto de auth resolve (SPEC item 5a)
+  if (authLoading || (session && !empresa && !error)) {
+    return (
+      <div className="p-4 sm:p-6 max-w-4xl mx-auto flex flex-col items-center justify-center py-24">
+        <RefreshCw size={28} className="animate-spin text-muted-foreground mb-3" />
+        <p className="text-sm text-muted-foreground">Carregando dados da empresa...</p>
+      </div>
+    );
+  }
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -193,6 +246,14 @@ export function EmpresaPage() {
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}
+
+      {error && (
+        <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl border border-red-200 bg-red-50 text-red-700 text-sm">
+          <AlertCircle size={16} className="shrink-0" />
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="ml-auto opacity-70 hover:opacity-100">✕</button>
+        </div>
+      )}
 
       {/* Menu de Contexto */}
       <div className="flex flex-wrap gap-2 mb-4">

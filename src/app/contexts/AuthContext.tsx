@@ -2,6 +2,13 @@
  * AuthContext funcional — Base UNIQ
  * Autentica via Supabase Auth e carrega perfil (me_usuario) + empresa (me_empresa) reais.
  * Tarefa 1.3
+ *
+ * Hotfix isolamento de tenant (SPEC-UsoReal-DoceE-Hotfix-IsolamentoTenant §3):
+ * - Com sessão ativa, perfil nunca falha silenciosamente para null:
+ *   1) fallback por e-mail quando o lookup por id não encontra linha;
+ *   2) se ainda assim não carregar, `authError` é exposto para as telas exibirem banner.
+ * - `loading` inicia `true` e só vira `false` após `getSession()` resolver (com ou sem sessão) —
+ *   hooks não disparam queries de tenant antes de saber se há sessão.
  */
 
 import {
@@ -40,6 +47,7 @@ interface AuthState {
   perfil: PerfilUsuario | null;
   empresa: EmpresaAuth | null;
   loading: boolean;
+  authError: string | null;
 }
 
 interface AuthContextType extends AuthState {
@@ -59,26 +67,59 @@ const MOCK_USER = {
   created_at: new Date().toISOString(),
 } as User;
 
+const COLUNAS_PERFIL = "id, nome_usuario, email, cargo, role, ativo, empresa_id";
+
 const ESTADO_INICIAL: AuthState = {
   user: MOCK_USER,
   session: null,
   perfil: null,
   empresa: null,
-  loading: false,
+  loading: true,
+  authError: null,
 };
 
+const MENSAGEM_ERRO_PERFIL =
+  "Não foi possível carregar seu perfil. Contate o suporte.";
+
 async function carregarPerfilEEmpresa(
-  userId: string
-): Promise<{ perfil: PerfilUsuario | null; empresa: EmpresaAuth | null }> {
-  const { data: perfil, error: perfilError } = await supabase
+  user: User
+): Promise<{
+  perfil: PerfilUsuario | null;
+  empresa: EmpresaAuth | null;
+  authError: string | null;
+}> {
+  const userEmail = user.email?.toLowerCase();
+
+  // QUEBRA A — fallback por id → e-mail
+  const { data: perfilPorId, error: perfilError } = await supabase
     .from("me_usuario")
-    .select("id, nome_usuario, email, cargo, role, ativo, empresa_id")
-    .eq("id", userId)
+    .select(COLUNAS_PERFIL)
+    .eq("id", user.id)
     .maybeSingle();
 
-  if (perfilError || !perfil) {
-    console.error("[AuthContext] Erro ao carregar perfil:", perfilError);
-    return { perfil: null, empresa: null };
+  if (perfilError) {
+    console.error("[AuthContext] Erro ao carregar perfil por id:", perfilError);
+  }
+
+  let perfil = perfilPorId as PerfilUsuario | null;
+
+  if (!perfil && userEmail) {
+    const { data: perfilPorEmail, error: perfilEmailError } = await supabase
+      .from("me_usuario")
+      .select(COLUNAS_PERFIL)
+      .eq("email", userEmail)
+      .maybeSingle();
+
+    if (perfilEmailError) {
+      console.error("[AuthContext] Erro ao carregar perfil por e-mail:", perfilEmailError);
+    }
+    perfil = perfilPorEmail as PerfilUsuario | null;
+  }
+
+  if (!perfil) {
+    // QUEBRA B — sem perfil, sem empresa: estado de erro explícito (não silencioso)
+    console.error("[AuthContext] Perfil não encontrado para o usuário logado:", user.id);
+    return { perfil: null, empresa: null, authError: MENSAGEM_ERRO_PERFIL };
   }
 
   let empresa: EmpresaAuth | null = null;
@@ -96,7 +137,7 @@ async function carregarPerfilEEmpresa(
     }
   }
 
-  return { perfil, empresa };
+  return { perfil, empresa, authError: null };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -106,27 +147,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    supabase.auth.getSession().then(({ data: { session: sessionAtual } }) => {
-      if (!mounted) return;
-      if (sessionAtual?.user) {
-        carregarPerfilEEmpresa(sessionAtual.user.id).then(({ perfil, empresa }) => {
-          if (!mounted) return;
-          setState({
-            user: sessionAtual.user,
-            session: sessionAtual,
-            perfil,
-            empresa,
-            loading: false,
-          });
-        });
-      }
-      // Se não houver sessão, mantém o estado inicial (demo)
-    });
+    setState((prev) => ({ ...prev, loading: true }));
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, sessionAtual) => {
+    const aplicarSessao = (sessionAtual: Session | null) => {
       if (!mounted) return;
       if (sessionAtual?.user) {
-        carregarPerfilEEmpresa(sessionAtual.user.id).then(({ perfil, empresa }) => {
+        carregarPerfilEEmpresa(sessionAtual.user).then(({ perfil, empresa, authError }) => {
           if (!mounted) return;
           setState({
             user: sessionAtual.user,
@@ -134,11 +160,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             perfil,
             empresa,
             loading: false,
+            authError,
           });
         });
       } else {
-        setState(ESTADO_INICIAL);
+        // Sem sessão = modo demo (mock-first preservado)
+        setState({ ...ESTADO_INICIAL, loading: false });
       }
+    };
+
+    supabase.auth.getSession().then(({ data: { session: sessionAtual } }) => {
+      aplicarSessao(sessionAtual);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, sessionAtual) => {
+      aplicarSessao(sessionAtual);
     });
 
     return () => {
@@ -157,13 +193,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: error?.message || "Falha no login" };
     }
 
-    const { perfil, empresa } = await carregarPerfilEEmpresa(data.session.user.id);
+    const { perfil, empresa, authError } = await carregarPerfilEEmpresa(data.session.user);
     setState({
       user: data.session.user,
       session: data.session,
       perfil,
       empresa,
       loading: false,
+      authError,
     });
 
     return {};
@@ -171,7 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
-    setState(ESTADO_INICIAL);
+    setState({ ...ESTADO_INICIAL, loading: false });
   }, []);
 
   return (

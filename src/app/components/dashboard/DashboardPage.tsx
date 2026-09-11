@@ -133,11 +133,16 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export function DashboardPage() {
-  const { perfil } = useAuth();
+  const { perfil, user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [showQuickSale, setShowQuickSale] = useState(false);
 
-  const nomeUsuario = perfil?.nome_usuario || "Usuário";
+  // Fallback em cascata: perfil → user_metadata → email → "Usuário" (SPEC item 2)
+  const nomeUsuario =
+    perfil?.nome_usuario ||
+    (user?.user_metadata?.nome_completo as string | undefined) ||
+    user?.email?.split("@")[0] ||
+    "Usuário";
 
   const getGreeting = () => {
     const h = new Date().getHours();

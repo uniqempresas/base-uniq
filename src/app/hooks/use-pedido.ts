@@ -119,7 +119,7 @@ export interface UsePedidoReturn {
 }
 
 export function usePedido(id: string | undefined): UsePedidoReturn {
-  const { empresa } = useAuth();
+  const { empresa, session, loading: authLoading } = useAuth();
   const [pedido, setPedido] = useState<Pedido | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -135,33 +135,33 @@ export function usePedido(id: string | undefined): UsePedidoReturn {
     setError(null);
     setIsFallback(false);
 
+    // MODO DEMO (sem login): usa mock — regra mock-first de 07/09/2026
+    if (!session) {
+      const mockPedido = PEDIDOS.find((p) => p.id === id);
+      setPedido(mockPedido || PEDIDOS[0]);
+      setIsFallback(true);
+      setLoading(false);
+      return;
+    }
+
+    // Logado mas empresa não resolvida: NÃO consultar outro tenant
+    const empresaId = empresa?.id;
+    if (!empresaId) {
+      setPedido(undefined);
+      setError("Empresa não identificada para este usuário. Recarregue a página ou faça login novamente.");
+      setIsFallback(false);
+      setLoading(false);
+      return;
+    }
+
     try {
-      // Busca empresa_id do contexto ou primeira disponível
-      let empresaId = empresa?.id;
-
-      if (!empresaId) {
-        const { data: empresas } = await supabase
-          .from("me_empresa")
-          .select("id")
-          .limit(1);
-
-        if (empresas && empresas.length > 0) {
-          empresaId = empresas[0].id;
-        }
-      }
-
-      // Tenta buscar do banco
-      let query = supabase
+      // Tenta buscar do banco (filtro de empresa obrigatório e incondicional)
+      const { data: dbVenda, error: vendaError } = await supabase
         .from("me_venda")
         .select("*")
-        .eq("id", id);
-
-      // Filtra por empresa se disponível
-      if (empresaId) {
-        query = query.eq("empresa_id", empresaId);
-      }
-
-      const { data: dbVenda, error: vendaError } = await query.maybeSingle();
+        .eq("id", id)
+        .eq("empresa_id", empresaId)
+        .maybeSingle();
 
       if (vendaError) throw vendaError;
 
@@ -169,16 +169,13 @@ export function usePedido(id: string | undefined): UsePedidoReturn {
         // Busca dados do cliente se houver cliente_id
         let cliente: DBCliente | null = null;
         if (dbVenda.cliente_id) {
-          let clienteQuery = supabase
+          const { data: clienteData } = await supabase
             .from("me_cliente")
             .select("id, nome_cliente, telefone, email, documento")
-            .eq("id", dbVenda.cliente_id);
+            .eq("id", dbVenda.cliente_id)
+            .eq("empresa_id", empresaId)
+            .maybeSingle();
 
-          if (empresaId) {
-            clienteQuery = clienteQuery.eq("empresa_id", empresaId);
-          }
-
-          const { data: clienteData } = await clienteQuery.maybeSingle();
           cliente = clienteData;
         }
 
@@ -188,6 +185,7 @@ export function usePedido(id: string | undefined): UsePedidoReturn {
           .from("me_contas_receber")
           .select("status")
           .eq("venda_id", dbVenda.id)
+          .eq("empresa_id", empresaId)
           .limit(1);
 
         if (contas && contas.length > 0 && contas[0].status === "pago") {
@@ -195,33 +193,29 @@ export function usePedido(id: string | undefined): UsePedidoReturn {
         }
 
         setPedido(mapVendaToPedido(dbVenda as DBVenda, cliente, statusPagamento));
+        setError(null);
         setLoading(false);
         return;
       }
 
-      // Fallback para mock
-      const mockPedido = PEDIDOS.find((p) => p.id === id);
-      if (mockPedido) {
-        setPedido(mockPedido);
-        setIsFallback(true);
-      } else {
-        setPedido(undefined);
-      }
+      // Com sessão ativa, pedido inexistente = empty state real (nunca mock)
+      setPedido(undefined);
+      setError(null);
     } catch (err) {
       console.error("[usePedido] Erro ao buscar pedido:", err);
-      // Fallback para mock em caso de erro
-      const mockPedido = PEDIDOS.find((p) => p.id === id);
-      if (mockPedido) {
-        setPedido(mockPedido);
+      if (!session) {
+        const mockPedido = PEDIDOS.find((p) => p.id === id);
+        setPedido(mockPedido || PEDIDOS[0]);
         setIsFallback(true);
       } else {
         setPedido(undefined);
         setError(err instanceof Error ? err.message : "Erro ao carregar pedido");
+        setIsFallback(false);
       }
     } finally {
       setLoading(false);
     }
-  }, [id, empresa]);
+  }, [id, empresa, session, authLoading]);
 
   useEffect(() => {
     carregarPedido();

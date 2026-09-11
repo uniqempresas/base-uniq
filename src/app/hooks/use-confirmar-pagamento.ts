@@ -30,21 +30,11 @@ export function useConfirmarPagamento() {
       setError(null);
 
       try {
-        let empresaId = empresa?.id;
+        // SEM fallback para "primeira empresa". Sem tenant autenticado, não gravar.
+        const empresaId = empresa?.id;
 
         if (!empresaId) {
-          const { data: empresas } = await supabase
-            .from("me_empresa")
-            .select("id")
-            .limit(1);
-
-          if (empresas && empresas.length > 0) {
-            empresaId = empresas[0].id;
-          }
-        }
-
-        if (!empresaId) {
-          throw new Error("Empresa não encontrada");
+          throw new Error("Empresa não identificada para este usuário. Recarregue a página ou faça login novamente.");
         }
 
         const hoje = new Date().toISOString().split("T")[0];
@@ -78,7 +68,8 @@ export function useConfirmarPagamento() {
             const { error: vinculoError } = await supabase
               .from("me_contas_receber")
               .update({ venda_id: params.vendaId })
-              .eq("id", contaId);
+              .eq("id", contaId)
+              .eq("empresa_id", empresaId);
 
             if (vinculoError) throw vinculoError;
           }
@@ -93,7 +84,8 @@ export function useConfirmarPagamento() {
               data_pagamento: hoje,
               valor_pago: params.valor,
             })
-            .eq("id", contaId);
+            .eq("id", contaId)
+            .eq("empresa_id", empresaId);
 
           if (updateError) throw updateError;
         } else {

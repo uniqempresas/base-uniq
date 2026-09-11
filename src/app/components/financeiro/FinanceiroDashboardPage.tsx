@@ -9,8 +9,11 @@ import {
   ChevronRight,
   Calendar,
   CheckCircle,
+  RefreshCw,
 } from "lucide-react";
 import { CardKPI, AlertaAmigavel } from "./components";
+import { useContasReceber } from "../../hooks/use-contas-receber";
+import { useContasPagar } from "../../hooks/use-contas-pagar";
 import {
   movimentacoesMock,
   contasPagarMock,
@@ -21,37 +24,99 @@ import {
   calcularDiasVencimento,
 } from "./mockData";
 
+function formatarMesAtual(): string {
+  const agora = new Date();
+  return `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}`;
+}
+
 export function FinanceiroDashboardPage() {
   const navigate = useNavigate();
 
-  // Calcular resumos
-  const totalEntradas = movimentacoesMock
-    .filter((m) => m.tipo === "entrada" && m.data.startsWith("2025-03"))
-    .reduce((sum, m) => sum + m.valor, 0);
+  // Dados reais isolados por tenant (SPEC §2/§4) — mock apenas em modo demo
+  const contasReceberHook = useContasReceber();
+  const contasPagarHook = useContasPagar();
 
-  const totalSaidas = movimentacoesMock
-    .filter((m) => m.tipo === "saida" && m.data.startsWith("2025-03"))
-    .reduce((sum, m) => sum + m.valor, 0);
+  const isDemo = contasReceberHook.isFallback || contasPagarHook.isFallback;
+  const loadingDados = contasReceberHook.loading || contasPagarHook.loading;
+  const erro = contasReceberHook.error || contasPagarHook.error;
 
-  const saldoProjetado = 3500 + totalEntradas - totalSaidas;
+  const recarregar = () => {
+    contasReceberHook.recarregar();
+    contasPagarHook.recarregar();
+  };
 
-  // Contas a pagar
-  const contasPagarAtualizadas = contasPagarMock.map((c) => ({
-    ...c,
-    status: calcularStatus(c.dataVencimento, c.status),
-  }));
-  const totalPagar = contasPagarAtualizadas.filter((c) => c.status === "pendente").reduce((s, c) => s + c.valor, 0);
-  const qtdVencidas = contasPagarAtualizadas.filter((c) => c.status === "vencido").length;
+  // ── Modo demo (sem sessão): números vêm do mock — badge "dados de exemplo" ──
+  let totalEntradas = 0;
+  let totalSaidas = 0;
+  let saldoProjetado = 0;
+  let contasPagarAtualizadas: typeof contasPagarMock = [];
+  let contasReceberAtualizadas: typeof contasReceberMock = [];
+  let totalPagar = 0;
+  let qtdVencidas = 0;
+  let totalReceber = 0;
+  let qtdAtrasadas = 0;
+  let isLucro = true;
+  let lucroValor = 0;
+  let ultimasMovimentacoes: typeof movimentacoesMock = [];
 
-  // Contas a receber
-  const contasReceberAtualizadas = contasReceberMock.map((c) => ({
-    ...c,
-    status: calcularStatus(c.dataPrevista, c.status),
-  }));
-  const totalReceber = contasReceberAtualizadas.filter((c) => c.status === "pendente").reduce((s, c) => s + c.valor, 0);
-  const qtdAtrasadas = contasReceberAtualizadas.filter((c) => c.status === "vencido").length;
+  if (isDemo) {
+    totalEntradas = movimentacoesMock
+      .filter((m) => m.tipo === "entrada" && m.data.startsWith("2025-03"))
+      .reduce((sum, m) => sum + m.valor, 0);
+    totalSaidas = movimentacoesMock
+      .filter((m) => m.tipo === "saida" && m.data.startsWith("2025-03"))
+      .reduce((sum, m) => sum + m.valor, 0);
+    saldoProjetado = 3500 + totalEntradas - totalSaidas;
 
-  const isLucro = dreMock.lucroLiquido >= 0;
+    contasPagarAtualizadas = contasPagarMock.map((c) => ({
+      ...c,
+      status: calcularStatus(c.dataVencimento, c.status),
+    }));
+    totalPagar = contasPagarAtualizadas.filter((c) => c.status === "pendente").reduce((s, c) => s + c.valor, 0);
+    qtdVencidas = contasPagarAtualizadas.filter((c) => c.status === "vencido").length;
+
+    contasReceberAtualizadas = contasReceberMock.map((c) => ({
+      ...c,
+      status: calcularStatus(c.dataPrevista, c.status),
+    }));
+    totalReceber = contasReceberAtualizadas.filter((c) => c.status === "pendente").reduce((s, c) => s + c.valor, 0);
+    qtdAtrasadas = contasReceberAtualizadas.filter((c) => c.status === "vencido").length;
+
+    isLucro = dreMock.lucroLiquido >= 0;
+    lucroValor = Math.abs(dreMock.lucroLiquido);
+
+    ultimasMovimentacoes = movimentacoesMock
+      .filter((m) => m.data.startsWith("2025-03"))
+      .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+      .slice(0, 5);
+  } else {
+    // ── Sessão ativa: KPIs calculados sobre os dados reais dos hooks ──
+    contasPagarAtualizadas = contasPagarHook.contas as unknown as typeof contasPagarMock;
+    contasReceberAtualizadas = contasReceberHook.contas as unknown as typeof contasReceberMock;
+
+    totalPagar = contasPagarHook.contas
+      .filter((c) => c.status === "pendente")
+      .reduce((s, c) => s + c.valor, 0);
+    qtdVencidas = contasPagarHook.contas.filter((c) => c.status === "vencido").length;
+
+    totalReceber = contasReceberHook.contas
+      .filter((c) => c.status === "pendente")
+      .reduce((s, c) => s + c.valor, 0);
+    qtdAtrasadas = contasReceberHook.contas.filter((c) => c.status === "vencido").length;
+
+    const mesAtual = formatarMesAtual();
+    totalEntradas = contasReceberHook.contas
+      .filter((c) => c.dataPrevista.startsWith(mesAtual))
+      .reduce((s, c) => s + c.valor, 0);
+    totalSaidas = contasPagarHook.contas
+      .filter((c) => c.dataVencimento.startsWith(mesAtual))
+      .reduce((s, c) => s + c.valor, 0);
+
+    saldoProjetado = totalReceber - totalPagar;
+    isLucro = totalEntradas - totalSaidas >= 0;
+    lucroValor = Math.abs(totalEntradas - totalSaidas);
+    ultimasMovimentacoes = []; // sem fonte real de movimentações ainda → empty state real
+  }
 
   // Próximas contas a pagar (próximos 7 dias)
   const proximasContas = contasPagarAtualizadas
@@ -61,11 +126,14 @@ export function FinanceiroDashboardPage() {
     .sort((a, b) => a.diasRestantes - b.diasRestantes)
     .slice(0, 5);
 
-  // Últimas movimentações
-  const ultimasMovimentacoes = movimentacoesMock
-    .filter((m) => m.data.startsWith("2025-03"))
-    .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
-    .slice(0, 5);
+  if (loadingDados) {
+    return (
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto flex flex-col items-center justify-center py-24">
+        <RefreshCw size={28} className="animate-spin text-[#627271] mb-3" />
+        <p className="text-sm text-[#627271]">Carregando dados financeiros...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto">
@@ -73,7 +141,28 @@ export function FinanceiroDashboardPage() {
       <div className="mb-6">
         <h1 className="text-[#1f2937] mb-1">Resumo Financeiro</h1>
         <p className="text-sm text-[#1f2937]">Visão geral da saúde financeira do seu negócio</p>
+        {isDemo && (
+          <span className="inline-flex items-center gap-1.5 mt-2 text-xs px-2 py-1 rounded-full bg-[#efefef] text-[#627271]" style={{ fontWeight: 600 }}>
+            <AlertCircle size={12} />
+            Dados de exemplo
+          </span>
+        )}
       </div>
+
+      {erro && (
+        <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl border border-red-200 bg-red-50 text-red-700 text-sm">
+          <AlertCircle size={16} className="shrink-0" />
+          <span className="flex-1">{erro}</span>
+          <button
+            onClick={recarregar}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-white border border-red-200 hover:bg-red-100 transition-colors"
+            style={{ fontWeight: 600 }}
+          >
+            <RefreshCw size={12} />
+            Tentar novamente
+          </button>
+        </div>
+      )}
 
       {/* Alertas */}
       <div className="space-y-3 mb-6">
@@ -127,7 +216,7 @@ export function FinanceiroDashboardPage() {
         >
           <CardKPI
             label={isLucro ? "Lucro do Mês" : "Prejuízo do Mês"}
-            valor={Math.abs(dreMock.lucroLiquido)}
+            valor={lucroValor}
             icon={DollarSign}
             tipo={isLucro ? "positivo" : "negativo"}
           />
@@ -301,37 +390,45 @@ export function FinanceiroDashboardPage() {
         </div>
 
         <div className="divide-y divide-[#efefef]">
-          {ultimasMovimentacoes.map((mov) => (
-            <div key={mov.id} className="p-4 hover:bg-[#efefef] transition-colors flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div
-                  className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    mov.tipo === "entrada" ? "bg-[#efefef]" : "bg-red-50"
-                  }`}
-                >
-                  {mov.tipo === "entrada" ? (
-                    <TrendingUp size={18} className="text-[#627271]" />
-                  ) : (
-                    <TrendingDown size={18} className="text-red-600" />
-                  )}
-                </div>
-                <div>
-                  <p className="text-sm text-[#1f2937]" style={{ fontWeight: 500 }}>
-                    {mov.descricao}
-                  </p>
-                  <p className="text-xs text-[#1f2937]">
-                    {new Date(mov.data).toLocaleDateString("pt-BR")} • {mov.categoria}
-                  </p>
-                </div>
-              </div>
-              <span
-                className={`text-sm ${mov.tipo === "entrada" ? "text-[#1f2937]" : "text-red-700"}`}
-                style={{ fontWeight: 600 }}
-              >
-                {mov.tipo === "entrada" ? "+" : "-"} {formatarMoeda(mov.valor)}
-              </span>
+          {ultimasMovimentacoes.length === 0 ? (
+            <div className="text-center py-10">
+              <Calendar size={28} className="text-[#627271] mx-auto mb-2" />
+              <p className="text-sm text-[#1f2937]">Nenhuma movimentação registrada ainda</p>
+              <p className="text-xs text-[#627271] mt-1">As entradas e saídas aparecerão aqui conforme forem lançadas.</p>
             </div>
-          ))}
+          ) : (
+            ultimasMovimentacoes.map((mov) => (
+              <div key={mov.id} className="p-4 hover:bg-[#efefef] transition-colors flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                      mov.tipo === "entrada" ? "bg-[#efefef]" : "bg-red-50"
+                    }`}
+                  >
+                    {mov.tipo === "entrada" ? (
+                      <TrendingUp size={18} className="text-[#627271]" />
+                    ) : (
+                      <TrendingDown size={18} className="text-red-600" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm text-[#1f2937]" style={{ fontWeight: 500 }}>
+                      {mov.descricao}
+                    </p>
+                    <p className="text-xs text-[#1f2937]">
+                      {new Date(mov.data).toLocaleDateString("pt-BR")} • {mov.categoria}
+                    </p>
+                  </div>
+                </div>
+                <span
+                  className={`text-sm ${mov.tipo === "entrada" ? "text-[#1f2937]" : "text-red-700"}`}
+                  style={{ fontWeight: 600 }}
+                >
+                  {mov.tipo === "entrada" ? "+" : "-"} {formatarMoeda(mov.valor)}
+                </span>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

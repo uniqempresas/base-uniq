@@ -1,14 +1,16 @@
 /**
  * Hook Customizado: useConversasReais
- * Busca conversas e mensagens do Supabase oficial com fallback para mocks.
+ * Busca conversas e mensagens do Supabase oficial com fallback para mocks (modo demo).
  * Tarefa 1.2 - Base UNIQ
+ * Hotfix isolamento de tenant (SPEC §2/§4): sem sessão → mock (demo); com sessão →
+ * dados reais filtrados por empresa_id, com empty state real.
  */
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import type { Conversa, Mensagem, StatusConversa, TipoMensagem } from "../types/chatbot";
-import { mockConversas, mockMensagens } from "../lib/mocks/chatbot";
+import { mockConversas } from "../lib/mocks/chatbot";
 
 interface DBConversa {
   id: string;
@@ -103,7 +105,7 @@ function mapMensagem(db: DBMensagem): Mensagem {
 }
 
 export function useConversasReais(): UseConversasReaisReturn {
-  const { empresa } = useAuth();
+  const { empresa, session, loading: authLoading } = useAuth();
   const [conversas, setConversas] = useState<Conversa[]>([]);
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [conversaIdAtiva, setConversaIdAtiva] = useState<string | null>(null);
@@ -112,45 +114,48 @@ export function useConversasReais(): UseConversasReaisReturn {
   const [isFallback, setIsFallback] = useState(false);
 
   const carregarDados = useCallback(async () => {
+    if (authLoading) return;
+
     setLoading(true);
     setError(null);
     setIsFallback(false);
 
+    // MODO DEMO (sem login): usa mock — regra mock-first de 07/09/2026
+    if (!session) {
+      setConversas(mockConversas);
+      setMensagens([]);
+      setIsFallback(true);
+      setLoading(false);
+      return;
+    }
+
+    // Logado mas empresa não resolvida: NÃO consultar outro tenant
+    const empresaId = empresa?.id;
+    if (!empresaId) {
+      setConversas([]);
+      setMensagens([]);
+      setError("Empresa não identificada para este usuário. Recarregue a página ou faça login novamente.");
+      setIsFallback(false);
+      setLoading(false);
+      return;
+    }
+
     try {
-      // Busca empresa_id do contexto ou primeira disponível
-      let empresaId = empresa?.id;
-
-      if (!empresaId) {
-        const { data: empresas } = await supabase
-          .from("me_empresa")
-          .select("id")
-          .limit(1);
-
-        if (empresas && empresas.length > 0) {
-          empresaId = empresas[0].id;
-        }
-      }
-
-      let query = supabase
+      const { data: dbConversas, error: conversasError } = await supabase
         .from("crm_chat_conversas")
         .select("*")
+        .eq("empresa_id", empresaId)
         .order("criado_em", { ascending: false });
-
-      // Filtra por empresa se disponível
-      if (empresaId) {
-        query = query.eq("empresa_id", empresaId);
-      }
-
-      const { data: dbConversas, error: conversasError } = await query;
 
       if (conversasError) throw conversasError;
 
       const conversasValidas = (dbConversas as DBConversa[] | null) || [];
 
+      // 0 linhas = empresa nova = empty state real (nunca mock de outra empresa)
       if (conversasValidas.length === 0) {
-        setConversas(mockConversas);
+        setConversas([]);
         setMensagens([]);
-        setIsFallback(true);
+        setIsFallback(false);
         setLoading(false);
         return;
       }
@@ -173,14 +178,20 @@ export function useConversasReais(): UseConversasReaisReturn {
       setMensagens(mensagensMapeadas);
     } catch (err) {
       console.error("[useConversasReais] Erro ao buscar dados reais:", err);
-      setConversas(mockConversas);
-      setMensagens([]);
-      setError(err instanceof Error ? err.message : "Erro ao carregar conversas");
-      setIsFallback(true);
+      if (!session) {
+        setConversas(mockConversas);
+        setMensagens([]);
+        setIsFallback(true);
+      } else {
+        setConversas([]);
+        setMensagens([]);
+        setError(err instanceof Error ? err.message : "Erro ao carregar conversas");
+        setIsFallback(false);
+      }
     } finally {
       setLoading(false);
     }
-  }, [empresa]);
+  }, [empresa, session, authLoading]);
 
   useEffect(() => {
     carregarDados();

@@ -73,54 +73,57 @@ export interface UseContasReceberReturn {
 }
 
 export function useContasReceber(): UseContasReceberReturn {
-  const { empresa } = useAuth();
+  const { empresa, session, loading: authLoading } = useAuth();
   const [contas, setContas] = useState<ContaReceber[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFallback, setIsFallback] = useState(false);
 
   const carregarDados = useCallback(async () => {
+    if (authLoading) return;
+
     setLoading(true);
     setError(null);
     setIsFallback(false);
 
+    // MODO DEMO (sem login): usa mock — regra mock-first de 07/09/2026
+    if (!session) {
+      setContas(contasReceberMock);
+      setIsFallback(true);
+      setLoading(false);
+      return;
+    }
+
+    // Logado mas empresa não resolvida: NÃO consultar outro tenant
+    const empresaId = empresa?.id;
+    if (!empresaId) {
+      setContas([]);
+      setError("Empresa não identificada para este usuário. Recarregue a página ou faça login novamente.");
+      setIsFallback(false);
+      setLoading(false);
+      return;
+    }
+
     try {
-      let empresaId = empresa?.id;
-
-      if (!empresaId) {
-        const { data: empresas } = await supabase
-          .from("me_empresa")
-          .select("id")
-          .limit(1);
-
-        if (empresas && empresas.length > 0) {
-          empresaId = empresas[0].id;
-        }
-      }
-
-      let query = supabase
+      const { data: dbContas, error: contasError } = await supabase
         .from("me_contas_receber")
         .select("*")
+        .eq("empresa_id", empresaId)
         .order("data_vencimento", { ascending: false });
-
-      if (empresaId) {
-        query = query.eq("empresa_id", empresaId);
-      }
-
-      const { data: dbContas, error: contasError } = await query;
 
       if (contasError) throw contasError;
 
       const contasValidas = (dbContas as DBContaReceber[] | null) || [];
 
+      // 0 linhas = empresa nova = empty state real (nunca mock de outra empresa)
       if (contasValidas.length === 0) {
-        setContas(contasReceberMock);
-        setIsFallback(true);
+        setContas([]);
+        setIsFallback(false);
         setLoading(false);
         return;
       }
 
-      // Busca nomes dos clientes
+      // Busca nomes dos clientes (sub-query filtrada por empresa)
       const clienteIds = contasValidas
         .map((c) => c.cliente_id)
         .filter((id): id is string => id !== null);
@@ -131,7 +134,8 @@ export function useContasReceber(): UseContasReceberReturn {
         const { data: clientesData } = await supabase
           .from("me_cliente")
           .select("id, nome_cliente")
-          .in("id", clienteIds);
+          .in("id", clienteIds)
+          .eq("empresa_id", empresaId);
 
         if (clientesData) {
           clientesMap = new Map(
@@ -147,13 +151,18 @@ export function useContasReceber(): UseContasReceberReturn {
       setContas(contasMapeadas);
     } catch (err) {
       console.error("[useContasReceber] Erro ao buscar dados:", err);
-      setContas(contasReceberMock);
-      setError(err instanceof Error ? err.message : "Erro ao carregar contas");
-      setIsFallback(true);
+      if (!session) {
+        setContas(contasReceberMock);
+        setIsFallback(true);
+      } else {
+        setContas([]);
+        setError(err instanceof Error ? err.message : "Erro ao carregar contas");
+        setIsFallback(false);
+      }
     } finally {
       setLoading(false);
     }
-  }, [empresa]);
+  }, [empresa, session, authLoading]);
 
   useEffect(() => {
     carregarDados();

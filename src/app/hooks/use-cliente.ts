@@ -107,13 +107,15 @@ export interface UseClienteReturn {
 }
 
 export function useCliente(id: string | undefined): UseClienteReturn {
-  const { empresa } = useAuth();
+  const { empresa, session, loading: authLoading } = useAuth();
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFallback, setIsFallback] = useState(false);
 
   const carregarDados = useCallback(async () => {
+    if (authLoading) return;
+
     if (!id) {
       setCliente(null);
       setLoading(false);
@@ -124,39 +126,39 @@ export function useCliente(id: string | undefined): UseClienteReturn {
     setError(null);
     setIsFallback(false);
 
+    // MODO DEMO (sem login): usa mock — regra mock-first de 07/09/2026
+    if (!session) {
+      const mock = mockClientes.find((c) => c.id === id);
+      setCliente(mock || null);
+      setIsFallback(true);
+      setLoading(false);
+      return;
+    }
+
+    // Logado mas empresa não resolvida: NÃO consultar outro tenant
+    const empresaId = empresa?.id;
+    if (!empresaId) {
+      setCliente(null);
+      setError("Empresa não identificada para este usuário. Recarregue a página ou faça login novamente.");
+      setIsFallback(false);
+      setLoading(false);
+      return;
+    }
+
     try {
-      // Busca empresa_id do contexto ou primeira disponível
-      let empresaId = empresa?.id;
-
-      if (!empresaId) {
-        const { data: empresas } = await supabase
-          .from("me_empresa")
-          .select("id")
-          .limit(1);
-
-        if (empresas && empresas.length > 0) {
-          empresaId = empresas[0].id;
-        }
-      }
-
-      let query = supabase
+      const { data: dbLead, error: leadError } = await supabase
         .from("crm_leads")
         .select("*")
-        .eq("id", id);
-
-      // Filtra por empresa se disponível
-      if (empresaId) {
-        query = query.eq("empresa_id", empresaId);
-      }
-
-      const { data: dbLead, error: leadError } = await query.single();
+        .eq("id", id)
+        .eq("empresa_id", empresaId)
+        .single();
 
       if (leadError) throw leadError;
 
       if (!dbLead) {
-        const mock = mockClientes.find((c) => c.id === id);
-        setCliente(mock || null);
-        setIsFallback(true);
+        // Com sessão ativa, cliente inexistente = empty state real (nunca mock)
+        setCliente(null);
+        setError(null);
         setLoading(false);
         return;
       }
@@ -164,14 +166,19 @@ export function useCliente(id: string | undefined): UseClienteReturn {
       setCliente(mapLeadToCliente(dbLead as DBLead));
     } catch (err) {
       console.error("[useCliente] Erro ao buscar cliente:", err);
-      const mock = mockClientes.find((c) => c.id === id);
-      setCliente(mock || null);
-      setError(err instanceof Error ? err.message : "Erro ao carregar cliente");
-      setIsFallback(true);
+      if (!session) {
+        const mock = mockClientes.find((c) => c.id === id);
+        setCliente(mock || null);
+        setIsFallback(true);
+      } else {
+        setCliente(null);
+        setError(err instanceof Error ? err.message : "Erro ao carregar cliente");
+        setIsFallback(false);
+      }
     } finally {
       setLoading(false);
     }
-  }, [id, empresa]);
+  }, [id, empresa, session, authLoading]);
 
   useEffect(() => {
     carregarDados();

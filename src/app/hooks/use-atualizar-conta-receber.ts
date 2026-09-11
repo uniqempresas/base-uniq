@@ -33,6 +33,15 @@ export function useAtualizarContaReceber() {
       setLoading(true);
       setError(null);
 
+      // SEM tenant autenticado, não gravar em tenant errado.
+      const empresaId = empresa?.id;
+      if (!empresaId) {
+        const errorMessage = "Empresa não identificada para este usuário. Recarregue a página ou faça login novamente.";
+        setError(errorMessage);
+        setLoading(false);
+        return { success: false, error: errorMessage };
+      }
+
       try {
         const updateData: Record<string, unknown> = {};
 
@@ -46,7 +55,8 @@ export function useAtualizarContaReceber() {
         const { error: updateError } = await supabase
           .from("me_contas_receber")
           .update(updateData)
-          .eq("id", params.id);
+          .eq("id", params.id)
+          .eq("empresa_id", empresaId);
 
         if (updateError) throw updateError;
 
@@ -59,13 +69,22 @@ export function useAtualizarContaReceber() {
         setLoading(false);
       }
     },
-    []
+    [empresa]
   );
 
   const receberConta = useCallback(
     async (params: ReceberContaParams): Promise<AtualizarContaReceberResult> => {
       setLoading(true);
       setError(null);
+
+      // SEM tenant autenticado, não gravar em tenant errado.
+      const empresaId = empresa?.id;
+      if (!empresaId) {
+        const errorMessage = "Empresa não identificada para este usuário. Recarregue a página ou faça login novamente.";
+        setError(errorMessage);
+        setLoading(false);
+        return { success: false, error: errorMessage };
+      }
 
       try {
         const dataPagamento = params.data_pagamento || new Date().toISOString().split("T")[0];
@@ -77,6 +96,7 @@ export function useAtualizarContaReceber() {
             .from("me_contas_receber")
             .select("valor")
             .eq("id", params.id)
+            .eq("empresa_id", empresaId)
             .single();
 
           valorPago = conta?.valor || 0;
@@ -89,7 +109,8 @@ export function useAtualizarContaReceber() {
             data_pagamento: dataPagamento,
             valor_pago: valorPago,
           })
-          .eq("id", params.id);
+          .eq("id", params.id)
+          .eq("empresa_id", empresaId);
 
         if (updateError) throw updateError;
 
@@ -102,7 +123,7 @@ export function useAtualizarContaReceber() {
         setLoading(false);
       }
     },
-    []
+    [empresa]
   );
 
   return { atualizarConta, receberConta, loading, error };

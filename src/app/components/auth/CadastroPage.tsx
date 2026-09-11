@@ -310,7 +310,7 @@ export function CadastroPage() {
                     type="text"
                     value={form.nome}
                     onChange={(e) => set("nome", e.target.value)}
-                    placeholder="João Silva"
+                    placeholder="Maria Oliveira"
                     className={cn(
                       "w-full pl-4 pr-11 py-3 rounded-xl border bg-[#efefef] text-[#1f2937] text-sm outline-none transition-all focus:bg-white focus:border-[#86cb92] focus:ring-2 focus:ring-[#86cb92]/20",
                       errors.nome ? "border-red-400" : "border-[#efefef]"
@@ -329,7 +329,7 @@ export function CadastroPage() {
                       type="email"
                       value={form.email}
                       onChange={(e) => set("email", e.target.value)}
-                      placeholder="henriqsilva@gmail.com"
+                      placeholder="seuemail@exemplo.com"
                       className={cn(
                         "w-full pl-4 pr-11 py-3 rounded-xl border bg-[#efefef] text-[#1f2937] text-sm outline-none transition-all focus:bg-white focus:border-[#86cb92] focus:ring-2 focus:ring-[#86cb92]/20",
                         errors.email ? "border-red-400" : "border-[#efefef]"
@@ -346,7 +346,7 @@ export function CadastroPage() {
                       type="text"
                       value={form.cpf}
                       onChange={(e) => set("cpf", formatCPF(e.target.value))}
-                      placeholder="411.193.848-50"
+                      placeholder="000.000.000-00"
                       className={cn(
                         "w-full pl-4 pr-11 py-3 rounded-xl border bg-[#efefef] text-[#1f2937] text-sm outline-none transition-all focus:bg-white focus:border-[#86cb92] focus:ring-2 focus:ring-[#86cb92]/20",
                         errors.cpf ? "border-red-400" : "border-[#efefef]"

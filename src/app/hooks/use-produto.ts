@@ -59,23 +59,26 @@ function mapProduto(db: DBProduto): Produto {
   };
 }
 
-export interface UseProdutosReturn {
-  produtos: Produto[];
+export interface UseProdutoReturn {
+  produto: Produto | undefined;
   loading: boolean;
   error: string | null;
   isFallback: boolean;
   recarregar: () => void;
 }
 
-export function useProdutos(): UseProdutosReturn {
+export function useProduto(id: string | undefined): UseProdutoReturn {
   const { empresa, session, loading: authLoading } = useAuth();
-  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [produto, setProduto] = useState<Produto | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFallback, setIsFallback] = useState(false);
 
-  const carregarDados = useCallback(async () => {
-    if (authLoading) return;
+  const carregarProduto = useCallback(async () => {
+    if (!id) {
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -83,7 +86,8 @@ export function useProdutos(): UseProdutosReturn {
 
     // MODO DEMO (sem login): usa mock — regra mock-first de 07/09/2026
     if (!session) {
-      setProdutos(PRODUTOS);
+      const mockProduto = PRODUTOS.find((p) => p.id === id);
+      setProduto(mockProduto || PRODUTOS[0]);
       setIsFallback(true);
       setLoading(false);
       return;
@@ -92,7 +96,7 @@ export function useProdutos(): UseProdutosReturn {
     // Logado mas empresa não resolvida: NÃO consultar outro tenant
     const empresaId = empresa?.id;
     if (!empresaId) {
-      setProdutos([]);
+      setProduto(undefined);
       setError("Empresa não identificada para este usuário. Recarregue a página ou faça login novamente.");
       setIsFallback(false);
       setLoading(false);
@@ -100,50 +104,43 @@ export function useProdutos(): UseProdutosReturn {
     }
 
     try {
-      const { data: dbProdutos, error: produtosError } = await supabase
+      const { data: dbProduto, error: produtoError } = await supabase
         .from("me_produto")
         .select("*")
-        .eq("ativo", true)
+        .eq("id", id)
         .eq("empresa_id", empresaId)
-        .order("nome_produto");
+        .maybeSingle();
 
-      if (produtosError) throw produtosError;
+      if (produtoError) throw produtoError;
 
-      const produtosValidos = (dbProdutos as DBProduto[] | null) || [];
-
-      // 0 linhas = empresa nova = empty state real (nunca mock de outra empresa)
-      if (produtosValidos.length === 0) {
-        setProdutos([]);
-        setIsFallback(false);
-        setLoading(false);
-        return;
-      }
-
-      setProdutos(produtosValidos.map(mapProduto));
+      // Com sessão ativa, produto inexistente = empty state real (nunca mock)
+      setProduto(dbProduto ? mapProduto(dbProduto as DBProduto) : undefined);
+      setError(null);
     } catch (err) {
-      console.error("[useProdutos] Erro ao buscar dados reais:", err);
+      console.error("[useProduto] Erro ao buscar produto:", err);
       if (!session) {
-        setProdutos(PRODUTOS);
+        const mockProduto = PRODUTOS.find((p) => p.id === id);
+        setProduto(mockProduto || PRODUTOS[0]);
         setIsFallback(true);
       } else {
-        setProdutos([]);
-        setError(err instanceof Error ? err.message : "Erro ao carregar produtos");
+        setProduto(undefined);
+        setError(err instanceof Error ? err.message : "Erro ao carregar produto");
         setIsFallback(false);
       }
     } finally {
       setLoading(false);
     }
-  }, [empresa, session, authLoading]);
+  }, [id, empresa, session, authLoading]);
 
   useEffect(() => {
-    carregarDados();
-  }, [carregarDados]);
+    carregarProduto();
+  }, [carregarProduto]);
 
   return {
-    produtos,
+    produto,
     loading,
     error,
     isFallback,
-    recarregar: carregarDados,
+    recarregar: carregarProduto,
   };
 }

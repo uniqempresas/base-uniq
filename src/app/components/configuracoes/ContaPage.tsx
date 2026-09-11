@@ -1,4 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
+import { supabase } from "../../../lib/supabase";
+import { useAuth } from "../../contexts/AuthContext";
 import {
   User,
   Shield,
@@ -127,13 +129,14 @@ const AVATARES = ["👩‍💼", "👨‍💼", "👩‍🎨", "👨‍🍳", "�
 
 export function ContaPage() {
   const fileRef = useRef<HTMLInputElement>(null);
+  const { perfil, session, loading: authLoading } = useAuth();
 
-  // Dados pessoais
+  // Dados pessoais (inicializados vazios; useAuth repopula quando o contexto carregar)
   const [avatar, setAvatar] = useState<string | null>(null);
   const [avatarEmoji, setAvatarEmoji] = useState("👩‍💼");
-  const [nome, setNome] = useState("Maria Silva");
-  const [email, setEmail] = useState("maria@lojadamaria.com");
-  const [telefone, setTelefone] = useState("(11) 99876-5432");
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+  const [telefone, setTelefone] = useState("");
   const [cargo, setCargo] = useState("admin");
   const [dataNasc, setDataNasc] = useState("");
 
@@ -153,20 +156,45 @@ export function ContaPage() {
   const [saving, setSaving] = useState(false);
   const [savingPass, setSavingPass] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  // Repopular quando o perfil carregar (SPEC item 5b)
+  useEffect(() => {
+    if (perfil) {
+      setNome(perfil.nome_usuario || "");
+      setEmail(perfil.email || "");
+    }
+  }, [perfil]);
 
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3500);
   };
 
-  const handleSalvar = () => {
+  const handleSalvar = async () => {
+    // Sem perfil autenticado, não gravar (SPEC item 5b)
+    if (!perfil?.id) {
+      setError("Não foi possível identificar seu perfil. Recarregue a página ou faça login novamente.");
+      return;
+    }
     setSaving(true);
-    setTimeout(() => {
+    setError(null);
+    try {
+      const { error: updateError } = await supabase
+        .from("me_usuario")
+        .update({ nome_usuario: nome.trim() })
+        .eq("id", perfil.id);
+
+      if (updateError) throw updateError;
+      showToast("Perfil atualizado!");
+    } catch (err) {
+      console.error("[ContaPage] Erro ao salvar perfil:", err);
+      setError(err instanceof Error ? err.message : "Erro ao salvar o perfil. Tente novamente.");
+    } finally {
       setSaving(false);
-      showToast("Perfil atualizado! ✅");
-    }, 1500);
+    }
   };
 
   const handleAlterarSenha = () => {
@@ -203,9 +231,27 @@ export function ContaPage() {
     { data: "01/01/2025", valor: "R$ 89,90", status: "Pago", plano: "Pro" },
   ];
 
+  // Estado de loading enquanto o contexto de auth resolve (SPEC item 5b)
+  if (authLoading || (session && !perfil && !error)) {
+    return (
+      <div className="p-4 sm:p-6 max-w-4xl mx-auto flex flex-col items-center justify-center py-24">
+        <RefreshCw size={28} className="animate-spin text-muted-foreground mb-3" />
+        <p className="text-sm text-muted-foreground">Carregando seus dados...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}
+
+      {error && (
+        <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl border border-red-200 bg-red-50 text-red-700 text-sm">
+          <AlertCircle size={16} className="shrink-0" />
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="ml-auto opacity-70 hover:opacity-100">✕</button>
+        </div>
+      )}
 
       {/* Header */}
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
@@ -292,7 +338,16 @@ export function ContaPage() {
             </div>
             <div>
               <label className="text-sm text-foreground block mb-1.5">Email <span className="text-red-500">*</span></label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu@email.com" />
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="seu@email.com"
+                readOnly
+                disabled
+                className="bg-muted cursor-not-allowed"
+              />
+              <p className="text-xs text-muted-foreground mt-1">O e-mail é sua chave de login e não pode ser alterado.</p>
             </div>
             <div>
               <label className="text-sm text-foreground block mb-1.5">Telefone <span className="text-red-500">*</span></label>

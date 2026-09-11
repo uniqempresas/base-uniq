@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
+import { useAuth } from "../contexts/AuthContext";
 
 export interface AtualizarProdutoParams {
   id: number;
@@ -21,6 +22,7 @@ export interface AtualizarProdutoResult {
 }
 
 export function useAtualizarProduto() {
+  const { empresa } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,6 +30,15 @@ export function useAtualizarProduto() {
     async (params: AtualizarProdutoParams): Promise<AtualizarProdutoResult> => {
       setLoading(true);
       setError(null);
+
+      // SEM tenant autenticado, não gravar em tenant errado.
+      const empresaId = empresa?.id;
+      if (!empresaId) {
+        const errorMessage = "Empresa não identificada para este usuário. Recarregue a página ou faça login novamente.";
+        setError(errorMessage);
+        setLoading(false);
+        return { success: false, error: errorMessage };
+      }
 
       try {
         const { id, ...campos } = params;
@@ -47,7 +58,8 @@ export function useAtualizarProduto() {
         const { error: updateError } = await supabase
           .from("me_produto")
           .update(updateData)
-          .eq("id", id);
+          .eq("id", id)
+          .eq("empresa_id", empresaId);
 
         if (updateError) throw updateError;
 
@@ -63,7 +75,7 @@ export function useAtualizarProduto() {
         setLoading(false);
       }
     },
-    []
+    [empresa]
   );
 
   return {

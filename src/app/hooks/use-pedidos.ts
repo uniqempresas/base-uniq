@@ -120,51 +120,53 @@ export interface UsePedidosReturn {
 }
 
 export function usePedidos(): UsePedidosReturn {
-  const { empresa } = useAuth();
+  const { empresa, session, loading: authLoading } = useAuth();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFallback, setIsFallback] = useState(false);
 
   const carregarDados = useCallback(async () => {
+    if (authLoading) return;
+
     setLoading(true);
     setError(null);
     setIsFallback(false);
 
+    // MODO DEMO (sem login): usa mock — regra mock-first de 07/09/2026
+    if (!session) {
+      setPedidos(PEDIDOS);
+      setIsFallback(true);
+      setLoading(false);
+      return;
+    }
+
+    // Logado mas empresa não resolvida (perfil não carregou):
+    // NÃO consultar outro tenant. Estado de erro explícito.
+    const empresaId = empresa?.id;
+    if (!empresaId) {
+      setPedidos([]);
+      setError("Empresa não identificada para este usuário. Recarregue a página ou faça login novamente.");
+      setIsFallback(false);
+      setLoading(false);
+      return;
+    }
+
     try {
-      // Busca empresa_id do contexto ou primeira disponível
-      let empresaId = empresa?.id;
-
-      if (!empresaId) {
-        const { data: empresas } = await supabase
-          .from("me_empresa")
-          .select("id")
-          .limit(1);
-
-        if (empresas && empresas.length > 0) {
-          empresaId = empresas[0].id;
-        }
-      }
-
-      let query = supabase
+      const { data: dbVendas, error: vendasError } = await supabase
         .from("me_venda")
         .select("*")
+        .eq("empresa_id", empresaId)
         .order("criado_em", { ascending: false });
-
-      // Filtra por empresa se disponível
-      if (empresaId) {
-        query = query.eq("empresa_id", empresaId);
-      }
-
-      const { data: dbVendas, error: vendasError } = await query;
 
       if (vendasError) throw vendasError;
 
       const vendasValidas = (dbVendas as DBVenda[] | null) || [];
 
+      // 0 linhas = empresa nova = empty state real (nunca mock de outra empresa)
       if (vendasValidas.length === 0) {
-        setPedidos(PEDIDOS);
-        setIsFallback(true);
+        setPedidos([]);
+        setIsFallback(false);
         setLoading(false);
         return;
       }
@@ -177,17 +179,11 @@ export function usePedidos(): UsePedidosReturn {
       let clientesMap: Map<string, DBCliente> = new Map();
 
       if (clienteIds.length > 0) {
-        let clientesQuery = supabase
+        const { data: clientesData } = await supabase
           .from("me_cliente")
           .select("id, nome_cliente, telefone, email, documento")
-          .in("id", clienteIds);
-
-        // Filtra clientes por empresa também
-        if (empresaId) {
-          clientesQuery = clientesQuery.eq("empresa_id", empresaId);
-        }
-
-        const { data: clientesData } = await clientesQuery;
+          .in("id", clienteIds)
+          .eq("empresa_id", empresaId);
 
         if (clientesData) {
           clientesMap = new Map(
@@ -204,7 +200,8 @@ export function usePedidos(): UsePedidosReturn {
         const { data: contasData } = await supabase
           .from("me_contas_receber")
           .select("venda_id, status")
-          .in("venda_id", vendaIds);
+          .in("venda_id", vendaIds)
+          .eq("empresa_id", empresaId);
 
         if (contasData) {
           for (const conta of contasData as { venda_id: string | null; status: string }[]) {
@@ -224,13 +221,18 @@ export function usePedidos(): UsePedidosReturn {
       setPedidos(pedidosMapeados);
     } catch (err) {
       console.error("[usePedidos] Erro ao buscar dados reais:", err);
-      setPedidos(PEDIDOS);
-      setError(err instanceof Error ? err.message : "Erro ao carregar pedidos");
-      setIsFallback(true);
+      if (!session) {
+        setPedidos(PEDIDOS);
+        setIsFallback(true);
+      } else {
+        setPedidos([]);
+        setError(err instanceof Error ? err.message : "Erro ao carregar pedidos");
+        setIsFallback(false);
+      }
     } finally {
       setLoading(false);
     }
-  }, [empresa]);
+  }, [empresa, session, authLoading]);
 
   useEffect(() => {
     carregarDados();

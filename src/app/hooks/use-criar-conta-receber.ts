@@ -28,21 +28,11 @@ export function useCriarContaReceber() {
       setError(null);
 
       try {
-        let empresaId = empresa?.id;
+        // SEM fallback para "primeira empresa". Sem tenant autenticado, não gravar.
+        const empresaId = empresa?.id;
 
         if (!empresaId) {
-          const { data: empresas } = await supabase
-            .from("me_empresa")
-            .select("id")
-            .limit(1);
-
-          if (empresas && empresas.length > 0) {
-            empresaId = empresas[0].id;
-          }
-        }
-
-        if (!empresaId) {
-          throw new Error("Empresa não encontrada");
+          throw new Error("Empresa não identificada para este usuário. Recarregue a página ou faça login novamente.");
         }
 
         const { data, error: insertError } = await supabase
