@@ -19,6 +19,7 @@ interface DBLead {
   observacoes: string | null;
   foto_url: string | null;
   created_at: string | null;
+  tags: string[] | null;
 }
 
 function mapStatus(status: string | null): "ativo" | "inativo" {
@@ -77,7 +78,7 @@ function mapLeadToCliente(db: DBLead): Cliente {
     email: db.email || "",
     telefone: formatTelefone(db.telefone),
     whatsapp: formatTelefone(db.telefone),
-    tags: origem === "whatsapp" ? ["WhatsApp"] : [],
+    tags: [...(origem === "whatsapp" ? ["WhatsApp"] : []), ...(db.tags || [])],
     ultimaInteracao: db.ultima_interacao
       ? new Date(db.ultima_interacao).toLocaleString("pt-BR", {
           day: "2-digit",

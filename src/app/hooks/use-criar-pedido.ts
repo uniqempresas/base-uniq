@@ -2,6 +2,13 @@ import { useState, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 
+export interface PedidoItemInput {
+  produto_id: number; // me_produto.id (integer)
+  nome_produto: string;
+  quantidade: number;
+  preco_unitario: number;
+}
+
 export interface CriarPedidoParams {
   clienteNome: string;
   clienteTelefone?: string;
@@ -9,6 +16,7 @@ export interface CriarPedidoParams {
   valor: number;
   formaPagamento: string;
   canal: string;
+  itens?: PedidoItemInput[];
 }
 
 export interface CriarPedidoResult {
@@ -76,12 +84,18 @@ export function useCriarPedido() {
         }
 
         // Insere pedido em me_venda
+        const itens = params.itens || [];
+        const valorTotal =
+          itens.length > 0
+            ? itens.reduce((s, i) => s + i.preco_unitario * i.quantidade, 0)
+            : params.valor;
+
         const { data: novaVenda, error: vendaError } = await supabase
           .from("me_venda")
           .insert({
             empresa_id: empresaId,
             cliente_id: clienteId,
-            valor_total: params.valor,
+            valor_total: valorTotal,
             valor_desconto: 0,
             observacoes: params.descricao,
             status_venda: "pendente",
@@ -95,6 +109,24 @@ export function useCriarPedido() {
           .single();
 
         if (vendaError) throw vendaError;
+
+        // Grava os itens em me_itens_venda (alimenta DRE / CMV)
+        if (itens.length > 0 && novaVenda?.id) {
+          const { error: itensError } = await supabase.from("me_itens_venda").insert(
+            itens.map((i) => ({
+              venda_id: novaVenda.id,
+              empresa_id: empresaId,
+              produto_id: i.produto_id,
+              nome_produto: i.nome_produto,
+              quantidade: i.quantidade,
+              preco_unitario: i.preco_unitario,
+              subtotal: i.preco_unitario * i.quantidade,
+              tipo_item: "produto",
+            }))
+          );
+
+          if (itensError) throw itensError;
+        }
 
         return {
           success: true,

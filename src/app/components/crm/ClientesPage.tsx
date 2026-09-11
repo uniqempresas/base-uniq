@@ -18,9 +18,12 @@ import {
   CheckCircle2,
   Loader2,
   AlertCircle,
+  Settings,
 } from "lucide-react";
 import { CLIENTES, TAG_COLORS, formatCurrency, type Cliente } from "./crmMockData";
 import { useClientes } from "../../hooks/use-clientes";
+import { useTags, getTagPalette, type Tag } from "../../hooks/use-tags";
+import { useCriarCliente } from "../../hooks/use-criar-cliente";
 import { ClienteOrigemBadge } from "./ClienteOrigemBadge";
 
 type ViewMode = "cards" | "table";
@@ -28,10 +31,11 @@ type ViewMode = "cards" | "table";
 const TIPO_OPTIONS = ["Todos", "PF", "PJ"];
 const STATUS_OPTIONS = ["Todos", "Ativo", "Inativo"];
 const ORIGEM_OPTIONS = ["Todas", "WhatsApp", "Manual"] as const;
-const TAG_OPTIONS = ["VIP", "Prospect", "Inadimplente", "Cliente Fiel", "Lead Quente", "Inativo"];
 
-function TagChip({ tag, small = false }: { tag: string; small?: boolean }) {
-  const colors = TAG_COLORS[tag] || { bg: "#efefef", text: "#627271", border: "#efefef" };
+function TagChip({ tag, small = false, cor }: { tag: string; small?: boolean; cor?: string | null }) {
+  const colors = cor
+    ? getTagPalette(cor)
+    : TAG_COLORS[tag] || { bg: "#efefef", text: "#627271", border: "#efefef" };
   return (
     <span
       className={`inline-flex items-center rounded-full border ${small ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-0.5 text-[10px]"}`}
@@ -139,10 +143,11 @@ function ClienteCard({ cliente, onClick }: { cliente: Cliente; onClick: () => vo
   );
 }
 
-function NovoClienteModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+function NovoClienteModal({ onClose, onSuccess, tags }: { onClose: () => void; onSuccess: () => void; tags: Tag[] }) {
   const [tipo, setTipo] = useState<"PF" | "PJ">("PF");
-  const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ nome: "", telefone: "", email: "", tags: [] as string[] });
+  const [erro, setErro] = useState("");
+  const { criarCliente, loading } = useCriarCliente();
 
   const formatPhone = (v: string) => {
     const nums = v.replace(/\D/g, "").slice(0, 11);
@@ -153,9 +158,17 @@ function NovoClienteModal({ onClose, onSuccess }: { onClose: () => void; onSucce
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setLoading(false);
+    setErro("");
+    const res = await criarCliente({
+      nome: form.nome,
+      telefone: form.telefone,
+      email: form.email,
+      tags: form.tags,
+    });
+    if (!res.success) {
+      setErro(res.error || "Erro ao cadastrar cliente.");
+      return;
+    }
     onSuccess();
   };
 
@@ -237,17 +250,17 @@ function NovoClienteModal({ onClose, onSuccess }: { onClose: () => void; onSucce
           <div>
             <label className="block text-[#1f2937] text-xs mb-1.5" style={{ fontWeight: 500 }}>Tags / Etiquetas</label>
             <div className="flex flex-wrap gap-2">
-              {TAG_OPTIONS.map((tag) => {
-                const selected = form.tags.includes(tag);
-                const colors = TAG_COLORS[tag] || {};
+              {tags.map((tag) => {
+                const selected = form.tags.includes(tag.nome);
+                const colors = getTagPalette(tag.cor);
                 return (
                   <button
-                    key={tag}
+                    key={tag.id}
                     type="button"
                     onClick={() =>
                       setForm((f) => ({
                         ...f,
-                        tags: selected ? f.tags.filter((t) => t !== tag) : [...f.tags, tag],
+                        tags: selected ? f.tags.filter((t) => t !== tag.nome) : [...f.tags, tag.nome],
                       }))
                     }
                     className="px-2.5 py-1 rounded-full border text-[11px] transition-all"
@@ -258,12 +271,18 @@ function NovoClienteModal({ onClose, onSuccess }: { onClose: () => void; onSucce
                       fontWeight: selected ? 600 : 400,
                     }}
                   >
-                    {tag}
+                    {tag.nome}
                   </button>
                 );
               })}
             </div>
           </div>
+
+          {erro && (
+            <p className="text-xs text-red-600" style={{ fontWeight: 500 }}>
+              {erro}
+            </p>
+          )}
 
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="flex-1 py-3 rounded-xl border border-[#efefef] text-[#1f2937] text-sm hover:bg-[#efefef] transition-colors" style={{ fontWeight: 500 }}>
@@ -287,6 +306,7 @@ function NovoClienteModal({ onClose, onSuccess }: { onClose: () => void; onSucce
 export function ClientesPage() {
   const navigate = useNavigate();
   const { clientes, loading, error, isFallback, recarregar } = useClientes();
+  const { tags: tagsConfig } = useTags();
   const [busca, setBusca] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [tipoFiltro, setTipoFiltro] = useState("Todos");
@@ -335,10 +355,12 @@ export function ClientesPage() {
       {/* Modal */}
       {showNovoCliente && (
         <NovoClienteModal
+          tags={tagsConfig}
           onClose={() => setShowNovoCliente(false)}
           onSuccess={() => {
             setShowNovoCliente(false);
             showToast("Cliente cadastrado com sucesso!");
+            recarregar();
           }}
         />
       )}
@@ -360,6 +382,10 @@ export function ClientesPage() {
           <button className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#efefef] bg-white text-[#1f2937] text-xs hover:bg-[#efefef] transition-colors" style={{ fontWeight: 500 }}>
             <Download size={13} />
             Exportar
+          </button>
+          <button onClick={() => navigate("/crm/configuracoes")} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#efefef] bg-white text-[#1f2937] text-xs hover:bg-[#efefef] transition-colors" style={{ fontWeight: 500 }}>
+            <Settings size={13} />
+            <span className="hidden sm:inline">Configurações</span>
           </button>
           <button
             onClick={() => setShowNovoCliente(true)}
@@ -487,18 +513,18 @@ export function ClientesPage() {
             <div>
               <label className="block text-[#627271] text-xs mb-2" style={{ fontWeight: 500 }}>Tags</label>
               <div className="flex flex-wrap gap-1.5">
-                {TAG_OPTIONS.map((tag) => {
-                  const selected = tagFiltro.includes(tag);
+                {tagsConfig.map((tag) => {
+                  const selected = tagFiltro.includes(tag.nome);
                   return (
                     <button
-                      key={tag}
+                      key={tag.id}
                       onClick={() =>
                         setTagFiltro((prev) =>
-                          selected ? prev.filter((t) => t !== tag) : [...prev, tag]
+                          selected ? prev.filter((t) => t !== tag.nome) : [...prev, tag.nome]
                         )
                       }
                     >
-                      <TagChip tag={selected ? tag : "Inativo"} small />
+                      <TagChip tag={tag.nome} small cor={selected ? tag.cor : null} />
                     </button>
                   );
                 })}

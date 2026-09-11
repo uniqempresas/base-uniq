@@ -23,6 +23,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
+  Minus,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -38,7 +39,8 @@ import {
   type Pedido,
 } from "./pedidosMockData";
 import { usePedidos } from "../../hooks/use-pedidos";
-import { useCriarPedido } from "../../hooks/use-criar-pedido";
+import { useCriarPedido, type PedidoItemInput } from "../../hooks/use-criar-pedido";
+import { useProdutos } from "../../hooks/use-produtos";
 import { useAtualizarStatusPedido } from "../../hooks/use-atualizar-status-pedido";
 
 const ITEMS_PER_PAGE = 10;
@@ -191,6 +193,57 @@ export function PedidosListaPage() {
     formaPagamento: "pix",
     canal: "whatsapp",
   });
+  const { produtos, loading: loadingProdutos } = useProdutos();
+  const [pedidoItens, setPedidoItens] = useState<PedidoItemInput[]>([]);
+  const [produtoId, setProdutoId] = useState("");
+  const [quantidade, setQuantidade] = useState(1);
+
+  const itensTotal = pedidoItens.reduce((s, i) => s + i.preco_unitario * i.quantidade, 0);
+
+  const adicionarItem = () => {
+    const produto = produtos.find((p) => p.id === produtoId);
+    if (!produto) {
+      toast.error("Selecione um produto.");
+      return;
+    }
+    const qtd = quantidade >= 1 ? quantidade : 1;
+    const produtoIdNum = Number(produto.id);
+    setPedidoItens((prev) => {
+      const existente = prev.find((i) => i.produto_id === produtoIdNum);
+      if (existente) {
+        return prev.map((i) =>
+          i.produto_id === produtoIdNum ? { ...i, quantidade: i.quantidade + qtd } : i
+        );
+      }
+      return [
+        ...prev,
+        {
+          produto_id: produtoIdNum,
+          nome_produto: produto.nome,
+          quantidade: qtd,
+          preco_unitario: produto.precoVenda || 0,
+        },
+      ];
+    });
+    setProdutoId("");
+    setQuantidade(1);
+  };
+
+  const alterarQtdItem = (produtoIdItem: number, delta: number) => {
+    setPedidoItens((prev) =>
+      prev
+        .map((i) =>
+          i.produto_id === produtoIdItem
+            ? { ...i, quantidade: Math.max(1, i.quantidade + delta) }
+            : i
+        )
+        .filter((i) => i.quantidade > 0)
+    );
+  };
+
+  const removerItem = (produtoIdItem: number) => {
+    setPedidoItens((prev) => prev.filter((i) => i.produto_id !== produtoIdItem));
+  };
 
   // Filter logic
   const filtered = useMemo(() => {
@@ -264,23 +317,34 @@ export function PedidosListaPage() {
       toast.error("Informe o nome do cliente.");
       return;
     }
-    if (!novoPedido.descricao.trim()) {
+
+    const comItens = pedidoItens.length > 0;
+
+    // Sem itens: comportamento atual (valor manual + descrição obrigatória)
+    if (!comItens && !novoPedido.descricao.trim()) {
       toast.error("Informe a descrição do pedido.");
       return;
     }
-    const valor = parseFloat(novoPedido.valor.replace(",", "."));
-    if (isNaN(valor) || valor <= 0) {
+    const valor = comItens ? itensTotal : parseFloat(novoPedido.valor.replace(",", "."));
+    if (!comItens && (isNaN(valor) || valor <= 0)) {
       toast.error("Informe um valor válido.");
       return;
     }
 
+    // Com itens: descrição auto-gerada se vazia (ex.: "2x Coxinha, 1x Bolo")
+    const descricao =
+      comItens && !novoPedido.descricao.trim()
+        ? pedidoItens.map((i) => `${i.quantidade}x ${i.nome_produto}`).join(", ")
+        : novoPedido.descricao.trim();
+
     const resultado = await criarPedido({
       clienteNome: novoPedido.clienteNome,
       clienteTelefone: novoPedido.clienteTelefone || undefined,
-      descricao: novoPedido.descricao,
+      descricao,
       valor,
       formaPagamento: novoPedido.formaPagamento,
       canal: novoPedido.canal,
+      itens: comItens ? pedidoItens : undefined,
     });
 
     if (resultado.success) {
@@ -294,6 +358,9 @@ export function PedidosListaPage() {
         formaPagamento: "pix",
         canal: "whatsapp",
       });
+      setPedidoItens([]);
+      setProdutoId("");
+      setQuantidade(1);
       recarregar();
     } else {
       toast.error(`Erro ao criar pedido: ${resultado.error}`);
@@ -1007,9 +1074,101 @@ export function PedidosListaPage() {
                 />
               </div>
 
+              {/* Produtos do pedido */}
               <div>
                 <label className="text-xs text-[#1f2937] mb-1.5 block" style={{ fontWeight: 600 }}>
-                  Descrição do pedido *
+                  Produtos do pedido
+                </label>
+                {loadingProdutos ? (
+                  <div className="h-12 rounded-xl bg-[#efefef] animate-pulse" />
+                ) : (
+                  <div className="flex gap-2">
+                    <select
+                      className="flex-1 border border-[#efefef] rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 truncate"
+                      value={produtoId}
+                      onChange={(e) => setProdutoId(e.target.value)}
+                      aria-label="Selecionar produto"
+                    >
+                      <option value="">Selecione um produto...</option>
+                      {produtos.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.nome} — {formatCurrency(p.precoVenda)}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      min={1}
+                      value={quantidade}
+                      onChange={(e) => setQuantidade(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                      className="w-16 border border-[#efefef] rounded-xl px-2 py-3 text-sm text-center focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
+                      aria-label="Quantidade"
+                    />
+                    <button
+                      onClick={adicionarItem}
+                      className="px-3 py-3 rounded-xl text-white shrink-0 transition-colors disabled:opacity-50"
+                      style={{ background: "#2e7d32" }}
+                      aria-label="Adicionar produto"
+                    >
+                      <Plus size={16} />
+                    </button>
+                  </div>
+                )}
+
+                {pedidoItens.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {pedidoItens.map((item) => (
+                      <div
+                        key={item.produto_id}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl border border-[#efefef]"
+                      >
+                        <div className="flex items-center gap-0.5 border border-[#efefef] rounded-lg shrink-0">
+                          <button
+                            onClick={() => alterarQtdItem(item.produto_id, -1)}
+                            className="w-6 h-6 flex items-center justify-center text-[#627271] hover:text-[#1f2937] transition-colors"
+                            aria-label="Diminuir quantidade"
+                          >
+                            <Minus size={12} />
+                          </button>
+                          <span className="w-5 text-center text-xs text-[#1f2937]" style={{ fontWeight: 600 }}>
+                            {item.quantidade}
+                          </span>
+                          <button
+                            onClick={() => alterarQtdItem(item.produto_id, 1)}
+                            className="w-6 h-6 flex items-center justify-center text-[#627271] hover:text-[#1f2937] transition-colors"
+                            aria-label="Aumentar quantidade"
+                          >
+                            <Plus size={12} />
+                          </button>
+                        </div>
+                        <p className="flex-1 text-sm text-[#1f2937] truncate" style={{ fontWeight: 500 }}>
+                          {item.nome_produto}
+                        </p>
+                        <p className="text-sm text-[#1f2937] whitespace-nowrap" style={{ fontWeight: 600 }}>
+                          {formatCurrency(item.preco_unitario * item.quantidade)}
+                        </p>
+                        <button
+                          onClick={() => removerItem(item.produto_id)}
+                          className="text-[#627271] hover:text-red-500 transition-colors shrink-0"
+                          aria-label={`Remover ${item.nome_produto}`}
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-xs text-[#627271]">Total dos produtos</span>
+                      <span className="text-sm text-[#1f2937]" style={{ fontWeight: 700 }}>
+                        {formatCurrency(itensTotal)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="text-xs text-[#1f2937] mb-1.5 block" style={{ fontWeight: 600 }}>
+                  {pedidoItens.length > 0 ? "Descrição (preenchida automaticamente se vazia)" : "Descrição do pedido *"}
                 </label>
                 <textarea
                   className="w-full border border-[#efefef] rounded-xl p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
@@ -1021,18 +1180,32 @@ export function PedidosListaPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-[#1f2937] mb-1.5 block" style={{ fontWeight: 600 }}>
-                    Valor total *
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full border border-[#efefef] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
-                    placeholder="R$ 0,00"
-                    value={novoPedido.valor}
-                    onChange={(e) => setNovoPedido({ ...novoPedido, valor: e.target.value })}
-                  />
-                </div>
+                {pedidoItens.length > 0 ? (
+                  <div>
+                    <label className="text-xs text-[#1f2937] mb-1.5 block" style={{ fontWeight: 600 }}>
+                      Valor total
+                    </label>
+                    <div
+                      className="w-full rounded-xl px-4 py-3 text-sm border border-[#efefef]"
+                      style={{ background: "#FAFAFA", fontWeight: 700 }}
+                    >
+                      {formatCurrency(itensTotal)}
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="text-xs text-[#1f2937] mb-1.5 block" style={{ fontWeight: 600 }}>
+                      Valor total *
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full border border-[#efefef] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
+                      placeholder="R$ 0,00"
+                      value={novoPedido.valor}
+                      onChange={(e) => setNovoPedido({ ...novoPedido, valor: e.target.value })}
+                    />
+                  </div>
+                )}
                 <div>
                   <label className="text-xs text-[#1f2937] mb-1.5 block" style={{ fontWeight: 600 }}>
                     Forma pagamento
@@ -1081,6 +1254,9 @@ export function PedidosListaPage() {
                     formaPagamento: "pix",
                     canal: "whatsapp",
                   });
+                  setPedidoItens([]);
+                  setProdutoId("");
+                  setQuantidade(1);
                 }}
                 disabled={criandoPedido}
               >

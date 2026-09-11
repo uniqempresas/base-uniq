@@ -9,6 +9,7 @@ import { DashboardPage } from "./components/dashboard/DashboardPage";
 // CRM
 import { CRMDashboardPage } from "./components/crm/CRMDashboardPage";
 import { ClientesPage } from "./components/crm/ClientesPage";
+import { ConfiguracoesCRMPage } from "./components/crm/ConfiguracoesCRMPage";
 import { ClienteDetalhePage } from "./components/crm/ClienteDetalhePage";
 import { PipelinePage } from "./components/crm/PipelinePage";
 // Estoque
@@ -126,6 +127,7 @@ export const router = createBrowserRouter([
       { path: "/crm/dashboard", Component: CRMDashboardPage },
       { path: "/crm/clientes", Component: ClientesPage },
       { path: "/crm/clientes/:id", Component: ClienteDetalhePage },
+      { path: "/crm/configuracoes", Component: ConfiguracoesCRMPage },
       { path: "/crm/pipeline", Component: PipelinePage },
       // Estoque
       { path: "/estoque", element: <Navigate to="/estoque/dashboard" replace /> },
