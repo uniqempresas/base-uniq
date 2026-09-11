@@ -12,125 +12,91 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { CardKPI, AlertaAmigavel } from "./components";
-import { useContasReceber } from "../../hooks/use-contas-receber";
-import { useContasPagar } from "../../hooks/use-contas-pagar";
-import {
-  movimentacoesMock,
-  contasPagarMock,
-  contasReceberMock,
-  dreMock,
-  formatarMoeda,
-  calcularStatus,
-  calcularDiasVencimento,
-} from "./mockData";
-
-function formatarMesAtual(): string {
-  const agora = new Date();
-  return `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}`;
-}
+import { formatarMoeda } from "./mockData";
+import { useFinanceiroDashboard } from "../../hooks/use-financeiro-dashboard";
 
 export function FinanceiroDashboardPage() {
   const navigate = useNavigate();
 
-  // Dados reais isolados por tenant (SPEC §2/§4) — mock apenas em modo demo
-  const contasReceberHook = useContasReceber();
-  const contasPagarHook = useContasPagar();
+  const { dashboard, loading, error, isFallback } = useFinanceiroDashboard();
 
-  const isDemo = contasReceberHook.isFallback || contasPagarHook.isFallback;
-  const loadingDados = contasReceberHook.loading || contasPagarHook.loading;
-  const erro = contasReceberHook.error || contasPagarHook.error;
+  const isDemo = isFallback;
 
   const recarregar = () => {
-    contasReceberHook.recarregar();
-    contasPagarHook.recarregar();
+    window.location.reload();
   };
 
-  // ── Modo demo (sem sessão): números vêm do mock — badge "dados de exemplo" ──
-  let totalEntradas = 0;
-  let totalSaidas = 0;
-  let saldoProjetado = 0;
-  let contasPagarAtualizadas: typeof contasPagarMock = [];
-  let contasReceberAtualizadas: typeof contasReceberMock = [];
-  let totalPagar = 0;
-  let qtdVencidas = 0;
-  let totalReceber = 0;
-  let qtdAtrasadas = 0;
-  let isLucro = true;
-  let lucroValor = 0;
-  let ultimasMovimentacoes: typeof movimentacoesMock = [];
+  const dashboardDados = dashboard ?? {
+    saldoProjetado: 0,
+    totalEntradasMes: 0,
+    totalSaidasMes: 0,
+    lucroMes: 0,
+    isLucro: true,
+    contasVencidasPagar: 0,
+    contasAtrasadasReceber: 0,
+    proximasContasPagar: [],
+    ultimasMovimentacoes: [],
+    contasReceberPendentes: [],
+  };
 
-  if (isDemo) {
-    totalEntradas = movimentacoesMock
-      .filter((m) => m.tipo === "entrada" && m.data.startsWith("2025-03"))
-      .reduce((sum, m) => sum + m.valor, 0);
-    totalSaidas = movimentacoesMock
-      .filter((m) => m.tipo === "saida" && m.data.startsWith("2025-03"))
-      .reduce((sum, m) => sum + m.valor, 0);
-    saldoProjetado = 3500 + totalEntradas - totalSaidas;
+  const {
+    saldoProjetado,
+    totalEntradasMes,
+    totalSaidasMes,
+    lucroMes,
+    isLucro,
+    contasVencidasPagar,
+    contasAtrasadasReceber,
+    proximasContasPagar,
+    ultimasMovimentacoes,
+    contasReceberPendentes,
+  } = dashboardDados;
 
-    contasPagarAtualizadas = contasPagarMock.map((c) => ({
-      ...c,
-      status: calcularStatus(c.dataVencimento, c.status),
-    }));
-    totalPagar = contasPagarAtualizadas.filter((c) => c.status === "pendente").reduce((s, c) => s + c.valor, 0);
-    qtdVencidas = contasPagarAtualizadas.filter((c) => c.status === "vencido").length;
+  const totalPagar = proximasContasPagar.reduce((s, c) => s + c.valor, 0);
+  const totalReceber = contasReceberPendentes.reduce((s, c) => s + c.valor, 0);
+  const lucroValor = Math.abs(lucroMes);
 
-    contasReceberAtualizadas = contasReceberMock.map((c) => ({
-      ...c,
-      status: calcularStatus(c.dataPrevista, c.status),
-    }));
-    totalReceber = contasReceberAtualizadas.filter((c) => c.status === "pendente").reduce((s, c) => s + c.valor, 0);
-    qtdAtrasadas = contasReceberAtualizadas.filter((c) => c.status === "vencido").length;
-
-    isLucro = dreMock.lucroLiquido >= 0;
-    lucroValor = Math.abs(dreMock.lucroLiquido);
-
-    ultimasMovimentacoes = movimentacoesMock
-      .filter((m) => m.data.startsWith("2025-03"))
-      .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
-      .slice(0, 5);
-  } else {
-    // ── Sessão ativa: KPIs calculados sobre os dados reais dos hooks ──
-    contasPagarAtualizadas = contasPagarHook.contas as unknown as typeof contasPagarMock;
-    contasReceberAtualizadas = contasReceberHook.contas as unknown as typeof contasReceberMock;
-
-    totalPagar = contasPagarHook.contas
-      .filter((c) => c.status === "pendente")
-      .reduce((s, c) => s + c.valor, 0);
-    qtdVencidas = contasPagarHook.contas.filter((c) => c.status === "vencido").length;
-
-    totalReceber = contasReceberHook.contas
-      .filter((c) => c.status === "pendente")
-      .reduce((s, c) => s + c.valor, 0);
-    qtdAtrasadas = contasReceberHook.contas.filter((c) => c.status === "vencido").length;
-
-    const mesAtual = formatarMesAtual();
-    totalEntradas = contasReceberHook.contas
-      .filter((c) => c.dataPrevista.startsWith(mesAtual))
-      .reduce((s, c) => s + c.valor, 0);
-    totalSaidas = contasPagarHook.contas
-      .filter((c) => c.dataVencimento.startsWith(mesAtual))
-      .reduce((s, c) => s + c.valor, 0);
-
-    saldoProjetado = totalReceber - totalPagar;
-    isLucro = totalEntradas - totalSaidas >= 0;
-    lucroValor = Math.abs(totalEntradas - totalSaidas);
-    ultimasMovimentacoes = []; // sem fonte real de movimentações ainda → empty state real
-  }
-
-  // Próximas contas a pagar (próximos 7 dias)
-  const proximasContas = contasPagarAtualizadas
-    .filter((c) => c.status === "pendente")
-    .map((c) => ({ ...c, diasRestantes: calcularDiasVencimento(c.dataVencimento) }))
-    .filter((c) => c.diasRestantes >= 0 && c.diasRestantes <= 7)
-    .sort((a, b) => a.diasRestantes - b.diasRestantes)
-    .slice(0, 5);
-
-  if (loadingDados) {
+  if (loading) {
     return (
-      <div className="p-4 sm:p-6 max-w-7xl mx-auto flex flex-col items-center justify-center py-24">
-        <RefreshCw size={28} className="animate-spin text-[#627271] mb-3" />
-        <p className="text-sm text-[#627271]">Carregando dados financeiros...</p>
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-6">
+          <div className="h-7 bg-gray-200 rounded w-48 animate-pulse"></div>
+          <div className="h-4 bg-gray-200 rounded w-72 mt-2 animate-pulse"></div>
+        </div>
+
+        {/* Alertas skeleton */}
+        <div className="space-y-3 mb-6">
+          <div className="h-16 bg-gray-200 rounded-xl animate-pulse"></div>
+        </div>
+
+        {/* KPIs skeleton */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="bg-white rounded-xl border border-[#efefef] p-4 animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-24 mb-3"></div>
+              <div className="h-8 bg-gray-200 rounded w-32"></div>
+            </div>
+          ))}
+        </div>
+
+        {/* Cards skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div className="bg-white rounded-xl border border-[#efefef] p-4 animate-pulse">
+            <div className="h-5 bg-gray-200 rounded w-40 mb-4"></div>
+            <div className="h-24 bg-gray-200 rounded"></div>
+          </div>
+          <div className="bg-white rounded-xl border border-[#efefef] p-4 animate-pulse">
+            <div className="h-5 bg-gray-200 rounded w-40 mb-4"></div>
+            <div className="h-24 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+
+        {/* Lista skeleton */}
+        <div className="bg-white rounded-xl border border-[#efefef] p-4 animate-pulse">
+          <div className="h-5 bg-gray-200 rounded w-48 mb-4"></div>
+          <div className="h-20 bg-gray-200 rounded"></div>
+        </div>
       </div>
     );
   }
@@ -149,10 +115,10 @@ export function FinanceiroDashboardPage() {
         )}
       </div>
 
-      {erro && (
+      {error && (
         <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl border border-red-200 bg-red-50 text-red-700 text-sm">
           <AlertCircle size={16} className="shrink-0" />
-          <span className="flex-1">{erro}</span>
+          <span className="flex-1">Erro ao carregar dados financeiros. Tente novamente.</span>
           <button
             onClick={recarregar}
             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-white border border-red-200 hover:bg-red-100 transition-colors"
@@ -166,20 +132,20 @@ export function FinanceiroDashboardPage() {
 
       {/* Alertas */}
       <div className="space-y-3 mb-6">
-        {qtdVencidas > 0 && (
+        {contasVencidasPagar > 0 && (
           <AlertaAmigavel
             tipo="error"
-            titulo={`Você tem ${qtdVencidas} conta(s) vencida(s)`}
+            titulo={`Você tem ${contasVencidasPagar} conta(s) vencida(s)`}
             mensagem="Pague o quanto antes para evitar juros e multas."
             ctaLabel="Ver Contas"
             ctaAction={() => navigate("/financeiro/contas-pagar")}
           />
         )}
 
-        {qtdAtrasadas > 0 && (
+        {contasAtrasadasReceber > 0 && (
           <AlertaAmigavel
             tipo="warning"
-            titulo={`${qtdAtrasadas} cliente(s) com pagamento atrasado`}
+            titulo={`${contasAtrasadasReceber} cliente(s) com pagamento atrasado`}
             mensagem="Envie uma cobrança amigável para receber mais rápido."
             ctaLabel="Ver Clientes"
             ctaAction={() => navigate("/financeiro/contas-receber")}
@@ -200,14 +166,14 @@ export function FinanceiroDashboardPage() {
           onClick={() => navigate("/financeiro/fluxo-de-caixa")}
           className="text-left hover:scale-[1.02] transition-transform"
         >
-          <CardKPI label="Entradas do Mês" valor={totalEntradas} icon={TrendingUp} tipo="positivo" comparativo={12.5} />
+          <CardKPI label="Entradas do Mês" valor={totalEntradasMes} icon={TrendingUp} tipo="positivo" comparativo={12.5} />
         </button>
 
         <button
           onClick={() => navigate("/financeiro/fluxo-de-caixa")}
           className="text-left hover:scale-[1.02] transition-transform"
         >
-          <CardKPI label="Saídas do Mês" valor={totalSaidas} icon={TrendingDown} tipo="negativo" comparativo={-5.2} />
+          <CardKPI label="Saídas do Mês" valor={totalSaidasMes} icon={TrendingDown} tipo="negativo" comparativo={-5.2} />
         </button>
 
         <button
@@ -249,14 +215,14 @@ export function FinanceiroDashboardPage() {
               </span>
             </div>
 
-            {proximasContas.length === 0 ? (
+            {proximasContasPagar.length === 0 ? (
               <div className="text-center py-6">
                 <CheckCircle size={32} className="text-[#627271] mx-auto mb-2" />
                 <p className="text-sm text-[#1f2937]">Nenhuma conta vencendo nos próximos 7 dias!</p>
               </div>
             ) : (
               <div className="space-y-2">
-                {proximasContas.map((conta) => (
+                {proximasContasPagar.map((conta) => (
                   <div
                     key={conta.id}
                     className={`p-3 rounded-lg border ${
@@ -325,14 +291,16 @@ export function FinanceiroDashboardPage() {
               </span>
             </div>
 
-            {contasReceberAtualizadas.length === 0 ? (
+            {contasReceberPendentes.length === 0 ? (
               <div className="text-center py-6">
                 <p className="text-sm text-[#1f2937]">Nenhuma conta a receber cadastrada</p>
               </div>
             ) : (
               <div className="space-y-2">
-                {contasReceberAtualizadas.slice(0, 5).map((conta) => {
-                  const dias = calcularDiasVencimento(conta.dataPrevista);
+                {contasReceberPendentes.slice(0, 5).map((conta) => {
+                  const dias = Math.ceil(
+                    (new Date(conta.dataPrevista).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+                  );
                   return (
                     <div
                       key={conta.id}
