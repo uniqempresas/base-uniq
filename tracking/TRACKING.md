@@ -228,6 +228,14 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 
 **Número confirmado:** `5511919153508` (Doceê / HQ Gráfica) — usar este canal ao duplicar o fluxo n8n.
 
+**3. Layout mobile do detalhe do pedido (commit `d7a554e`):**
+- **Problema:** no mobile, o detalhe do pedido ficava espremido — ações de status/contabilizar, banner de pagamento pendente e rastreio "sem código" apertados em telas ~360px.
+- Ações do pedido (Atualizar status / Contabilizar venda / Venda contabilizada) agora ficam em **linha própria abaixo do título no mobile** com `flex-wrap` (no desktop permanecem ao lado, com Imprimir).
+- Banner "Pagamento pendente" empilhado no mobile (texto + botão de largura total com alvo de toque maior).
+- Rastreio sem código empilhado no mobile com botão de largura total.
+- Modais de status, rastreio e contabilizar viraram **bottom-sheet no mobile** (`rounded-t-3xl` + handle visual), com botões empilhados (Confirmar em cima) e padding reduzido; valores do resumo de contabilizar com `truncate`.
+- **Fluxo intacto:** nenhuma mudança em handlers/hooks — só classes responsivas.
+
 ---
 
 ### 🟠 SEMANA 3 — Reutilização (HQ Gráfica) + Material
