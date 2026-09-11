@@ -280,6 +280,37 @@ export function PedidoDetalhePage() {
     }
   };
 
+  // Ações do pedido (usadas no mobile logo abaixo do título e no desktop à direita)
+  const acoesPedido = (
+    <>
+      {!isCanceled && !isDelivered && (
+        <button
+          className="flex items-center gap-1.5 px-3 py-2 text-xs rounded-xl text-[#1f2937] transition-colors"
+          style={{ background: "#86cb92" }}
+          onClick={() => setShowStatusModal(true)}
+        >
+          <RefreshCw size={13} />
+          Atualizar status
+        </button>
+      )}
+      {!isCanceled && !vendaContabilizada && pedido.statusPagamento === "confirmado" && (
+        <button
+          className="flex items-center gap-1.5 px-3 py-2 text-xs rounded-xl border border-[#2e7d32] text-[#2e7d32] hover:bg-[#e8f5e9] transition-colors"
+          onClick={() => setShowContabilizarModal(true)}
+        >
+          <DollarSign size={13} />
+          Contabilizar venda
+        </button>
+      )}
+      {vendaContabilizada && (
+        <span className="flex items-center gap-1.5 px-3 py-2 text-xs rounded-xl bg-[#e8f5e9] text-[#2e7d32] border border-[#2e7d32]">
+          <Check size={13} />
+          Venda contabilizada
+        </span>
+      )}
+    </>
+  );
+
   return (
     <div className="p-4 sm:p-6 max-w-screen-lg mx-auto space-y-5">
       {/* Header */}
@@ -291,8 +322,8 @@ export function PedidoDetalhePage() {
           <ArrowLeft size={17} />
         </button>
         <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap items-center gap-3 mb-1">
-            <h1 className="text-[#1f2937]" style={{ fontWeight: 800, fontSize: 22, fontFamily: "monospace" }}>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-1">
+            <h1 className="text-[#1f2937]" style={{ fontWeight: 800, fontSize: 20, fontFamily: "monospace" }}>
               {pedido.numero}
             </h1>
             <StatusBadge status={pedido.status} large />
@@ -304,55 +335,38 @@ export function PedidoDetalhePage() {
             </span>
           </div>
           <p className="text-sm text-[#627271]">{formatDateTime(pedido.dataHora)}</p>
+
+          {/* Ações mobile: linha própria abaixo do título, com wrap */}
+          <div className="flex flex-wrap items-center gap-2 mt-3 sm:hidden">
+            {acoesPedido}
+          </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="hidden sm:flex items-center gap-2 shrink-0">
           <button
-            className="flex items-center gap-1.5 px-3 py-2 text-xs rounded-xl border border-[#efefef] text-[#1f2937] hover:bg-[#efefef] transition-colors hidden sm:flex"
+            className="flex items-center gap-1.5 px-3 py-2 text-xs rounded-xl border border-[#efefef] text-[#1f2937] hover:bg-[#efefef] transition-colors"
             onClick={() => { toast.success("Comprovante gerado!"); }}
           >
             <Printer size={13} />
             Imprimir
           </button>
-          {!isCanceled && !isDelivered && (
-            <button
-              className="flex items-center gap-1.5 px-3 py-2 text-xs rounded-xl text-[#1f2937] transition-colors"
-              style={{ background: "#86cb92" }}
-              onClick={() => setShowStatusModal(true)}
-            >
-              <RefreshCw size={13} />
-              Atualizar status
-            </button>
-          )}
-          {!isCanceled && !vendaContabilizada && pedido.statusPagamento === "confirmado" && (
-            <button
-              className="flex items-center gap-1.5 px-3 py-2 text-xs rounded-xl border border-[#2e7d32] text-[#2e7d32] hover:bg-[#e8f5e9] transition-colors"
-              onClick={() => setShowContabilizarModal(true)}
-            >
-              <DollarSign size={13} />
-              Contabilizar venda
-            </button>
-          )}
-          {vendaContabilizada && (
-            <span className="flex items-center gap-1.5 px-3 py-2 text-xs rounded-xl bg-[#e8f5e9] text-[#2e7d32] border border-[#2e7d32]">
-              <Check size={13} />
-              Venda contabilizada
-            </span>
-          )}
+          {acoesPedido}
         </div>
       </div>
 
       {/* MEL tip for pending payment */}
       {pedido.statusPagamento === "pendente" && !isCanceled && (
         <div
-          className="flex items-center gap-3 p-3.5 rounded-2xl border"
+          className="flex flex-col sm:flex-row sm:items-center gap-3 p-3.5 rounded-2xl border"
           style={{ background: "#FFFBEB", borderColor: "#FDE68A" }}
         >
-          <AlertTriangle size={16} style={{ color: "#D97706", flexShrink: 0 }} />
-          <p className="text-xs" style={{ color: "#92400E" }}>
-            <strong>Pagamento pendente.</strong> Você pode processar o pedido mesmo assim.
-          </p>
+          <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
+            <AlertTriangle size={16} style={{ color: "#D97706", flexShrink: 0, marginTop: 1 }} />
+            <p className="text-xs" style={{ color: "#92400E" }}>
+              <strong>Pagamento pendente.</strong> Você pode processar o pedido mesmo assim.
+            </p>
+          </div>
           <button
-            className="ml-auto px-3 py-1.5 rounded-lg text-xs text-white shrink-0 disabled:opacity-60"
+            className="w-full sm:w-auto sm:ml-auto px-3 py-2.5 sm:py-1.5 rounded-lg text-xs text-white shrink-0 disabled:opacity-60"
             style={{ background: "#D97706" }}
             disabled={confirmandoPagamento}
             onClick={async () => {
@@ -561,10 +575,10 @@ export function PedidoDetalhePage() {
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                   <p className="text-sm text-[#627271] flex-1">Nenhum código de rastreio adicionado ainda.</p>
                   <button
-                    className="px-3 py-2 rounded-xl text-xs text-white transition-colors"
+                    className="w-full sm:w-auto px-3 py-2.5 sm:py-2 rounded-xl text-xs text-white transition-colors"
                     style={{ background: "#7C3AED" }}
                     onClick={() => setShowTrackingModal(true)}
                   >
@@ -784,8 +798,9 @@ export function PedidoDetalhePage() {
 
       {/* Status update modal */}
       {showStatusModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl p-6 max-w-sm w-full">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl p-5 sm:p-6 max-w-sm w-full">
+            <div className="sm:hidden w-10 h-1 rounded-full bg-[#efefef] mx-auto mb-4" />
             <p className="text-[#1f2937] mb-1" style={{ fontWeight: 700 }}>
               Atualizar status do pedido
             </p>
@@ -818,16 +833,16 @@ export function PedidoDetalhePage() {
                 );
               })}
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-col-reverse sm:flex-row gap-2">
               <button
-                className="flex-1 px-4 py-2.5 rounded-xl border border-[#efefef] text-sm text-[#1f2937] hover:bg-[#efefef] transition-colors"
+                className="sm:flex-1 px-4 py-2.5 rounded-xl border border-[#efefef] text-sm text-[#1f2937] hover:bg-[#efefef] transition-colors"
                 onClick={() => { setShowStatusModal(false); setNewStatus(null); }}
               >
                 Cancelar
               </button>
               <button
                 disabled={!newStatus}
-                className="flex-1 px-4 py-2.5 rounded-xl text-sm text-[#1f2937] transition-colors disabled:opacity-40"
+                className="sm:flex-1 px-4 py-2.5 rounded-xl text-sm text-[#1f2937] transition-colors disabled:opacity-40"
                 style={{ background: "#86cb92" }}
                 onClick={handleStatusUpdate}
               >
@@ -840,8 +855,9 @@ export function PedidoDetalhePage() {
 
       {/* Tracking modal */}
       {showTrackingModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl p-6 max-w-sm w-full">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl p-5 sm:p-6 max-w-sm w-full">
+            <div className="sm:hidden w-10 h-1 rounded-full bg-[#efefef] mx-auto mb-4" />
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-2xl bg-purple-100 flex items-center justify-center">
                 <Truck size={18} className="text-purple-600" />
@@ -860,16 +876,16 @@ export function PedidoDetalhePage() {
               value={trackingCode}
               onChange={(e) => setTrackingCode(e.target.value.toUpperCase())}
             />
-            <div className="flex gap-2">
+            <div className="flex flex-col-reverse sm:flex-row gap-2">
               <button
-                className="flex-1 px-4 py-2.5 rounded-xl border border-[#efefef] text-sm text-[#1f2937] hover:bg-[#efefef] transition-colors"
+                className="sm:flex-1 px-4 py-2.5 rounded-xl border border-[#efefef] text-sm text-[#1f2937] hover:bg-[#efefef] transition-colors"
                 onClick={() => setShowTrackingModal(false)}
               >
                 Cancelar
               </button>
               <button
                 disabled={!trackingCode.trim()}
-                className="flex-1 px-4 py-2.5 rounded-xl text-sm text-white transition-colors disabled:opacity-40"
+                className="sm:flex-1 px-4 py-2.5 rounded-xl text-sm text-white transition-colors disabled:opacity-40"
                 style={{ background: "#7C3AED" }}
                 onClick={handleTrackingAdd}
               >
@@ -883,7 +899,7 @@ export function PedidoDetalhePage() {
       {/* Cancel modal */}
       {showCancelModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl p-6 max-w-md w-full">
+          <div className="bg-white rounded-3xl shadow-2xl p-5 sm:p-6 max-w-md w-full">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-2xl bg-red-100 flex items-center justify-center">
                 <X size={18} className="text-red-600" />
@@ -908,15 +924,15 @@ export function PedidoDetalhePage() {
               />
               <p className="text-[11px] text-[#627271] mt-1">{cancelMotivo.length}/10 caracteres mínimos</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-col-reverse sm:flex-row gap-2">
               <button
-                className="flex-1 px-4 py-2.5 rounded-xl border border-[#efefef] text-sm text-[#1f2937] hover:bg-[#efefef] transition-colors"
+                className="sm:flex-1 px-4 py-2.5 rounded-xl border border-[#efefef] text-sm text-[#1f2937] hover:bg-[#efefef] transition-colors"
                 onClick={() => { setShowCancelModal(false); setCancelMotivo(""); }}
               >
                 Voltar
               </button>
               <button
-                className="flex-1 px-4 py-2.5 rounded-xl text-sm text-white transition-colors"
+                className="sm:flex-1 px-4 py-2.5 rounded-xl text-sm text-white transition-colors"
                 style={{ background: "#DC2626" }}
                 onClick={handleCancel}
               >
@@ -929,8 +945,9 @@ export function PedidoDetalhePage() {
 
       {/* Contabilizar venda modal */}
       {showContabilizarModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl p-6 max-w-md w-full">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl p-5 sm:p-6 max-w-md w-full">
+            <div className="sm:hidden w-10 h-1 rounded-full bg-[#efefef] mx-auto mb-4" />
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-2xl bg-green-100 flex items-center justify-center">
                 <DollarSign size={18} className="text-green-600" />
@@ -946,36 +963,36 @@ export function PedidoDetalhePage() {
             </div>
 
             <div className="bg-[#f8f9fa] rounded-xl p-4 mb-4 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-[#627271]">Pedido</span>
-                <span className="font-mono text-[#1f2937]">{pedido.numero}</span>
+              <div className="flex justify-between gap-3 text-sm">
+                <span className="text-[#627271] shrink-0">Pedido</span>
+                <span className="font-mono text-[#1f2937] text-right truncate">{pedido.numero}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-[#627271]">Cliente</span>
-                <span className="text-[#1f2937]">{pedido.cliente.nome}</span>
+              <div className="flex justify-between gap-3 text-sm">
+                <span className="text-[#627271] shrink-0">Cliente</span>
+                <span className="text-[#1f2937] text-right truncate">{pedido.cliente.nome}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-[#627271]">Itens</span>
-                <span className="text-[#1f2937]">{pedido.itens.length} produto(s)</span>
+              <div className="flex justify-between gap-3 text-sm">
+                <span className="text-[#627271] shrink-0">Itens</span>
+                <span className="text-[#1f2937] text-right truncate">{pedido.itens.length} produto(s)</span>
               </div>
-              <div className="border-t border-[#e5e7eb] pt-2 flex justify-between">
-                <span className="text-sm text-[#627271]">Valor total</span>
-                <span className="text-lg text-[#1f2937]" style={{ fontWeight: 700 }}>
+              <div className="border-t border-[#e5e7eb] pt-2 flex justify-between items-center gap-3">
+                <span className="text-sm text-[#627271] shrink-0">Valor total</span>
+                <span className="text-lg text-[#1f2937] text-right" style={{ fontWeight: 700 }}>
                   {formatCurrency(pedido.total)}
                 </span>
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-col-reverse sm:flex-row gap-2">
               <button
-                className="flex-1 px-4 py-2.5 rounded-xl border border-[#efefef] text-sm text-[#1f2937] hover:bg-[#efefef] transition-colors"
+                className="sm:flex-1 px-4 py-2.5 rounded-xl border border-[#efefef] text-sm text-[#1f2937] hover:bg-[#efefef] transition-colors"
                 onClick={() => setShowContabilizarModal(false)}
                 disabled={registrandoVenda}
               >
                 Cancelar
               </button>
               <button
-                className="flex-1 px-4 py-2.5 rounded-xl text-sm text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="sm:flex-1 px-4 py-2.5 rounded-xl text-sm text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 style={{ background: "#2e7d32" }}
                 onClick={handleContabilizar}
                 disabled={registrandoVenda}
