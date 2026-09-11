@@ -299,6 +299,13 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 
 **SDD:** PRD/SPEC/WIRE da **Landing Page** (tela nova) — feita aqui porque é material de venda, e vira a base do funil na Semana 4.
 
+**Documentos criados (T3.3):**
+- PRD: `tracking/plans/PRD-Semana3-T3.3-LandingPage.md`
+- SPEC: `tracking/specs/SPEC-Semana3-T3.3-LandingPage.md`
+- WIRE: `tracking/wireframe/WIRE-Semana3-T3.3-LandingPage.md`
+
+**Status (T3.3):** 🔶 SDD pronto (11/09/2026) — aguardando aprovação do WIRE pelo fundador para implementar. Rota `/` passa de redirect p/ login a landing pública; CTA "Falar com a MEL" é âncora nesta semana (chat híbrido entra na S4 — regra de sequência preservada).
+
 ---
 
 ### 🔴 SEMANA 4 — Funil de Aquisição (Landing + MEL)
