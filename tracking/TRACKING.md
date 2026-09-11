@@ -221,8 +221,9 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 - **Resolve USO REAL #12** (tags configuráveis + Novo Cliente persistido)
 
 **Documentos criados (T2.9):**
+- PRD: `tracking/plans/PRD-Semana2-T2.9-ProdutosNoPedido.md`
 - SPEC: `tracking/specs/SPEC-Semana2-T2.9-ProdutosNoPedido.md`
-- ⚠️ PRD e WIRE da T2.9 não foram criados (gap SDD — ver item B6 no backlog técnico)
+- WIRE: `tracking/wireframe/WIRE-Semana2-T2.9-ProdutosNoPedido.md`
 
 **Implementação concluída (T2.9 — commit `3de7bfc`, 11/09/2026):**
 - Hook `use-criar-cliente.ts` persistindo o cliente do modal "Novo Cliente" em `crm_leads` (`origem manual`, status `novo`, com tags) — resolve USO REAL #12
@@ -361,7 +362,7 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 | B3 | **Autocomplete de cliente no Novo Pedido** | Na tela de criar pedido (`PedidosListaPage`), ao digitar o nome do cliente, buscar no banco (`me_cliente` / `crm_leads`) e sugerir cadastros existentes — evita duplicar clientes. | Média |
 | B4 | **Vincular pedido a cliente existente** | Hoje `useCriarPedido` busca por nome exato. Melhorar para busca fuzzy ou por telefone, e permitir selecionar cliente existente vs criar novo. | Média |
 | B5 | **Busca de endereço por CEP** | Ao criar cliente/pedido, integrar ViaCEP ou similar para preencher endereço automaticamente. | Baixa |
-| B6 | **Completar SDD da T2.9** | PRD e WIRE de "Produtos no criar pedido + Novo Cliente persistido" não foram criados (só SPEC). Regularizar para manter o histórico SDD completo. | Baixa |
+| ~~B6~~ | ~~**Completar SDD da T2.9**~~ | ✅ Resolvido (11/09/2026) — PRD e WIRE criados em `tracking/plans/` e `tracking/wireframe/`. | Fechado |
 
 ---
 
