@@ -254,6 +254,32 @@ export function AppLayout() {
     return SUBNAV_SECTIONS.find((s) => s.railId === activeRailId) || SUBNAV_SECTIONS[0];
   }, [activeRailId]);
 
+  const visibleRailItems = useMemo(() => {
+    return RAIL_ITEMS.filter((item) => {
+      if (CORE_MODULES.has(item.moduloCodigo)) return true;
+      const modulo = modulosAtivos.find((m) => m.codigo === item.moduloCodigo);
+      return modulo && (modulo.status === "core" || modulo.status === "ativo" || modulo.status === "trial");
+    });
+  }, [modulosAtivos]);
+
+  const [expandedMobileModule, setExpandedMobileModule] = useState<string | null>(null);
+  const [expandedMobileSubmenu, setExpandedMobileSubmenu] = useState<string | null>("cadastros");
+
+  // Fecha drawer ao pressionar ESC ou clicar fora
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsMobileMenuOpen(false);
+    };
+    if (isMobileMenuOpen) {
+      document.addEventListener("keydown", handleEscape);
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "";
+    };
+  }, [isMobileMenuOpen]);
+
   const handleNavigation = (path: string) => {
     navigate(path);
     setIsMobileMenuOpen(false);
@@ -282,17 +308,6 @@ export function AppLayout() {
     return <Navigate to="/auth/login" replace />;
   }
 
-  const visibleRailItems = useMemo(() => {
-    return RAIL_ITEMS.filter((item) => {
-      if (CORE_MODULES.has(item.moduloCodigo)) return true;
-      const modulo = modulosAtivos.find((m) => m.codigo === item.moduloCodigo);
-      return modulo && (modulo.status === "core" || modulo.status === "ativo" || modulo.status === "trial");
-    });
-  }, [modulosAtivos]);
-
-  const [expandedMobileModule, setExpandedMobileModule] = useState<string | null>(null);
-  const [expandedMobileSubmenu, setExpandedMobileSubmenu] = useState<string | null>("cadastros");
-
   const toggleSubmenu = (id: string) => {
     setExpandedSubmenu((prev) => (prev === id ? null : id));
   };
@@ -302,21 +317,6 @@ export function AppLayout() {
   };
 
   const isItemActive = (path: string) => currentPath === path || currentPath.startsWith(path + "/");
-
-  // Fecha drawer ao pressionar ESC ou clicar fora
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setIsMobileMenuOpen(false);
-    };
-    if (isMobileMenuOpen) {
-      document.addEventListener("keydown", handleEscape);
-      document.body.style.overflow = "hidden";
-    }
-    return () => {
-      document.removeEventListener("keydown", handleEscape);
-      document.body.style.overflow = "";
-    };
-  }, [isMobileMenuOpen]);
 
   const toggleMobileModule = (moduleId: string) => {
     setExpandedMobileModule((prev) => (prev === moduleId ? null : moduleId));
