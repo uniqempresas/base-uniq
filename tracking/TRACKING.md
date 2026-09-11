@@ -21,13 +21,13 @@ Conectar a **Base UNIQ** para que a demonstração `WhatsApp → CRM → pedido 
 
 ---
 
-## 📌 Decisão #0 (resolvida — CRÍTICA)
+## 📌 Decisão #0 (resolvida — ✅ implementada na S1)
 
 - **Supabase OFICIAL:** `krrkfgvdwhpelxtrdtla.supabase.co` ← é este que tem os dados reais e que os agentes devem usar.
-- ⚠️ **O front aponta para o errado:** `src/lib/supabase.ts` está configurado com `eqyvicudbrfwjynlbtie.supabase.co` (herdado de um protótipo onde só o login era real). **A tarefa 1.1 é corrigir isso.**
-- A edge function `criar-conta` em `src/app/components/auth/CadastroPage.tsx` (linha ~198) também aponta para o projeto errado.
+- ✅ **Front corrigido (tarefa 1.1):** `src/lib/supabase.ts` já aponta para `krrkfgv...` e a edge function `criar-conta` em `CadastroPage.tsx` também. Sem referências ao projeto antigo (`eqyvic...`) no código.
+- ⚠️ **RLS por empresa (Bug #36):** `crm_chat_conversas` (20) e `crm_chat_mensagens` (647) têm RLS habilitado com isolamento por empresa (`me_usuario`). **Anon key retorna 0** — os dados só aparecem com usuário logado. `me_empresa`/`me_usuario` seguem sem RLS.
 
-> **Teste de sanidade (para o agente):** após conectar, listar `me_empresa` deve retornar **2 registros** e `crm_chat_conversas` deve retornar **18**. Se retornar 0, o banco é o errado.
+> **Teste de sanidade (para o agente):** com a anon key, `me_empresa` retorna **2** e `me_usuario` retorna **2**. `crm_chat_conversas`/`crm_chat_mensagens` retornam **0 com anon** (esperado — RLS); para ver as **20 conversas / 647 mensagens**, é preciso token de usuário autenticado de uma empresa.
 
 ---
 
@@ -35,14 +35,21 @@ Conectar a **Base UNIQ** para que a demonstração `WhatsApp → CRM → pedido 
 
 ### Backend (já construído — NÃO recriar)
 
+> Números atualizados em 11/09/2026 via schema do Supabase oficial (`krrkfgv...`).
+
 | Domínio | Tabela | Dados reais | Campos-chave |
 |---|---|---|---|
-| **Chat WhatsApp (Evolution)** | `crm_chat_conversas` | **18** | `id`(text), `empresa_id`, `cliente_id`, `lead_id`, `status`, `modo`, `titulo`, `nome`, `canal`, `canal_id`, `canal_dados`(jsonb), `foto_contato`, `criado_em` |
-| **Mensagens** | `crm_chat_mensagens` | **645** | `id`, `conversa_id`(text), `remetente_tipo`, `remetente_id`, `conteudo`, `tipo_conteudo`, `lido`, `metadados`(jsonb), `remetente`, `tipo`, `arquivo_url`, `canal_mensagem_id`, `status`, `criado_em` |
-| **Leads** | `crm_leads` | **9** | `id`, `empresa_id`, `nome`, `email`, `telefone`, `status`, `origem`, `cargo`, `empresa_nome`, `ltv`, `ultima_interacao`, `observacoes`, `foto_url`, `created_at` |
+| **Chat WhatsApp (Evolution)** | `crm_chat_conversas` | **20** (RLS por empresa) | `id`(text), `empresa_id`, `cliente_id`, `lead_id`, `status`, `modo`, `titulo`, `nome`, `canal`, `canal_id`, `canal_dados`(jsonb), `foto_contato`, `criado_em` |
+| **Mensagens** | `crm_chat_mensagens` | **647** (RLS por empresa) | `id`, `conversa_id`(text), `remetente_tipo`, `remetente_id`, `conteudo`, `tipo_conteudo`, `lido`, `metadados`(jsonb), `remetente`, `tipo`, `arquivo_url`, `canal_mensagem_id`, `status`, `criado_em` |
+| **Chat MEL** | `mel_chat` | **548** | histórico de conversas da MEL |
+| **Cliente** | `me_cliente` | **7** | `id`, `empresa_id`, `nome`, `telefone`, `email`, `documento`, `endereco`, `criado_em` |
+| **Leads** | `crm_leads` | **0** (vazio) | `id`, `empresa_id`, `nome`, `email`, `telefone`, `status`, `origem`, `cargo`, `empresa_nome`, `ltv`, `ultima_interacao`, `observacoes`, `foto_url`, `created_at` |
 | **Empresa** | `me_empresa` | **2** | `id`, `nome_fantasia`, `cnpj`, `telefone`, `email`, `slug`, `store_config`(jsonb), `logo_url`, `appearance`(jsonb) |
 | **Usuário** | `me_usuario` | **2** | `id`, `empresa_id`, `email`, `nome_usuario`, `cargo`, `role`, `ativo` |
-| **Vendas** | `me_venda` | **3** | `id`, `empresa_id`, `cliente_id`, `usuario_id`, `valor_total`, `status_venda`, `forma_pagamento`, `canal_venda`, `tipo_venda`, `npedido`, `conta_id`, `criado_em` |
+| **Vendas** | `me_venda` | **2** | `id`, `empresa_id`, `cliente_id`, `usuario_id`, `valor_total`, `status_venda`, `forma_pagamento`, `canal_venda`, `tipo_venda`, `npedido`, `conta_id`, `criado_em` |
+| **Produtos** | `me_produto` | **3** | catálogo de produtos |
+| **Finanças** | `me_contas_receber` / `me_contas_pagar` | **5** / **1** | contas a receber e a pagar |
+| **Tags CRM** | `me_tag` | **24** | tags configuráveis do CRM |
 
 ### RPC disponível para a cadeia de demonstração
 
@@ -135,6 +142,8 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 | 2.5 | ✅ CRUD de produtos integrado ao Supabase | `me_produto` | Produto cadastrado aparece na lista | 2.3 |
 | 2.6 | ✅ Segurança: isolar dados por empresa | Todos os hooks | Usuário só vê dados da sua empresa | Crítico |
 | 2.7 | ✅ Financeiro integrado ao banco (Receber + Pagar) | `me_contas_receber` / `me_contas_pagar` | Contabilizar venda aparece no Financeiro | 2.2 |
+| 2.8 | ✅ Configurações de tags do CRM | `me_tag`; `ConfiguracoesCRMPage` (`/crm/configuracoes`) | Tag criada aparece nas configurações e aplicável aos clientes | 2.1 |
+| 2.9 | ✅ Produtos no criar pedido + Novo Cliente persistido | `me_itens_venda` / `crm_leads`; `useCriarPedido` / `useCriarCliente` | Pedido criado com produto selecionado e cliente persistido no banco | 2.3 |
 
 **Gate:** a Doceê opera pela Base UNIQ sem voltar para o caderno/WhatsApp solto.
 
@@ -198,6 +207,27 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 - Fluxo de status do pedido desacoplado de pagamento
 - Nome do cliente exibido corretamente na lista de pedidos
 - `usePedido` (detalhe) integrado ao banco
+
+**Documentos criados (T2.8):**
+- PRD: `tracking/plans/PRD-Semana2-T2.8-ConfiguracoesTags.md`
+- SPEC: `tracking/specs/SPEC-Semana2-T2.8-ConfiguracoesTags.md`
+- WIRE: `tracking/wireframe/WIRE-Semana2-T2.8-ConfiguracoesTags.md`
+
+**Implementação concluída (T2.8 — commit `3de7bfc`, 11/09/2026):**
+- Hook `use-tags.ts` sobre `me_tag` (listar ativas por empresa, criar — erro 23505 de nome duplicado —, desativar via soft delete; fallback mock)
+- Nova rota `/crm/configuracoes` (`ConfiguracoesCRMPage`) para gerenciar tags do CRM (nome + cor, remover)
+- `ClientesPage`: filtro de tags e chips usam as tags configuradas (fallback mock)
+- **Resolve USO REAL #12** (tags configuráveis + Novo Cliente persistido)
+
+**Documentos criados (T2.9):**
+- SPEC: `tracking/specs/SPEC-Semana2-T2.9-ProdutosNoPedido.md`
+- ⚠️ PRD e WIRE da T2.9 não foram criados (gap SDD — ver item B6 no backlog técnico)
+
+**Implementação concluída (T2.9 — commit `3de7bfc`, 11/09/2026):**
+- Hook `use-criar-cliente.ts` persistindo o cliente do modal "Novo Cliente" em `crm_leads` (`origem manual`, status `novo`, com tags) — resolve USO REAL #12
+- `useCriarPedido` aceita `itens` e grava os produtos selecionados em `me_itens_venda` (com `venda_id`; `valor_total` = soma dos itens)
+- `PedidosListaPage`: seção "Produtos do pedido" no modal de criação (select de `me_produto` via `useProdutos`, quantidade ±, total automático; valor manual vira somente-leitura quando há itens; descrição auto-gerada)
+- Sem itens → fluxo anterior preservado (valor manual + descrição obrigatória)
 
 **🔒 Segurança — Isolamento por empresa (T2.6):**
 - **Problema:** Hooks de leitura não filtravam por `empresa_id` — qualquer usuário via dados de todas as empresas
@@ -330,6 +360,7 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 | B3 | **Autocomplete de cliente no Novo Pedido** | Na tela de criar pedido (`PedidosListaPage`), ao digitar o nome do cliente, buscar no banco (`me_cliente` / `crm_leads`) e sugerir cadastros existentes — evita duplicar clientes. | Média |
 | B4 | **Vincular pedido a cliente existente** | Hoje `useCriarPedido` busca por nome exato. Melhorar para busca fuzzy ou por telefone, e permitir selecionar cliente existente vs criar novo. | Média |
 | B5 | **Busca de endereço por CEP** | Ao criar cliente/pedido, integrar ViaCEP ou similar para preencher endereço automaticamente. | Baixa |
+| B6 | **Completar SDD da T2.9** | PRD e WIRE de "Produtos no criar pedido + Novo Cliente persistido" não foram criados (só SPEC). Regularizar para manter o histórico SDD completo. | Baixa |
 
 ---
 
