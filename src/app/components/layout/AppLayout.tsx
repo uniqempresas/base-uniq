@@ -102,7 +102,7 @@ const SUBNAV_SECTIONS: SubNavSection[] = [
     title: "Vendas \u0026 PDV",
     subtitle: "Gestão de vendas",
     items: [
-      { id: "v-visao-geral", label: "Visão Geral", path: "/vendas", icon: LayoutDashboard },
+      { id: "v-visao-geral", label: "Visão Geral", path: "/vendas/relatorios", icon: LayoutDashboard },
       { id: "v-pedidos", label: "Pedidos", path: "/vendas/pedidos", icon: ShoppingCart },
       { id: "v-cupons", label: "Cupons", path: "/vendas/cupons", icon: Sparkles },
     ],
