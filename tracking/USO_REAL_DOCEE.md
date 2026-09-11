@@ -20,7 +20,7 @@
 | 4 | 10/09/2026 | Produtos | Criou empresa nova mas estão aparecendo produtos que são de outra empresa | **Crítica** | ⏳ PRD/SPEC pronto | [PRD](plans/PRD-UsoReal-DoceE-Hotfix-IsolamentoTenant.md) · [SPEC](specs/SPEC-UsoReal-DoceE-Hotfix-IsolamentoTenant.md) |
 | 5 | 10/09/2026 | Configurações | Está mostrando dados mockados — deveria mostrar dados reais da empresa | Alta | ⏳ PRD/SPEC pronto | [PRD](plans/PRD-UsoReal-DoceE-Hotfix-IsolamentoTenant.md) · [SPEC](specs/SPEC-UsoReal-DoceE-Hotfix-IsolamentoTenant.md) |
 | 6 | 10/09/2026 | Financeiro (Contas a pagar / receber) | Estão mostrando dados de outra empresa em vez da empresa logada | **Crítica** | ⏳ PRD/SPEC pronto | [PRD](plans/PRD-UsoReal-DoceE-Hotfix-IsolamentoTenant.md) · [SPEC](specs/SPEC-UsoReal-DoceE-Hotfix-IsolamentoTenant.md) |
-| 7 | 10/09/2026 | Financeiro | Incluir DRE e Fluxo de Caixa nesta fase para a Doceê testar | **Crítica** | ⏳ PRD/SPEC/WIRE prontos · implementação após hotfix | [PRD](plans/PRD-Financeiro-DRE-FluxoDeCaixa.md) · [SPEC](specs/SPEC-Financeiro-DRE-FluxoDeCaixa.md) · [WIRE](wireframe/WIRE-UsoReal-DoceE-DRE-FluxoCaixa.md) |
+| 7 | 10/09/2026 | Financeiro | Incluir DRE e Fluxo de Caixa nesta fase para a Doceê testar | **Crítica** | ✅ Implementado (commit `77e4a70`, deployed `success` 11/09 09:45) · ⏳ aguardando validação do fundador | [PRD](plans/PRD-Financeiro-DRE-FluxoDeCaixa.md) · [SPEC](specs/SPEC-Financeiro-DRE-FluxoDeCaixa.md) · [WIRE](wireframe/WIRE-UsoReal-DoceE-DRE-FluxoCaixa.md) |
 
 ---
 
@@ -29,8 +29,9 @@
 | Métrica | Valor |
 |---|---|
 | Total de itens | 7 |
-| Corrigidos | 0 |
-| Pendentes | 7 |
+| Implementados | 7 |
+| Validados pelo fundador | 0 |
+| Pendentes de validação | 7 |
 | Críticos (bloqueiam uso) | 4 |
 
 ---
@@ -43,4 +44,4 @@
 
 ---
 
-*Atualizado em: 10/09/2026*
+*Atualizado em: 11/09/2026 — itens 1–7 implementados e deployed; aguardando validação do fundador pelo celular (Vercel).*
