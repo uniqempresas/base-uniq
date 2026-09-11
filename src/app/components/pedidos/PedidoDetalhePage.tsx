@@ -38,6 +38,7 @@ import {
 import { useRegistrarVenda } from "../../hooks/use-registrar-venda";
 import { usePedido } from "../../hooks/use-pedido";
 import { useAtualizarStatusPedido } from "../../hooks/use-atualizar-status-pedido";
+import { useConfirmarPagamento } from "../../hooks/use-confirmar-pagamento";
 
 function StatusBadge({ status, large }: { status: StatusPedido; large?: boolean }) {
   const cfg = STATUS_CONFIG[status];
@@ -100,6 +101,7 @@ export function PedidoDetalhePage() {
   const [newStatus, setNewStatus] = useState<StatusPedido | null>(null);
   const { registrarVenda, loading: registrandoVenda } = useRegistrarVenda();
   const { atualizarStatus, loading: atualizandoStatus } = useAtualizarStatusPedido();
+  const { confirmarPagamento, loading: confirmandoPagamento } = useConfirmarPagamento();
 
   // Loading state
   if (loading) {
@@ -350,14 +352,38 @@ export function PedidoDetalhePage() {
             <strong>Pagamento pendente.</strong> Você pode processar o pedido mesmo assim.
           </p>
           <button
-            className="ml-auto px-3 py-1.5 rounded-lg text-xs text-white shrink-0"
+            className="ml-auto px-3 py-1.5 rounded-lg text-xs text-white shrink-0 disabled:opacity-60"
             style={{ background: "#D97706" }}
-            onClick={() => {
-              setPedidoLocal({ ...pedido, statusPagamento: "confirmado", timeline: [...pedido.timeline, { status: pedido.status, dataHora: new Date().toISOString(), responsavel: "Maria Silva", observacao: "Pagamento confirmado manualmente" }] });
-              toast.success("Pagamento confirmado!");
+            disabled={confirmandoPagamento}
+            onClick={async () => {
+              const confirmar = () => {
+                setPedidoLocal({
+                  ...pedido,
+                  statusPagamento: "confirmado",
+                  timeline: [...pedido.timeline, { status: pedido.status, dataHora: new Date().toISOString(), responsavel: "Maria Silva", observacao: "Pagamento confirmado manualmente" }],
+                });
+                toast.success("Pagamento confirmado!");
+              };
+
+              if (isFallback || !pedido.id) {
+                confirmar();
+                return;
+              }
+
+              const result = await confirmarPagamento({
+                vendaId: pedido.id,
+                valor: pedido.total,
+                formaPagamento: pedido.formaPagamento,
+              });
+
+              if (result.success) {
+                confirmar();
+              } else {
+                toast.error(result.error || "Erro ao confirmar pagamento");
+              }
             }}
           >
-            Confirmar pagamento
+            {confirmandoPagamento ? "Confirmando..." : "Confirmar pagamento"}
           </button>
         </div>
       )}

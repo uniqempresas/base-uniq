@@ -74,7 +74,11 @@ function formatTelefone(telefone: string | null | undefined): string {
   return telefone;
 }
 
-function mapVendaToPedido(db: DBVenda, cliente?: DBCliente | null): Pedido {
+function mapVendaToPedido(
+  db: DBVenda,
+  cliente?: DBCliente | null,
+  statusPagamento: Pedido["statusPagamento"] = "pendente"
+): Pedido {
   return {
     id: db.id,
     numero: gerarNumeroPedido(db.id),
@@ -93,7 +97,7 @@ function mapVendaToPedido(db: DBVenda, cliente?: DBCliente | null): Pedido {
     desconto: Number(db.valor_desconto) || 0,
     total: Number(db.valor_total),
     formaPagamento: mapFormaPagamento(db.forma_pagamento) as Pedido["formaPagamento"],
-    statusPagamento: "pendente",
+    statusPagamento,
     status: mapStatusVenda(db.status_venda),
     timeline: [
       {
@@ -178,7 +182,19 @@ export function usePedido(id: string | undefined): UsePedidoReturn {
           cliente = clienteData;
         }
 
-        setPedido(mapVendaToPedido(dbVenda as DBVenda, cliente));
+        // Busca status de pagamento na conta a receber vinculada (venda_id)
+        let statusPagamento: Pedido["statusPagamento"] = "pendente";
+        const { data: contas } = await supabase
+          .from("me_contas_receber")
+          .select("status")
+          .eq("venda_id", dbVenda.id)
+          .limit(1);
+
+        if (contas && contas.length > 0 && contas[0].status === "pago") {
+          statusPagamento = "confirmado";
+        }
+
+        setPedido(mapVendaToPedido(dbVenda as DBVenda, cliente, statusPagamento));
         setLoading(false);
         return;
       }

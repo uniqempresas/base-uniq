@@ -74,7 +74,11 @@ function formatTelefone(telefone: string | null | undefined): string {
   return telefone;
 }
 
-function mapVendaToPedido(db: DBVenda, cliente?: DBCliente | null): Pedido {
+function mapVendaToPedido(
+  db: DBVenda,
+  cliente?: DBCliente | null,
+  statusPagamento: Pedido["statusPagamento"] = "pendente"
+): Pedido {
   return {
     id: db.id,
     numero: gerarNumeroPedido(db.id),
@@ -93,7 +97,7 @@ function mapVendaToPedido(db: DBVenda, cliente?: DBCliente | null): Pedido {
     desconto: Number(db.valor_desconto) || 0,
     total: Number(db.valor_total),
     formaPagamento: mapFormaPagamento(db.forma_pagamento) as Pedido["formaPagamento"],
-    statusPagamento: "pendente",
+    statusPagamento,
     status: mapStatusVenda(db.status_venda),
     timeline: [
       {
@@ -192,10 +196,29 @@ export function usePedidos(): UsePedidosReturn {
         }
       }
 
+      // Busca status de pagamento nas contas a receber vinculadas (venda_id)
+      const vendaIds = vendasValidas.map((v) => v.id);
+      let statusPagamentoMap: Map<string, "confirmado" | "pendente"> = new Map();
+
+      if (vendaIds.length > 0) {
+        const { data: contasData } = await supabase
+          .from("me_contas_receber")
+          .select("venda_id, status")
+          .in("venda_id", vendaIds);
+
+        if (contasData) {
+          for (const conta of contasData as { venda_id: string | null; status: string }[]) {
+            if (conta.venda_id && conta.status === "pago") {
+              statusPagamentoMap.set(conta.venda_id, "confirmado");
+            }
+          }
+        }
+      }
+
       // Mapeia vendas com dados dos clientes
       const pedidosMapeados = vendasValidas.map((venda) => {
         const cliente = venda.cliente_id ? clientesMap.get(venda.cliente_id) : null;
-        return mapVendaToPedido(venda, cliente);
+        return mapVendaToPedido(venda, cliente, statusPagamentoMap.get(venda.id) ?? "pendente");
       });
 
       setPedidos(pedidosMapeados);
