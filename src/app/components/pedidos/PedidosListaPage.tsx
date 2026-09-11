@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useNavigate } from "react-router";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 import {
   Search,
   Filter,
@@ -170,6 +170,7 @@ function KpiCard({
 
 export function PedidosListaPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { pedidos, loading, isFallback, recarregar } = usePedidos();
   const { criarPedido, loading: criandoPedido } = useCriarPedido();
   const { atualizarStatus } = useAtualizarStatusPedido();
@@ -184,7 +185,15 @@ export function PedidosListaPage() {
   const [cancelModal, setCancelModal] = useState<{ id: string; numero: string } | null>(null);
   const [cancelMotivo, setCancelMotivo] = useState("");
   const [statusUpdateModal, setStatusUpdateModal] = useState<{ pedidos: Pedido[] } | null>(null);
-  const [showNovoPedidoModal, setShowNovoPedidoModal] = useState(false);
+  const [showNovoPedidoModal, setShowNovoPedidoModal] = useState(searchParams.get("novo") === "1");
+
+  // Veio de "Nova Venda"/"Venda rápida" (?novo=1): abre o modal e limpa o param da URL
+  // para o modal não reabrir ao voltar/recarregar a página
+  useEffect(() => {
+    if (searchParams.get("novo") === "1") {
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
   const [novoPedido, setNovoPedido] = useState({
     clienteNome: "",
     clienteTelefone: "",

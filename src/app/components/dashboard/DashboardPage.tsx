@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   TrendingUp,
@@ -92,13 +93,13 @@ function KpiCard({
   bg: string;
 }) {
   return (
-    <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#efefef] hover:shadow-md transition-shadow cursor-pointer">
-      <div className="flex items-center justify-between mb-4">
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: bg }}>
-          <Icon size={20} style={{ color }} />
+    <div className="bg-white rounded-2xl p-3 sm:p-5 shadow-sm border border-[#efefef] hover:shadow-md transition-shadow cursor-pointer">
+      <div className="flex items-center justify-between mb-2 sm:mb-4">
+        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center" style={{ background: bg }}>
+          <Icon className="w-4 h-4 sm:w-5 sm:h-5" style={{ color }} />
         </div>
         <div
-          className="flex items-center gap-1 px-2 py-1 rounded-full text-xs"
+          className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-full text-xs"
           style={{
             background: trend === "up" ? "#efefef" : trend === "down" ? "#FEF2F2" : "#efefef",
             color: trend === "up" ? "#1f2937" : trend === "down" ? "#DC2626" : "#627271",
@@ -109,10 +110,10 @@ function KpiCard({
         </div>
       </div>
       <p className="text-[#627271] text-xs mb-1">{title}</p>
-      <p className="text-[#1f2937]" style={{ fontSize: "1.4rem", fontWeight: 700, lineHeight: 1 }}>
+      <p className="text-[#1f2937] text-lg sm:text-[1.4rem]" style={{ fontWeight: 700, lineHeight: 1 }}>
         {value}
       </p>
-      {subtitle && <p className="text-[#627271] text-xs mt-1">{subtitle}</p>}
+      {subtitle && <p className="text-[#627271] text-xs mt-1 hidden sm:block">{subtitle}</p>}
     </div>
   );
 }
@@ -134,8 +135,8 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export function DashboardPage() {
   const { perfil, user } = useAuth();
+  const navigate = useNavigate();
   const [refreshing, setRefreshing] = useState(false);
-  const [showQuickSale, setShowQuickSale] = useState(false);
 
   // Fallback em cascata: perfil → user_metadata → email → "Usuário" (SPEC item 2)
   const nomeUsuario =
@@ -185,7 +186,7 @@ export function DashboardPage() {
             <RefreshCw size={15} className={`text-[#627271] ${refreshing ? "animate-spin" : ""}`} />
           </button>
           <button
-            onClick={() => setShowQuickSale(true)}
+            onClick={() => navigate("/vendas/pedidos?novo=1")}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#86cb92] text-[#1f2937] text-sm transition-all hover:bg-[#1f2937] hover:text-white active:scale-[0.98]"
             style={{ fontWeight: 600 }}
           >
@@ -196,7 +197,7 @@ export function DashboardPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
         <KpiCard
           title="Faturamento hoje"
           value="R$ 1.250"
@@ -408,7 +409,10 @@ export function DashboardPage() {
           </div>
 
           <div className="mt-4 pt-4 border-t border-[#efefef] grid grid-cols-2 gap-2">
-            <button className="flex items-center gap-2 p-2.5 rounded-xl bg-[#efefef] hover:bg-white transition-colors">
+            <button
+              onClick={() => navigate("/vendas/pedidos?novo=1")}
+              className="flex items-center gap-2 p-2.5 rounded-xl bg-[#efefef] hover:bg-white transition-colors"
+            >
               <div className="w-7 h-7 rounded-lg bg-white flex items-center justify-center">
                 <Zap size={14} className="text-[#1f2937]" />
               </div>

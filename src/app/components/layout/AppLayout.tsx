@@ -83,8 +83,6 @@ const SUBNAV_SECTIONS: SubNavSection[] = [
     subtitle: "Visão Geral",
     items: [
       { id: "visao-geral", label: "Visão Geral", path: "/dashboard", icon: LayoutDashboard },
-      { id: "dashboard-hub", label: "Dashboard Hub", path: "/dashboard", icon: LayoutDashboard },
-      { id: "vendas-pdv", label: "Vendas \u0026 PDV", path: "/vendas", icon: ShoppingCart },
       {
         id: "cadastros",
         label: "Cadastros",
