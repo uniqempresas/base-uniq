@@ -205,6 +205,27 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 - **Correção:** Adicionar `.eq("empresa_id", empresaId)` em todas as queries, usando contexto de auth
 - **Status:** ✅ Concluído (10/09/2026) — hooks corrigidos, Dashboard usa nome real
 
+**🔧 Corrigir o que quebrar no uso real (T2.4) — ajustes registrados:**
+
+> Supabase oficial (`krrkfgv...`) em uso real pela Loja Teste01 (esposa do fundador). Correções feitas no campo de pedidos para persistir de verdade no banco, eliminando ações "toast-only" que pareciam funcionar mas não gravavam.
+
+**1. Status do pedido persistido no banco (commits `718f4d8`, `d35c630`):**
+- **Problema:** "Atualizar status" no modal da lista e no detalhe do pedido só mostrava toast — o `me_venda.status_venda` nunca mudava (venda ficava "aguardando" no banco).
+- Novo hook `useAtualizarStatusPedido` que grava `status_venda` + atualiza `atualizado_em` em `me_venda` por `id`.
+- Integrado no modal da lista (`PedidosListaPage`), no detalhe (`PedidoDetalhePage`) e no cancelamento de pedido.
+- **Ação em massa:** botão "Atualizar status" da barra de seleção agora abre o mesmo modal e aplica o status em todos os pedidos selecionados (era toast fake).
+- Guarda `!isFallback` — em dados mock (demo) mantém comportamento local.
+
+**2. Confirmar pagamento persistido no banco (commit `d877880`):**
+- **Problema:** "Confirmar pagamento" no detalhe do pedido só alterava estado local — ao reabrir, o pedido continuava "pendente".
+- **Fonte da verdade:** o pagamento vive em `me_contas_receber.status` (`pago`), vinculado à venda via `venda_id` (`me_venda` não tem coluna de status de pagamento).
+- Novo hook `useConfirmarPagamento` (upsert):
+  1. Procura conta a receber vinculada (`venda_id`) → marca `status='pago'` + `data_pagamento` + `valor_pago`;
+  2. Se não há vínculo, procura conta pendente da mesma empresa com mesmo valor (venda contabilizada sem `venda_id`) e vincula; 
+  3. Senão, cria conta nova já paga vinculada à venda.
+- `usePedido` / `usePedidos`: `statusPagamento` agora deriva do banco (`conta pago → "confirmado"`), em vez de fixo `"pendente"` — badge e botão "Contabilizar venda" refletem o estado real.
+- **Validação:** fluxo testado em transação com ROLLBACK contra o banco oficial (venda R$ 8,00 da Loja Teste01 vincula e marca paga a conta existente `783c05d7...`). RLS segue desabilitado (ver P5).
+
 **Número confirmado:** `5511919153508` (Doceê / HQ Gráfica) — usar este canal ao duplicar o fluxo n8n.
 
 ---
