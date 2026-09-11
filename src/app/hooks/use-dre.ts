@@ -41,11 +41,11 @@ function nomeMesPeriodo(periodo: string): string {
 }
 
 function agruparDespesasPorCategoria(
-  contas: { descricao: string | null; valor_pago: number | null }[]
+  contas: { descricao: string | null; valor: number }[]
 ): { nome: string; valor: number }[] {
   const mapa = new Map<string, number>();
   for (const c of contas) {
-    const valor = Number(c.valor_pago ?? 0);
+    const valor = Number(c.valor ?? 0);
     if (valor <= 0) continue;
     const nome = truncarDescricao(c.descricao);
     mapa.set(nome, (mapa.get(nome) ?? 0) + valor);
@@ -95,8 +95,8 @@ export function useDRE(periodo: string) {
     try {
       const { inicio, fim } = periodoParaDatas(periodo);
 
-      // Queries em paralelo: receita bruta, despesas operacionais
-      const [vendasResult, contasPagarResult] = await Promise.all([
+      // Queries em paralelo: receita bruta, despesas pagas e despesas em aberto
+      const [vendasResult, pagasResult, pendentesResult] = await Promise.all([
         supabase
           .from("me_venda")
           .select("id, valor_total")
@@ -105,16 +105,25 @@ export function useDRE(periodo: string) {
           .lte("criado_em", fim + "T23:59:59"),
         supabase
           .from("me_contas_pagar")
-          .select("valor_pago, descricao")
+          .select("valor, valor_pago, descricao")
           .eq("empresa_id", empresaId)
           .eq("status", "pago")
           .not("data_pagamento", "is", null)
           .gte("data_pagamento", inicio)
           .lte("data_pagamento", fim),
+        // Contas em aberto (pendente/vencido): contam no mês do vencimento
+        supabase
+          .from("me_contas_pagar")
+          .select("valor, valor_pago, descricao")
+          .eq("empresa_id", empresaId)
+          .in("status", ["pendente", "vencido"])
+          .gte("data_vencimento", inicio)
+          .lte("data_vencimento", fim),
       ]);
 
       if (vendasResult.error) throw vendasResult.error;
-      if (contasPagarResult.error) throw contasPagarResult.error;
+      if (pagasResult.error) throw pagasResult.error;
+      if (pendentesResult.error) throw pendentesResult.error;
 
       const vendas = (vendasResult.data ?? []) as { id: string; valor_total: number | null }[];
       const receitaBruta = vendas.reduce((s, v) => s + (Number(v.valor_total) || 0), 0);
@@ -162,12 +171,20 @@ export function useDRE(periodo: string) {
         cmvDisponivel = false;
       }
 
-      // Despesas operacionais
-      const contasPagar = (contasPagarResult.data ?? []) as { valor_pago: number | null; descricao: string | null }[];
-      const despesasOperacionais = contasPagar.reduce((s, c) => s + (Number(c.valor_pago) || 0), 0);
+      // Despesas do mês: pagas contam pelo data_pagamento (valor_pago);
+      // pendentes/vencidas contam pelo vencimento (valor) — o DRE mostra a despesa do mês, paga ou em aberto
+      const contasPagas = (pagasResult.data ?? []) as { valor: number | null; valor_pago: number | null; descricao: string | null }[];
+      const contasEmAberto = (pendentesResult.data ?? []) as { valor: number | null; valor_pago: number | null; descricao: string | null }[];
+
+      const despesasComValor = [
+        ...contasPagas.map((c) => ({ descricao: c.descricao, valor: Number(c.valor_pago ?? c.valor ?? 0) })),
+        ...contasEmAberto.map((c) => ({ descricao: c.descricao, valor: Number(c.valor ?? 0) })),
+      ];
+
+      const despesasOperacionais = despesasComValor.reduce((s, c) => s + Number(c.valor || 0), 0);
 
       // Agrupar despesas por categoria (proxy: primeiras 2 palavras da descrição)
-      const categoriasDespesas = agruparDespesasPorCategoria(contasPagar);
+      const categoriasDespesas = agruparDespesasPorCategoria(despesasComValor);
 
       // Cálculos
       const impostos = 0;

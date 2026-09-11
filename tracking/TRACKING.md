@@ -236,6 +236,18 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 - Modais de status, rastreio e contabilizar viraram **bottom-sheet no mobile** (`rounded-t-3xl` + handle visual), com botões empilhados (Confirmar em cima) e padding reduzido; valores do resumo de contabilizar com `truncate`.
 - **Fluxo intacto:** nenhuma mudança em handlers/hooks — só classes responsivas.
 
+**4. Crash da aplicação — erro React #310 (commit `d855236`, 11/09/2026):**
+- **Problema:** toda a aplicação autenticada quebrava com `Minified React error #310` ("Rendered more hooks than during the previous render") em produção (bundle `index-BXZQFNRw.js`).
+- **Causa:** `src/app/components/layout/AppLayout.tsx` chamava 4 hooks (`useMemo` de `visibleRailItems`, 2× `useState` do menu mobile, `useEffect` do ESC) **depois** dos early returns `if (loading)` e `if (!user)`. No primeiro render rodavam 10 hooks; após a autenticação, tentavam 14 → pico de hooks entre renders → crash.
+- **Correção:** os 4 hooks foram movidos para **antes** dos early returns — agora os 14 hooks rodam incondicionalmente em todo render, e os guards `if (loading)` / `if (!user)` só decidem o que renderizar.
+- **Validação:** `npm run build` OK · deploy Vercel READY (bundle novo `index-HNn9U55O.js`) · console sem erro #310 · confirmado funcionando pelo fundador.
+
+**5. DRE passou a incluir contas a pagar em aberto (11/09/2026):**
+- **Problema:** contas a pagar **pendentes/vencidas** não apareciam no DRE — o hook `use-dre.ts` só somava contas com `status='pago'` + `data_pagamento` no mês (regime de caixa puro). Ex.: "BARRA DE CHOCOLATE BRANCO" (R$ 98,00, pendente, venc. 25/09) sumia do resultado e o lucro ficava maior que a realidade.
+- **Decisão do fundador:** incluir pendentes no DRE (regime de competência para despesas em aberto).
+- **Correção:** `use-dre.ts` agora faz 3 queries em paralelo — vendas (criado_em), contas **pagas** (data_pagamento, valor_pago) e contas **em aberto** (`status` `pendente`/`vencido`, data_vencimento, valor). Despesas do mês = pagas + em aberto; categorias do gráfico agregam ambos. Fluxo de Caixa permanece só com pagas (é regime de caixa por natureza).
+- **Validação:** SQL espelhou a lógica do hook (set/2026 Loja Teste01: 2 vendas R$ 15,00 + 1 em aberto R$ 98,00 → prejuízo R$ 83,00) · `npm run build` OK · deploy Vercel.
+
 ---
 
 ### 🟠 SEMANA 3 — Reutilização (HQ Gráfica) + Material
