@@ -2,26 +2,26 @@ import { useState, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 
-export interface CriarClienteParams {
+export interface AtualizarClienteParams {
+  id: string;
   nome: string;
   telefone?: string;
   email?: string;
   tags?: string[];
 }
 
-export interface CriarClienteResult {
+export interface AtualizarClienteResult {
   success: boolean;
-  id?: string;
   error?: string;
 }
 
-export function useCriarCliente() {
+export function useAtualizarCliente() {
   const { empresa } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const criarCliente = useCallback(
-    async (params: CriarClienteParams): Promise<CriarClienteResult> => {
+  const atualizarCliente = useCallback(
+    async (params: AtualizarClienteParams): Promise<AtualizarClienteResult> => {
       setLoading(true);
       setError(null);
 
@@ -37,33 +37,25 @@ export function useCriarCliente() {
           throw new Error("Informe o nome do cliente.");
         }
 
-        const { data, error: insertError } = await supabase
+        const { error: updateError } = await supabase
           .from("me_cliente")
-          .insert({
-            empresa_id: empresaId,
+          .update({
             nome_cliente: nome,
             telefone: params.telefone?.trim() || null,
             email: params.email?.trim() || null,
-            origem: "manual",
             tags: params.tags || [],
-            // ativo usa default true; id e criado_em/atualizado_em são controlados pelo banco
+            // atualizado_em é atualizado por trigger no banco
           })
-          .select("id")
-          .single();
+          .eq("id", params.id)
+          .eq("empresa_id", empresaId); // isolamento por tenant obrigatório
 
-        if (insertError) throw insertError;
+        if (updateError) throw updateError;
 
-        return {
-          success: true,
-          id: data?.id,
-        };
+        return { success: true };
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Erro ao criar cliente";
+        const errorMessage = err instanceof Error ? err.message : "Erro ao atualizar cliente";
         setError(errorMessage);
-        return {
-          success: false,
-          error: errorMessage,
-        };
+        return { success: false, error: errorMessage };
       } finally {
         setLoading(false);
       }
@@ -71,9 +63,5 @@ export function useCriarCliente() {
     [empresa]
   );
 
-  return {
-    criarCliente,
-    loading,
-    error,
-  };
+  return { atualizarCliente, loading, error };
 }

@@ -4,26 +4,25 @@ import { useAuth } from "../contexts/AuthContext";
 import type { Cliente, ClienteOrigem } from "../types/clientes";
 import { mockClientes } from "../lib/mocks/clientes";
 
-interface DBLead {
+interface DBCliente {
   id: string;
   empresa_id: string | null;
-  nome: string | null;
+  nome_cliente: string | null;
   email: string | null;
   telefone: string | null;
-  status: string | null;
   origem: string | null;
-  cargo: string | null;
-  empresa_nome: string | null;
-  ltv: number | null;
-  ultima_interacao: string | null;
   observacoes: string | null;
   foto_url: string | null;
-  created_at: string | null;
   tags: string[] | null;
+  ativo: boolean | null;
+  criado_em: string | null;
+  atualizado_em: string | null;
+  cidade: string | null;
+  documento: string | null;
 }
 
-function mapStatus(status: string | null): "ativo" | "inativo" {
-  if (status === "arquivado") return "inativo";
+function mapStatus(ativo: boolean | null): "ativo" | "inativo" {
+  if (ativo === false) return "inativo";
   return "ativo";
 }
 
@@ -64,9 +63,12 @@ function getAvatarColor(id: string): string {
   return colors[Math.abs(hash) % colors.length];
 }
 
-function mapLeadToCliente(db: DBLead): Cliente {
-  const nome = db.nome || "Sem nome";
+function mapClienteToCliente(db: DBCliente): Cliente {
+  const nome = db.nome_cliente || "Sem nome";
   const origem: ClienteOrigem = db.origem === "whatsapp" ? "whatsapp" : "manual";
+
+  // me_cliente não tem ultima_interacao: usa a última modificação (ou criação) como referência
+  const fonteUltimaInteracao = db.atualizado_em || db.criado_em;
 
   return {
     id: db.id,
@@ -79,8 +81,8 @@ function mapLeadToCliente(db: DBLead): Cliente {
     telefone: formatTelefone(db.telefone),
     whatsapp: formatTelefone(db.telefone),
     tags: [...(origem === "whatsapp" ? ["WhatsApp"] : []), ...(db.tags || [])],
-    ultimaInteracao: db.ultima_interacao
-      ? new Date(db.ultima_interacao).toLocaleString("pt-BR", {
+    ultimaInteracao: fonteUltimaInteracao
+      ? new Date(fonteUltimaInteracao).toLocaleString("pt-BR", {
           day: "2-digit",
           month: "2-digit",
           year: "numeric",
@@ -88,12 +90,12 @@ function mapLeadToCliente(db: DBLead): Cliente {
           minute: "2-digit",
         })
       : "",
-    totalCompras: db.ltv || 0,
-    status: mapStatus(db.status),
-    cidade: db.empresa_nome || "Suzano / SP",
+    totalCompras: 0, // me_cliente não tem ltv
+    status: mapStatus(db.ativo),
+    cidade: db.cidade || "Suzano / SP",
     vendedor: "Melissa",
-    dataCadastro: formatData(db.created_at),
-    documento: "",
+    dataCadastro: formatData(db.criado_em),
+    documento: db.documento || "",
     origem,
     conversa_id: null,
     observacoes: db.observacoes,
@@ -105,6 +107,7 @@ export interface UseClienteReturn {
   loading: boolean;
   error: string | null;
   isFallback: boolean;
+  recarregar: () => void;
 }
 
 export function useCliente(id: string | undefined): UseClienteReturn {
@@ -147,16 +150,16 @@ export function useCliente(id: string | undefined): UseClienteReturn {
     }
 
     try {
-      const { data: dbLead, error: leadError } = await supabase
-        .from("crm_leads")
+      const { data: dbCliente, error: clienteError } = await supabase
+        .from("me_cliente")
         .select("*")
         .eq("id", id)
         .eq("empresa_id", empresaId)
         .single();
 
-      if (leadError) throw leadError;
+      if (clienteError) throw clienteError;
 
-      if (!dbLead) {
+      if (!dbCliente) {
         // Com sessão ativa, cliente inexistente = empty state real (nunca mock)
         setCliente(null);
         setError(null);
@@ -164,7 +167,7 @@ export function useCliente(id: string | undefined): UseClienteReturn {
         return;
       }
 
-      setCliente(mapLeadToCliente(dbLead as DBLead));
+      setCliente(mapClienteToCliente(dbCliente as DBCliente));
     } catch (err) {
       console.error("[useCliente] Erro ao buscar cliente:", err);
       if (!session) {
@@ -190,5 +193,6 @@ export function useCliente(id: string | undefined): UseClienteReturn {
     loading,
     error,
     isFallback,
+    recarregar: carregarDados,
   };
 }

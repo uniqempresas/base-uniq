@@ -42,8 +42,8 @@ Conectar a **Base UNIQ** para que a demonstração `WhatsApp → CRM → pedido 
 | **Chat WhatsApp (Evolution)** | `crm_chat_conversas` | **20** (RLS por empresa) | `id`(text), `empresa_id`, `cliente_id`, `lead_id`, `status`, `modo`, `titulo`, `nome`, `canal`, `canal_id`, `canal_dados`(jsonb), `foto_contato`, `criado_em` |
 | **Mensagens** | `crm_chat_mensagens` | **647** (RLS por empresa) | `id`, `conversa_id`(text), `remetente_tipo`, `remetente_id`, `conteudo`, `tipo_conteudo`, `lido`, `metadados`(jsonb), `remetente`, `tipo`, `arquivo_url`, `canal_mensagem_id`, `status`, `criado_em` |
 | **Chat MEL** | `mel_chat` | **548** | histórico de conversas da MEL |
-| **Cliente** | `me_cliente` | **7** | `id`, `empresa_id`, `nome_cliente`, `telefone`, `email`, `documento`/`cpf_cnpj`, `endereco`, `cidade`, `estado`, `origem`, `ativo`, `criado_em` |
-| **Leads** | `crm_leads` | **0** (vazio) | `id`, `empresa_id`, `nome`, `email`, `telefone`, `status`, `origem`, `cargo`, `empresa_nome`, `ltv`, `ultima_interacao`, `observacoes`, `foto_url`, `created_at` |
+| **Cliente** | `me_cliente` | **7** | `id`, `empresa_id`, `nome_cliente`, `telefone`, `email`, `documento`, `cidade`, `origem`, `ativo`, `tags` (text[]), `criado_em`, `atualizado_em` (trigger) |
+| **Leads** | `crm_leads` | **10** (legado — CRM do app não lê mais; dados preservados) | `id`, `empresa_id`, `nome`, `email`, `telefone`, `status`, `origem`, `cargo`, `empresa_nome`, `ltv`, `ultima_interacao`, `observacoes`, `foto_url`, `created_at` |
 | **Empresa** | `me_empresa` | **2** | `id`, `nome_fantasia`, `cnpj`, `telefone`, `email`, `slug`, `store_config`(jsonb), `logo_url`, `appearance`(jsonb) |
 | **Usuário** | `me_usuario` | **2** | `id`, `empresa_id`, `email`, `nome_usuario`, `cargo`, `role`, `ativo` |
 | **Vendas** | `me_venda` | **2** | `id`, `empresa_id`, `cliente_id`, `usuario_id`, `valor_total`, `status_venda`, `forma_pagamento`, `canal_venda`, `tipo_venda`, `npedido`, `conta_id`, `criado_em` |
@@ -144,11 +144,11 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 | 2.6 | ✅ Segurança: isolar dados por empresa | Todos os hooks | Usuário só vê dados da sua empresa | Crítico |
 | 2.7 | ✅ Financeiro integrado ao banco (Receber + Pagar) | `me_contas_receber` / `me_contas_pagar` | Contabilizar venda aparece no Financeiro | 2.2 |
 | 2.8 | ✅ Configurações de tags do CRM | `me_tag`; `ConfiguracoesCRMPage` (`/crm/configuracoes`) | Tag criada aparece nas configurações e aplicável aos clientes | 2.1 |
-| 2.9 | ✅ Produtos no criar pedido + Novo Cliente persistido | `me_itens_venda` / `crm_leads`; `useCriarPedido` / `useCriarCliente` | Pedido criado com produto selecionado e cliente persistido no banco | 2.3 |
+| 2.9 | ✅ Produtos no criar pedido + Novo Cliente persistido | `me_itens_venda` / `me_cliente`; `useCriarPedido` / `useCriarCliente` | Pedido criado com produto selecionado e cliente persistido no banco | 2.3 |
 
 **Gate:** a Doceê opera pela Base UNIQ sem voltar para o caderno/WhatsApp solto.
 
-**SDD:** SPEC da integração n8n → `crm_leads`; WIRE do fluxo "pedido → contabilizado".
+**SDD:** SPEC da integração n8n → `crm_leads`/`me_cliente` (em 12/09/2026: fluxo novo grava direto em `me_cliente`); WIRE do fluxo "pedido → contabilizado".
 
 **Documentos criados (T2.1):**
 - PRD: `tracking/plans/PRD-Semana2-T2.1-PedidoWhatsApp-CRM.md`
@@ -156,7 +156,7 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 - WIRE: `tracking/wireframe/WIRE-Semana2-T2.1-LeadsWhatsApp.md`
 
 **Implementação concluída (T2.1):**
-- `/crm/clientes` integrado ao Supabase (`crm_leads`) com fallback mock
+- `/crm/clientes` integrado ao Supabase (`crm_leads`) com fallback mock (em 12/09/2026 migrado para `me_cliente`)
 - Badge de origem WhatsApp/Manual nos cards e tabela
 - Filtro por origem (WhatsApp / Manual / Todas)
 - `/crm/clientes/:id` com badge de origem e nova aba "Conversa" (resumo das mensagens)
@@ -226,7 +226,7 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 - WIRE: `tracking/wireframe/WIRE-Semana2-T2.9-ProdutosNoPedido.md`
 
 **Implementação concluída (T2.9 — commit `3de7bfc`, 11/09/2026):**
-- Hook `use-criar-cliente.ts` persistindo o cliente do modal "Novo Cliente" em `crm_leads` (`origem manual`, status `novo`, com tags) — resolve USO REAL #12
+- Hook `use-criar-cliente.ts` persistindo o cliente do modal "Novo Cliente" em `me_cliente` (`origem manual`, com tags) — **migrado de `crm_leads` em 12/09/2026** (decisão do fundador: CRM inteiro passa a usar `me_cliente`, a fonte única; `crm_leads` vira legado, dados preservados); resolve USO REAL #12
 - `useCriarPedido` aceita `itens`: cria/usa cliente em `me_cliente` (find-or-create por `nome_cliente` + `empresa_id`), grava pedido em `me_venda` e itens em `me_itens_venda` (com `venda_id`; `valor_total` = soma dos itens)
 - `PedidosListaPage`: seção "Produtos do pedido" no modal de criação (select de `me_produto` via `useProdutos`, quantidade ±, total automático; valor manual vira somente-leitura quando há itens; descrição auto-gerada)
 - Sem itens → fluxo anterior preservado (valor manual + descrição obrigatória)
@@ -279,6 +279,16 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 - **Decisão do fundador:** incluir pendentes no DRE (regime de competência para despesas em aberto).
 - **Correção:** `use-dre.ts` agora faz 3 queries em paralelo — vendas (criado_em), contas **pagas** (data_pagamento, valor_pago) e contas **em aberto** (`status` `pendente`/`vencido`, data_vencimento, valor). Despesas do mês = pagas + em aberto; categorias do gráfico agregam ambos. Fluxo de Caixa permanece só com pagas (é regime de caixa por natureza).
 - **Validação:** SQL espelhou a lógica do hook (set/2026 Loja Teste01: 2 vendas R$ 15,00 + 1 em aberto R$ 98,00 → prejuízo R$ 83,00) · `npm run build` OK · deploy Vercel.
+
+**6. CRM migrado de `crm_leads` → `me_cliente` (12/09/2026):**
+- **Decisão do fundador:** o CRM inteiro (lista, detalhe, criar, editar) passa a usar **`me_cliente`** como fonte única — sem dual-write. `crm_leads` continua existindo (dados preservados) mas o app não lê mais.
+- **Banco (migration `me_cliente_tags_e_merge_crm_leads`):**
+  - `ALTER TABLE me_cliente ADD COLUMN IF NOT EXISTS tags text[] NOT NULL DEFAULT '{}'` (tags continuam vindas de `me_tag`);
+  - Merge idempotente dos leads existentes por `empresa_id` + (telefone normalizado OU nome case-insensitive OU email) → UPDATE no cliente correspondente (coalesce de telefone/origem, tags unidas). Não correspondendo → INSERT.
+  - Verificado: Luan da Doceê (`1d82914a...`) absorveu telefone `(55) 11997-5190`, `origem=manual`, `tags=['ULTRA']`; sem duplicatas.
+- **Hooks migrados (4):** `use-clientes.ts` (lista + mapper `mapClienteToCliente`), `use-cliente.ts` (detalhe), `use-criar-cliente.ts` (INSERT `{empresa_id, nome_cliente, telefone, email, origem:'manual', tags}`), `use-atualizar-cliente.ts` (UPDATE `{nome_cliente, telefone, email, tags}` — `atualizado_em` fica com o trigger `set_timestamp_me_cliente`).
+- **Mapeamento:** `status` ← `ativo` (inativo iff `ativo=false`); `ultimaInteracao` ← `atualizado_em || criado_em`; `dataCadastro` ← `criado_em`; `cidade` fallback "Suzano / SP"; `totalCompras=0`; tag "WhatsApp" injetada quando `origem='whatsapp'`.
+- **Validação:** `npm run build` OK (3559 módulos, 17.12s) · grep `crm_leads` no `src` = 0 ocorrências · merge conferido no banco oficial.
 
 ---
 
@@ -366,7 +376,7 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 |---|---|---|---|
 | B1 | **Integrar PDV ao banco de dados** | Hoje o PDV (`/vendas/pdv`) usa apenas mocks (`pdvMockData.ts`). Precisa conectar ao Supabase para criar vendas reais em `me_venda`, baixar estoque (`me_produto`) e registrar pagamentos. | Alta |
 | B2 | **Cadastro de produtos/serviços** | Para o PDV funcionar de ponta a ponta, precisa de tela de cadastro de produtos (`me_produto`, `me_servicos`) com preço, estoque, categoria e foto. | Alta |
-| B3 | **Autocomplete de cliente no Novo Pedido** | Na tela de criar pedido (`PedidosListaPage`), ao digitar o nome do cliente, buscar no banco (`me_cliente` / `crm_leads`) e sugerir cadastros existentes — evita duplicar clientes. | Média |
+| B3 | **Autocomplete de cliente no Novo Pedido** | Na tela de criar pedido (`PedidosListaPage`), ao digitar o nome do cliente, buscar no banco (`me_cliente`) e sugerir cadastros existentes — evita duplicar clientes. | Média |
 | B4 | **Vincular pedido a cliente existente** | Hoje `useCriarPedido` busca por nome exato. Melhorar para busca fuzzy ou por telefone, e permitir selecionar cliente existente vs criar novo. | Média |
 | B5 | **Busca de endereço por CEP** | Ao criar cliente/pedido, integrar ViaCEP ou similar para preencher endereço automaticamente. | Baixa |
 | ~~B6~~ | ~~**Completar SDD da T2.9**~~ | ✅ Resolvido (11/09/2026) — PRD e WIRE criados em `tracking/plans/` e `tracking/wireframe/`. | Fechado |
@@ -395,4 +405,4 @@ Decision #0 (Supabase oficial) · Diagnóstico real · Plano de 5 semanas aprova
 
 ---
 
-*Kit de construção mantido pelo CEO. Atualizado em 07/09/2026. Fontes: `CONTEXTO_PROJETO.md`, `AGENTS.md`, `DESIGN.md`, schema real do Supabase.*
+*Kit de construção mantido pelo CEO. Atualizado em 12/09/2026. Fontes: `CONTEXTO_PROJETO.md`, `AGENTS.md`, `DESIGN.md`, schema real do Supabase.*
