@@ -56,6 +56,7 @@ const PERIODO_OPTIONS = [
 const STATUS_OPTIONS: { value: StatusPedido | "todos"; label: string }[] = [
   { value: "todos", label: "Todos os status" },
   { value: "aguardando", label: "Aguardando" },
+  { value: "confirmado", label: "Confirmado" },
   { value: "pago", label: "Pago" },
   { value: "separacao", label: "Em Separação" },
   { value: "enviado", label: "Enviado" },
@@ -977,7 +978,7 @@ export function PedidosListaPage() {
               )}
             </p>
             <div className="space-y-2 mb-5">
-              {(["aguardando", "pago", "separacao", "enviado", "entregue"] as StatusPedido[]).map(
+              {(["aguardando", "confirmado", "pago", "separacao", "enviado", "entregue"] as StatusPedido[]).map(
                 (s) => {
                   const cfg = STATUS_CONFIG[s];
                   const allCurrent = statusUpdateModal.pedidos.every((p) => p.status === s);

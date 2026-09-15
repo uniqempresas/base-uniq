@@ -4,6 +4,7 @@
 
 export type StatusPedido =
   | "aguardando"
+  | "confirmado"
   | "pago"
   | "separacao"
   | "enviado"
@@ -762,6 +763,13 @@ export const STATUS_CONFIG: Record<
     borderColor: "#FDE68A",
     icon: "⏳",
   },
+  confirmado: {
+    label: "Confirmado",
+    color: "#2563EB",
+    bg: "#EFF6FF",
+    borderColor: "#BFDBFE",
+    icon: "📩",
+  },
   pago: {
     label: "Pago",
     color: "#059669",
@@ -843,6 +851,7 @@ export function formatDateTime(isoStr: string): string {
 // Status flow — fulfillment independente de pagamento
 export const NEXT_STATUS: Partial<Record<StatusPedido, StatusPedido[]>> = {
   aguardando: ["separacao", "cancelado"],
+  confirmado: ["separacao", "cancelado"],
   separacao: ["enviado", "cancelado"],
   enviado: ["entregue"],
   entregue: [],
