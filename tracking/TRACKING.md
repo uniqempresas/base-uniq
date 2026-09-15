@@ -267,6 +267,22 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 
 **Já real (não refazer):** dados da venda, cliente (nome/telefone/email/doc), itens + fotos, status de pagamento (`me_contas_receber`), atualizar status, confirmar pagamento, contabilizar venda (RPC).
 
+**📌 Fluxo de status do pedido — evolução (15/09/2026, commits `c519eca` + `6336016`):**
+
+Decisão do fundador após validar na Vercel: **pedido que chega do n8n/WhatsApp deve entrar como "Recebido"**, e o **"Confirmado" vira ação manual do operador** (antes o `confirmada` do banco aparecia direto como "Pago", e depois como "Confirmado" automático).
+
+| Status DB (`status_venda`) | Badge na tela | Transições (`NEXT_STATUS`) |
+|---|---|---|
+| `pendente` | ⏳ Aguardando | → Em Separação / Cancelado |
+| `confirmada` (n8n/whatsapp) | 📥 **Recebido** | → **Confirmado** / Cancelado |
+| `confirmado` (ação do operador) | 📩 Confirmado | → Em Separação / Cancelado |
+| `pago` | ✅ Pago | (pagamento — `me_contas_receber`) |
+| `separacao` / `enviado` / `entregue` / `cancelado` | iguais ao label | fluxo de fulfillment |
+
+- Arquivos: `mapStatusVenda` em `use-pedido.ts`/`use-pedidos.ts` (confirmada→recebido, confirmado→confirmado), `STATUS_CONFIG`/`NEXT_STATUS` em `pedidosMockData.ts`, filtros da `PedidosListaPage`
+- **Regra de ouro:** nunca mais mapear `confirmada → pago` (implicava pagamento que não existe) — pagamento real só vem de `me_contas_receber.status = 'pago'`
+- RPC `registrar_venda` e fluxo n8n **não mudam**: continuam gravando `confirmada` (o front exibe Recebido) — ver `SPEC-DoceE-FluxoN8n-PedidoParaRPC.md`
+
 **🔒 Segurança — Isolamento por empresa (T2.6):**
 - **Problema:** Hooks de leitura não filtravam por `empresa_id` — qualquer usuário via dados de todas as empresas
 - **Hooks afetados:** `use-clientes`, `use-cliente`, `use-pedidos`, `use-pedido`, `use-produtos`, `useConversasReais`
