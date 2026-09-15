@@ -16,15 +16,14 @@ import {
   Phone,
   Users,
   CheckCircle2,
-  Loader2,
   AlertCircle,
   Settings,
 } from "lucide-react";
 import { CLIENTES, TAG_COLORS, formatCurrency, type Cliente } from "./crmMockData";
 import { useClientes } from "../../hooks/use-clientes";
-import { useTags, getTagPalette, type Tag } from "../../hooks/use-tags";
-import { useCriarCliente } from "../../hooks/use-criar-cliente";
+import { useTags, getTagPalette } from "../../hooks/use-tags";
 import { ClienteOrigemBadge } from "./ClienteOrigemBadge";
+import { ClienteFormModal } from "./ClienteFormModal";
 
 type ViewMode = "cards" | "table";
 
@@ -57,7 +56,7 @@ function AvatarInitials({ initials, color, size = 36 }: { initials: string; colo
   );
 }
 
-function ClienteCard({ cliente, onClick }: { cliente: Cliente; onClick: () => void }) {
+function ClienteCard({ cliente, onClick, onEdit }: { cliente: Cliente; onClick: () => void; onEdit: () => void }) {
   const [hovered, setHovered] = useState(false);
   return (
     <div
@@ -102,7 +101,7 @@ function ClienteCard({ cliente, onClick }: { cliente: Cliente; onClick: () => vo
                   <MessageCircle size={13} />
                 </button>
                 <button
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={(e) => { e.stopPropagation(); onEdit(); }}
                   className="w-7 h-7 rounded-lg bg-[#efefef] text-[#627271] flex items-center justify-center hover:bg-[#efefef] transition-colors"
                 >
                   <Edit2 size={13} />
@@ -143,166 +142,6 @@ function ClienteCard({ cliente, onClick }: { cliente: Cliente; onClick: () => vo
   );
 }
 
-function NovoClienteModal({ onClose, onSuccess, tags }: { onClose: () => void; onSuccess: () => void; tags: Tag[] }) {
-  const [tipo, setTipo] = useState<"PF" | "PJ">("PF");
-  const [form, setForm] = useState({ nome: "", telefone: "", email: "", tags: [] as string[] });
-  const [erro, setErro] = useState("");
-  const { criarCliente, loading } = useCriarCliente();
-
-  const formatPhone = (v: string) => {
-    const nums = v.replace(/\D/g, "").slice(0, 11);
-    if (nums.length <= 2) return nums;
-    if (nums.length <= 7) return `(${nums.slice(0, 2)}) ${nums.slice(2)}`;
-    return `(${nums.slice(0, 2)}) ${nums.slice(2, 7)}-${nums.slice(7)}`;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErro("");
-    const res = await criarCliente({
-      nome: form.nome,
-      telefone: form.telefone,
-      email: form.email,
-      tags: form.tags,
-    });
-    if (!res.success) {
-      setErro(res.error || "Erro ao cadastrar cliente.");
-      return;
-    }
-    onSuccess();
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#efefef]">
-          <div>
-            <h3 className="text-[#1f2937] text-sm" style={{ fontWeight: 700 }}>Novo Cliente</h3>
-            <p className="text-[#627271] text-xs">Preencha as informações básicas</p>
-          </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-xl bg-[#efefef] flex items-center justify-center hover:bg-[#efefef] transition-colors">
-            <X size={16} className="text-[#1f2937]" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          {/* Tipo */}
-          <div>
-            <label className="block text-[#1f2937] text-xs mb-2" style={{ fontWeight: 500 }}>Tipo de cliente</label>
-            <div className="flex gap-2">
-              {["PF", "PJ"].map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setTipo(t as "PF" | "PJ")}
-                  className="flex-1 py-2.5 rounded-xl text-sm transition-all"
-                  style={{
-                    background: tipo === t ? "#efefef" : "#efefef",
-                    color: tipo === t ? "#1f2937" : "#627271",
-                    border: tipo === t ? "2px solid #86cb92" : "2px solid transparent",
-                    fontWeight: 600,
-                  }}
-                >
-                  {t === "PF" ? "👤 Pessoa Física" : "🏢 Pessoa Jurídica"}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-[#1f2937] text-xs mb-1.5" style={{ fontWeight: 500 }}>
-              {tipo === "PF" ? "Nome completo" : "Razão Social"} *
-            </label>
-            <input
-              type="text"
-              value={form.nome}
-              onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
-              placeholder={tipo === "PF" ? "Ex: Maria Silva" : "Ex: Loja do João LTDA"}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92] focus:ring-2 focus:ring-[#86cb92]/20"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[#1f2937] text-xs mb-1.5" style={{ fontWeight: 500 }}>Telefone / WhatsApp *</label>
-              <input
-                type="tel"
-                value={form.telefone}
-                onChange={(e) => setForm((f) => ({ ...f, telefone: formatPhone(e.target.value) }))}
-                placeholder="(11) 99999-9999"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92] focus:ring-2 focus:ring-[#86cb92]/20"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-[#1f2937] text-xs mb-1.5" style={{ fontWeight: 500 }}>E-mail</label>
-              <input
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                placeholder="cliente@email.com"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92] focus:ring-2 focus:ring-[#86cb92]/20"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-[#1f2937] text-xs mb-1.5" style={{ fontWeight: 500 }}>Tags / Etiquetas</label>
-            <div className="flex flex-wrap gap-2">
-              {tags.map((tag) => {
-                const selected = form.tags.includes(tag.nome);
-                const colors = getTagPalette(tag.cor);
-                return (
-                  <button
-                    key={tag.id}
-                    type="button"
-                    onClick={() =>
-                      setForm((f) => ({
-                        ...f,
-                        tags: selected ? f.tags.filter((t) => t !== tag.nome) : [...f.tags, tag.nome],
-                      }))
-                    }
-                    className="px-2.5 py-1 rounded-full border text-[11px] transition-all"
-                    style={{
-                      background: selected ? colors.bg : "transparent",
-                      color: selected ? colors.text : "#627271",
-                      borderColor: selected ? colors.border : "#efefef",
-                      fontWeight: selected ? 600 : 400,
-                    }}
-                  >
-                    {tag.nome}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {erro && (
-            <p className="text-xs text-red-600" style={{ fontWeight: 500 }}>
-              {erro}
-            </p>
-          )}
-
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 py-3 rounded-xl border border-[#efefef] text-[#1f2937] text-sm hover:bg-[#efefef] transition-colors" style={{ fontWeight: 500 }}>
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 py-3 rounded-xl text-[#1f2937] text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-70"
-              style={{ background: "#86cb92", fontWeight: 600 }}
-            >
-              {loading ? <><Loader2 size={15} className="animate-spin" />Salvando...</> : "Salvar cliente"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
 export function ClientesPage() {
   const navigate = useNavigate();
   const { clientes, loading, error, isFallback, recarregar } = useClientes();
@@ -315,6 +154,7 @@ export function ClientesPage() {
   const [tagFiltro, setTagFiltro] = useState<string[]>([]);
   const [showFiltros, setShowFiltros] = useState(false);
   const [showNovoCliente, setShowNovoCliente] = useState(false);
+  const [clienteParaEditar, setClienteParaEditar] = useState<Cliente | null>(null);
   const [toast, setToast] = useState("");
 
   const showToast = (msg: string) => {
@@ -354,12 +194,24 @@ export function ClientesPage() {
 
       {/* Modal */}
       {showNovoCliente && (
-        <NovoClienteModal
+        <ClienteFormModal
           tags={tagsConfig}
           onClose={() => setShowNovoCliente(false)}
           onSuccess={() => {
             setShowNovoCliente(false);
             showToast("Cliente cadastrado com sucesso!");
+            recarregar();
+          }}
+        />
+      )}
+      {clienteParaEditar && (
+        <ClienteFormModal
+          cliente={clienteParaEditar}
+          tags={tagsConfig}
+          onClose={() => setClienteParaEditar(null)}
+          onSuccess={() => {
+            setClienteParaEditar(null);
+            showToast("Cliente atualizado com sucesso!");
             recarregar();
           }}
         />
@@ -630,7 +482,7 @@ export function ClientesPage() {
       ) : viewMode === "cards" ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {filteredClientes.map((c) => (
-            <ClienteCard key={c.id} cliente={c} onClick={() => navigate(`/crm/clientes/${c.id}`)} />
+            <ClienteCard key={c.id} cliente={c} onClick={() => navigate(`/crm/clientes/${c.id}`)} onEdit={() => setClienteParaEditar(c)} />
           ))}
         </div>
       ) : (
@@ -698,10 +550,16 @@ export function ClientesPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                        <button className="w-7 h-7 rounded-lg bg-[#efefef] text-[#627271] flex items-center justify-center hover:bg-[#efefef]">
+                        <button
+                          onClick={() => window.open(`https://wa.me/55${c.whatsapp.replace(/\D/g, "")}`)}
+                          className="w-7 h-7 rounded-lg bg-[#efefef] text-[#627271] flex items-center justify-center hover:bg-[#efefef]"
+                        >
                           <MessageCircle size={13} />
                         </button>
-                        <button className="w-7 h-7 rounded-lg bg-[#efefef] text-[#627271] flex items-center justify-center hover:bg-[#efefef]">
+                        <button
+                          onClick={() => setClienteParaEditar(c)}
+                          className="w-7 h-7 rounded-lg bg-[#efefef] text-[#627271] flex items-center justify-center hover:bg-[#efefef]"
+                        >
                           <Edit2 size={13} />
                         </button>
                         <button className="w-7 h-7 rounded-lg bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100">

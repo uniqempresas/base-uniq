@@ -27,8 +27,11 @@ import {
 } from "lucide-react";
 import { CLIENTES, INTERACOES, NEGOCIACOES, TAG_COLORS, PIPELINE_ETAPAS, formatCurrency } from "./crmMockData";
 import { useCliente } from "../../hooks/use-cliente";
+import { useTags } from "../../hooks/use-tags";
 import { ClienteOrigemBadge } from "./ClienteOrigemBadge";
 import { ClienteConversaResumo } from "./ClienteConversaResumo";
+import { ClienteFormModal } from "./ClienteFormModal";
+import type { Cliente } from "../../types/clientes";
 
 function TagChip({ tag }: { tag: string }) {
   const colors = TAG_COLORS[tag] || { bg: "#efefef", text: "#627271", border: "#efefef" };
@@ -164,9 +167,11 @@ type TabType = "resumo" | "interacoes" | "negociacoes" | "dados" | "conversa";
 export function ClienteDetalhePage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { cliente, loading, error, isFallback } = useCliente(id);
+  const { cliente, loading, error, isFallback, recarregar } = useCliente(id);
+  const { tags: tagsConfig } = useTags();
   const [activeTab, setActiveTab] = useState<TabType>("resumo");
   const [showNovaInteracao, setShowNovaInteracao] = useState(false);
+  const [clienteParaEditar, setClienteParaEditar] = useState<Cliente | null>(null);
   const [toast, setToast] = useState("");
 
   // Fallback para mock enquanto carrega ou se erro
@@ -215,6 +220,18 @@ export function ClienteDetalhePage() {
           onSuccess={() => {
             setShowNovaInteracao(false);
             showToast("Interação registrada com sucesso!");
+          }}
+        />
+      )}
+      {clienteParaEditar && (
+        <ClienteFormModal
+          cliente={clienteParaEditar}
+          tags={tagsConfig}
+          onClose={() => setClienteParaEditar(null)}
+          onSuccess={() => {
+            setClienteParaEditar(null);
+            recarregar();
+            showToast("Cliente atualizado com sucesso!");
           }}
         />
       )}
@@ -718,7 +735,7 @@ export function ClienteDetalhePage() {
           <div className="bg-white rounded-2xl border border-[#efefef] shadow-sm p-5">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-[#1f2937] text-sm" style={{ fontWeight: 600 }}>Dados Completos</h3>
-              <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#efefef] text-[#1f2937] text-sm hover:bg-[#efefef]" style={{ fontWeight: 500 }}>
+              <button onClick={() => setClienteParaEditar(clienteExibido)} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#efefef] text-[#1f2937] text-sm hover:bg-[#efefef]" style={{ fontWeight: 500 }}>
                 <Edit2 size={14} />
                 Editar
               </button>
