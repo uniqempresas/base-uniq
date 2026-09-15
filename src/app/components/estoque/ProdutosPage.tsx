@@ -58,7 +58,7 @@ function MargemChip({ pct }: { pct: number }) {
   const warn = pct >= 20 && pct < 40;
   return (
     <span
-      className="text-[10px] px-1.5 py-0.5 rounded-md"
+      className="text-[10px] px-1.5 py-0.5 rounded-md shrink-0"
       style={{
         background: good ? "#efefef" : warn ? "#FFFBEB" : "#FEF2F2",
         color: good ? "#1f2937" : warn ? "#B45309" : "#B91C1C",
@@ -75,6 +75,8 @@ function ProdutoGridCard({ produto, onClick, onDelete, onEdit }: { produto: Prod
   const [hovered, setHovered] = useState(false);
   const catColors = CATEGORIA_COLORS[produto.categoria] || CATEGORIA_COLORS["Outros"];
   const margem = calcMargem(produto.precoCusto, produto.precoVenda);
+  const statusColor =
+    produto.estoqueStatus === "zerado" ? "#EF4444" : produto.estoqueStatus === "baixo" ? "#F59E0B" : "#1f2937";
 
   return (
     <div
@@ -86,15 +88,16 @@ function ProdutoGridCard({ produto, onClick, onDelete, onEdit }: { produto: Prod
       onMouseLeave={() => setHovered(false)}
       onClick={onClick}
     >
-      {/* Foto / Placeholder */}
+      {/* Foto / Placeholder — compacto no mobile (h-24) para o produto aparecer no primeiro dobra; volta a h-36 no sm+ */}
       <div
-        className="h-36 rounded-t-2xl flex items-center justify-center relative overflow-hidden"
+        className="h-24 sm:h-36 rounded-t-2xl flex items-center justify-center relative overflow-hidden"
         style={{ background: catColors.bg }}
       >
-        <Package size={48} style={{ color: catColors.text, opacity: 0.3 }} />
+        <Package size={28} className="sm:hidden" style={{ color: catColors.text, opacity: 0.3 }} />
+        <Package size={48} className="hidden sm:block" style={{ color: catColors.text, opacity: 0.3 }} />
 
-        {/* Badges top */}
-        <div className="absolute top-2.5 left-2.5 flex flex-col gap-1">
+        {/* Badges top — encostados ao topo no mobile, como antes no sm+ */}
+        <div className="absolute top-2 left-2 sm:top-2.5 sm:left-2.5 flex flex-col gap-1">
           <EstoqueBadge status={produto.estoqueStatus} />
           {produto.precoPromocional && (
             <span className="px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[9px]" style={{ fontWeight: 700 }}>
@@ -105,7 +108,7 @@ function ProdutoGridCard({ produto, onClick, onDelete, onEdit }: { produto: Prod
 
         {/* Variações indicator */}
         {produto.possuiVariacoes && (
-          <div className="absolute top-2.5 right-2.5">
+          <div className="absolute top-2 right-2 sm:top-2.5 sm:right-2.5">
             <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/80 backdrop-blur-sm">
               <Layers size={10} style={{ color: catColors.text }} />
               <span className="text-[9px]" style={{ color: catColors.text, fontWeight: 700 }}>
@@ -115,9 +118,9 @@ function ProdutoGridCard({ produto, onClick, onDelete, onEdit }: { produto: Prod
           </div>
         )}
 
-        {/* Hover actions */}
+        {/* Hover actions — apenas desktop/tablet (touch usa a barra fixa do rodapé) */}
         <div
-          className="absolute inset-0 bg-black/20 flex items-center justify-center gap-2 transition-opacity"
+          className="hidden sm:flex absolute inset-0 bg-black/20 items-center justify-center gap-2 transition-opacity"
           style={{ opacity: hovered ? 1 : 0 }}
         >
           <button
@@ -145,13 +148,14 @@ function ProdutoGridCard({ produto, onClick, onDelete, onEdit }: { produto: Prod
       </div>
 
       {/* Info */}
-      <div className="p-3.5">
-        <div className="flex items-start justify-between gap-1 mb-2">
+      <div className="p-3 sm:p-3.5">
+        {/* Nome + categoria */}
+        <div className="flex items-start justify-between gap-1 mb-1.5 sm:mb-2">
           <div className="flex-1 min-w-0">
-            <p className="text-[#1f2937] text-sm leading-tight truncate" style={{ fontWeight: 700 }}>
+            <p className="text-[#1f2937] text-sm leading-tight line-clamp-2 sm:line-clamp-1" style={{ fontWeight: 700 }}>
               {produto.nome}
             </p>
-            <p className="text-[#627271] text-[11px] mt-0.5">{produto.sku}</p>
+            <p className="text-[#627271] text-[11px] mt-0.5 truncate">{produto.sku}</p>
           </div>
           <span
             className="text-[10px] px-1.5 py-0.5 rounded-md shrink-0"
@@ -161,13 +165,14 @@ function ProdutoGridCard({ produto, onClick, onDelete, onEdit }: { produto: Prod
           </span>
         </div>
 
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[#1f2937] text-sm" style={{ fontWeight: 700 }}>
+        {/* Preço × margem */}
+        <div className="flex items-center justify-between gap-1.5 min-w-0">
+          <div className="min-w-0">
+            <p className="text-[#1f2937] text-sm truncate" style={{ fontWeight: 700 }}>
               {formatCurrency(produto.precoVenda)}
             </p>
             {produto.precoPromocional && (
-              <p className="text-[#627271] text-[11px] line-through">
+              <p className="text-[#627271] text-[11px] line-through truncate">
                 {formatCurrency(produto.precoVenda)}
               </p>
             )}
@@ -175,35 +180,53 @@ function ProdutoGridCard({ produto, onClick, onDelete, onEdit }: { produto: Prod
           <MargemChip pct={margem} />
         </div>
 
-        <div className="mt-3 pt-3 border-t border-[#efefef] flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <Package size={12} className="text-[#627271]" />
-            <span
-              className="text-sm"
-              style={{
-                fontWeight: 700,
-                color:
-                  produto.estoqueStatus === "zerado"
-                    ? "#EF4444"
-                    : produto.estoqueStatus === "baixo"
-                    ? "#F59E0B"
-                    : "#1f2937",
-              }}
-            >
+        {/* Estoque × status */}
+        <div className="mt-2.5 pt-2.5 sm:mt-3 sm:pt-3 border-t border-[#efefef] flex items-center justify-between gap-1.5">
+          <div className="flex items-center gap-1 min-w-0">
+            <Package size={12} className="text-[#627271] shrink-0" />
+            <span className="text-sm whitespace-nowrap" style={{ fontWeight: 700, color: statusColor }}>
               {produto.estoque}
             </span>
-            <span className="text-[#627271] text-xs">{produto.unidade}</span>
+            <span className="text-[#627271] text-xs inline-block truncate">{produto.unidade}</span>
           </div>
           <span
-            className="text-[10px] px-1.5 py-0.5 rounded-full"
+            className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0"
             style={{
-              background: produto.status === "ativo" ? "#efefef" : "#efefef",
+              background: "#efefef",
               color: produto.status === "ativo" ? "#1f2937" : "#627271",
               fontWeight: 600,
             }}
           >
             {produto.status}
           </span>
+        </div>
+
+        {/* Ações mobile — sempre visíveis, pois touch não tem hover */}
+        <div className="sm:hidden mt-2 flex items-center justify-end gap-1.5">
+          <button
+            onClick={(e) => { e.stopPropagation(); onEdit(); }}
+            aria-label={`Editar ${produto.nome}`}
+            className="w-7 h-7 rounded-lg bg-[#efefef] text-[#627271] flex items-center justify-center transition-transform active:scale-95"
+          >
+            <Edit2 size={13} />
+          </button>
+          <button
+            onClick={(e) => e.stopPropagation()}
+            aria-label={`Duplicar ${produto.nome}`}
+            className="w-7 h-7 rounded-lg bg-[#efefef] text-[#627271] flex items-center justify-center transition-transform active:scale-95"
+          >
+            <Copy size={13} />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            aria-label={`Excluir ${produto.nome}`}
+            className="w-7 h-7 rounded-lg bg-red-50 text-red-500 flex items-center justify-center transition-transform active:scale-95"
+          >
+            <Trash2 size={13} />
+          </button>
         </div>
       </div>
     </div>
@@ -332,10 +355,10 @@ export function ProdutosPage() {
 
       {/* Loading skeleton */}
       {loading && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-4">
           {Array.from({ length: 10 }).map((_, i) => (
             <div key={i} className="bg-white rounded-2xl border border-[#efefef] overflow-hidden">
-              <div className="h-36 bg-[#efefef] animate-pulse" />
+              <div className="h-24 sm:h-36 bg-[#efefef] animate-pulse" />
               <div className="p-3 space-y-2">
                 <div className="h-4 bg-[#efefef] rounded animate-pulse w-3/4" />
                 <div className="h-3 bg-[#efefef] rounded animate-pulse w-1/2" />
