@@ -38,6 +38,11 @@ import {
   type Produto,
 } from "./estoqueMockData";
 import { useProduto } from "../../hooks/use-produto";
+import { useAtualizarProduto } from "../../hooks/use-atualizar-produto";
+import { useTags } from "../../hooks/use-tags";
+import { ProdutoFormModal } from "./ProdutoFormModal";
+import { useAuth } from "../../contexts/AuthContext";
+import { supabase } from "../../../lib/supabase";
 
 type TabType = "geral" | "estoque" | "variacoes" | "movimentacoes";
 
@@ -56,16 +61,79 @@ function AjustarEstoqueModal({
   const [motivo, setMotivo] = useState("");
   const [obs, setObs] = useState("");
   const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  const { empresa, perfil } = useAuth();
+  const { atualizarProduto } = useAtualizarProduto();
 
   const motivosEntrada = ["Compra", "Devolução", "Ajuste", "Produção", "Inventário", "Outro"];
   const motivosSaida = ["Venda", "Ajuste", "Perda", "Quebra", "Doação", "Outro"];
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErro(null);
+
+    const qtd = Number(quantidade);
+    if (!qtd || qtd <= 0) {
+      setErro("Informe uma quantidade válida (maior que zero).");
+      return;
+    }
+    if (!motivo) {
+      setErro("Selecione um motivo para a movimentação.");
+      return;
+    }
+    if (tipo === "saida" && qtd > (produto.estoque || 0)) {
+      setErro(`Quantidade maior que o estoque disponível (${produto.estoque} ${produto.unidade}).`);
+      return;
+    }
+
+    // Sem tenant autenticado, não gravar em tenant errado (mesmo critério do hook).
+    const empresaId = empresa?.id;
+    if (!empresaId) {
+      setErro("Empresa não identificada para este usuário. Recarregue a página ou faça login novamente.");
+      return;
+    }
+
+    // me_produto.estoque_atual é VALOR ABSOLUTO (não delta) — calcula o novo total.
+    const estoqueAtual = produto.estoque || 0;
+    const novoEstoque = tipo === "entrada" ? estoqueAtual + qtd : estoqueAtual - qtd;
+
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setLoading(false);
-    onSuccess();
+    try {
+      // Ordem escolhida: UPDATE (me_produto) primeiro, INSERT (est_movimentacao) depois.
+      // Estoque é a fonte da verdade do negócio: se o histórico falhar, o estoque segue
+      // consistente e avisamos o usuário. Se fosse o contrário, teríamos um registro de
+      // histórico sem o estoque realmente mudar — falso histórico.
+      const result = await atualizarProduto({ id: Number(produto.id), estoque: novoEstoque });
+      if (!result.success) {
+        setErro(result.error || "Erro ao atualizar o estoque do produto.");
+        return;
+      }
+
+      const { error: movError } = await supabase.from("est_movimentacao").insert({
+        empresa_id: empresaId,
+        produto_id: Number(produto.id), // me_produto.id (integer)
+        tipo, // 'entrada' | 'saida' (minúsculo — mesma convenção de MovTipo dos mocks e demais tipo_*)
+        quantidade: qtd,
+        motivo,
+        // me_usuario.id = id do auth (uuid) quando logado; sem perfil a coluna é nullable e fica null
+        usuario_id: perfil?.id || null,
+        // observacao/obs não é enviado: coluna não confirmada na tabela est_movimentacao
+      });
+
+      if (movError) {
+        // O UPDATE já foi ao banco — o "sucesso" não pode ser exibido sem o histórico.
+        console.error("[AjustarEstoqueModal] Erro ao registrar movimentação:", movError);
+        setErro("Estoque atualizado, mas não foi possível registrar o histórico da movimentação. Tente novamente.");
+        return;
+      }
+
+      onSuccess();
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : "Erro ao ajustar o estoque. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!produto) return null;
@@ -90,7 +158,7 @@ function AjustarEstoqueModal({
               <button
                 key={t}
                 type="button"
-                onClick={() => { setTipo(t); setMotivo(""); }}
+                onClick={() => { setTipo(t); setMotivo(""); setErro(null); }}
                 className="flex items-center justify-center gap-2 py-3 rounded-xl border text-sm transition-all"
                 style={{
                   background: tipo === t ? (t === "entrada" ? "#efefef" : "#FEF2F2") : "transparent",
@@ -152,6 +220,13 @@ function AjustarEstoqueModal({
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92] resize-none" />
           </div>
 
+          {erro && (
+            <div className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-200 px-3 py-2.5">
+              <AlertTriangle size={14} className="text-red-500 mt-0.5 shrink-0" />
+              <p className="text-red-600 text-xs" style={{ fontWeight: 500 }}>{erro}</p>
+            </div>
+          )}
+
           <div className="flex gap-3">
             <button type="button" onClick={onClose} className="flex-1 py-3 rounded-xl border border-[#efefef] text-[#1f2937] text-sm" style={{ fontWeight: 500 }}>
               Cancelar
@@ -173,9 +248,11 @@ export function ProdutoDetalhePage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabType>("geral");
   const [showAjuste, setShowAjuste] = useState(false);
+  const [produtoParaEditar, setProdutoParaEditar] = useState<Produto | null>(null);
   const [toast, setToast] = useState("");
 
   const { produto, loading, error, isFallback, recarregar } = useProduto(id);
+  const { tags: tagsConfig } = useTags();
 
   // Movimentações: só em modo demo (mock-first); com sessão ativa vêm da base (empty state real)
   const movimentacoes =
@@ -263,7 +340,20 @@ export function ProdutoDetalhePage() {
         <AjustarEstoqueModal
           produto={produto}
           onClose={() => setShowAjuste(false)}
-          onSuccess={() => { setShowAjuste(false); showToast("Estoque ajustado com sucesso!"); }}
+          onSuccess={() => { setShowAjuste(false); recarregar(); showToast("Estoque ajustado com sucesso!"); }}
+        />
+      )}
+
+      {produtoParaEditar && (
+        <ProdutoFormModal
+          produto={produtoParaEditar}
+          tags={tagsConfig}
+          onClose={() => setProdutoParaEditar(null)}
+          onSuccess={() => {
+            setProdutoParaEditar(null);
+            recarregar();
+            showToast("Produto atualizado com sucesso!");
+          }}
         />
       )}
 
@@ -326,7 +416,7 @@ export function ProdutoDetalhePage() {
                 <RefreshCw size={15} />
                 <span className="hidden sm:inline">Ajustar Estoque</span>
               </button>
-              <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm" style={{ background: "rgba(255,255,255,0.1)", color: "white", fontWeight: 600 }}>
+              <button onClick={() => setProdutoParaEditar(produto)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm" style={{ background: "rgba(255,255,255,0.1)", color: "white", fontWeight: 600 }}>
                 <Edit2 size={15} />
                 <span className="hidden sm:inline">Editar</span>
               </button>
@@ -456,7 +546,7 @@ export function ProdutoDetalhePage() {
                 <div className="space-y-1.5">
                   {[
                     { label: "Ajustar estoque", icon: RefreshCw, action: () => setShowAjuste(true), color: "#0EA5E9" },
-                    { label: "Editar produto", icon: Edit2, action: () => {}, color: "#8B5CF6" },
+                    { label: "Editar produto", icon: Edit2, action: () => setProdutoParaEditar(produto), color: "#8B5CF6" },
                     { label: "Duplicar produto", icon: Copy, action: () => {}, color: "#F59E0B" },
                     { label: "Imprimir etiqueta", icon: Barcode, action: () => {}, color: "#627271" },
                     { label: produto.status === "ativo" ? "Inativar produto" : "Ativar produto", icon: produto.status === "ativo" ? ToggleLeft : ToggleRight, action: () => {}, color: produto.status === "ativo" ? "#EF4444" : "#86cb92" },

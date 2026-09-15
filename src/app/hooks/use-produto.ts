@@ -24,6 +24,7 @@ interface DBProduto {
   descricao: string | null;
   codigo_barras: string | null;
   foto_url: string | null;
+  opcoes_config: unknown;
   exibir_vitrine: boolean | null;
 }
 
@@ -36,6 +37,10 @@ function calcEstoqueStatus(estoque: number, estoqueMinimo: number): EstoqueStatu
 function mapProduto(db: DBProduto): Produto {
   const estoque = db.estoque_atual || 0;
   const estoqueMinimo = 5; // padrão, pode vir de config depois
+
+  // Defensivo: só strings viram tags; entradas não-string (uso futuro da coluna) são ignoradas
+  const opcoes = Array.isArray(db.opcoes_config) ? db.opcoes_config : [];
+  const tags = opcoes.filter((v): v is string => typeof v === "string");
 
   return {
     id: String(db.id),
@@ -56,6 +61,7 @@ function mapProduto(db: DBProduto): Produto {
     ultimaMovimentacao: new Date().toISOString(),
     foto: db.foto_url || undefined,
     totalVendido: 0,
+    tags,
   };
 }
 

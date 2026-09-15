@@ -46,6 +46,7 @@ export interface Produto {
   ultimaMovimentacao: string;
   foto?: string;
   totalVendido: number;
+  tags?: string[]; // nomes das tags (persistido em me_produto.opcoes_config)
 }
 
 export interface Movimentacao {
@@ -105,6 +106,7 @@ export const PRODUTOS: Produto[] = [
     dataCadastro: "15/01/2024",
     ultimaMovimentacao: "Hoje, 10:30",
     totalVendido: 234,
+    tags: ["Cliente Fiel", "Prospect"],
   },
   {
     id: "p2",
@@ -178,6 +180,7 @@ export const PRODUTOS: Produto[] = [
     dataCadastro: "08/03/2024",
     ultimaMovimentacao: "Há 1 semana",
     totalVendido: 67,
+    tags: ["VIP"],
   },
   {
     id: "p5",
@@ -246,6 +249,7 @@ export const PRODUTOS: Produto[] = [
     dataCadastro: "01/10/2023",
     ultimaMovimentacao: "Há 4 dias",
     totalVendido: 312,
+    tags: ["Inativo"],
   },
   {
     id: "p8",

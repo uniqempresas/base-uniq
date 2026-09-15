@@ -14,6 +14,7 @@ export interface AtualizarProdutoParams {
   descricao?: string;
   fotoUrl?: string;
   ativo?: boolean;
+  tags?: string[]; // nomes das tags → me_produto.opcoes_config (jsonb array de strings)
 }
 
 export interface AtualizarProdutoResult {
@@ -54,6 +55,7 @@ export function useAtualizarProduto() {
         if (campos.descricao !== undefined) updateData.descricao = campos.descricao;
         if (campos.fotoUrl !== undefined) updateData.foto_url = campos.fotoUrl;
         if (campos.ativo !== undefined) updateData.ativo = campos.ativo;
+        if (campos.tags !== undefined) updateData.opcoes_config = campos.tags;
 
         const { error: updateError } = await supabase
           .from("me_produto")

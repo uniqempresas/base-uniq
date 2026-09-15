@@ -12,6 +12,7 @@ export interface CriarProdutoParams {
   estoque?: number;
   descricao?: string;
   fotoUrl?: string;
+  tags?: string[]; // nomes das tags → me_produto.opcoes_config (jsonb array de strings)
 }
 
 export interface CriarProdutoResult {
@@ -51,6 +52,7 @@ export function useCriarProduto() {
             estoque_atual: params.estoque || 0,
             descricao: params.descricao || null,
             foto_url: params.fotoUrl || null,
+            opcoes_config: params.tags?.length ? params.tags : [],
             ativo: true,
           })
           .select("id")
