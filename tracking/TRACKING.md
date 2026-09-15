@@ -173,6 +173,14 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 - Chamada à RPC `registrar_venda` criando venda + conta a receber
 - Feedback visual: toast sucesso/erro + badge "Venda contabilizada"
 
+**Fluxo n8n — pedido WhatsApp → RPC (12/09/2026 design · 15/09/2026 implementado ✅):**
+> Elo da cadeia: tool `docee_grava-pedido` → sub-workflow executor `docee_criarpedido` → RPC `registrar_venda`. **AI escolhe, banco decide**: a tool recebe a intenção (`[{nome, quantidade}]` como array de objetos), o sub-workflow reconstrói `p_itens` com dados canônicos de `me_produto` (id, nome, preço), verifica estoque, recalcula `p_valor_total` e chama `registrar_venda` com `p_origem='whatsapp'` / `p_status='confirmada'`.
+- PRD: `tracking/plans/PRD-DoceE-FluxoN8n-PedidoParaRPC.md`
+- SPEC (montagem passo a passo na UI do n8n): `tracking/specs/SPEC-DoceE-FluxoN8n-PedidoParaRPC.md`
+- **Sub-workflow montado (15/09/2026):** nó 1 "Parse p_itens" (parse defensivo) → nó 2 "Buscar Produtos" (GET `me_produto` filtrado por `empresa_id`, credential `UNIQ-uat4`) → nó 3 "Montar payload" (Code, **Run Once for All Items**: resolve produto por nome no banco, valida estoque, recalcula total, fixa status/origem) → nó 4 "HTTP Request" (POST `/rest/v1/rpc/registrar_venda`, credential `UNIQ-uat4`, body `={{ $json }}`).
+- **Teste verde (execução 4363, venda `0c901c4a`):** 2× "Surpresa de Uva" → `me_venda` R$ 16,00 status `confirmada` canal `whatsapp` · `me_itens_venda` id 62 × 2 @ R$ 8 · estoque 62: 10→8 · conta a receber R$ 16 venc. 15/10/2026 · forma Pix.
+- **Pendente:** ativar `docee_criarpedido` + salvar `atendente_Docee` + teste real no WhatsApp da Doceê (critérios de aceite do PRD). Observação: `p_forma_pagamento` pode gravar minúsculo ("pix") na conta a receber — sugerir à AI "Pix" capitalizado.
+
 **Documentos criados (T2.3):**
 - PRD: `tracking/plans/PRD-Semana2-T2.3-PedidosBanco.md`
 - SPEC: `tracking/specs/SPEC-Semana2-T2.3-PedidosBanco.md`
@@ -380,6 +388,8 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 | B4 | **Vincular pedido a cliente existente** | Hoje `useCriarPedido` busca por nome exato. Melhorar para busca fuzzy ou por telefone, e permitir selecionar cliente existente vs criar novo. | Média |
 | B5 | **Busca de endereço por CEP** | Ao criar cliente/pedido, integrar ViaCEP ou similar para preencher endereço automaticamente. | Baixa |
 | ~~B6~~ | ~~**Completar SDD da T2.9**~~ | ✅ Resolvido (11/09/2026) — PRD e WIRE criados em `tracking/plans/` e `tracking/wireframe/`. | Fechado |
+| B7 | **Erro TS em `ProdutoDetalhePage.tsx:456` — `tab.badge` possivelmente `undefined`** | Arquivo da lane "Editar Produto" (trabalho paralelo, 12/09/2026). `TABS` (linhas 322–327) tem shapes inconsistentes: só a aba `movimentacoes` tem `badge` (as demais não); a guarda `{"badge" in tab && tab.badge > 0}` (linha 456) não estreita o tipo → LSP: `'tab.badge' is possibly 'undefined'`. **Fix sugerido:** tipar o elemento de `TABS` com `badge?: number` explícito e usar `tab.badge != null && tab.badge > 0` (ou `typeof tab.badge === "number"`). **Dono:** lane Editar Produto (não tocar por esta lane). | Média |
+| B8 | **"Contabilizar venda" envia `p_itens` sem `produto_id`/`servico_id`** | 13/09/2026 (lanes n8n/pedidos). **Parte 1 resolvida (15/09/2026):** `use-pedido.ts` agora busca `me_itens_venda` (+ `foto_url` via `me_produto`) e popula `itens` no detalhe do pedido — validação: execução n8n 4363, venda `0c901c4a`, "Surpresa de Uva" ×2 visível. **Parte 2 pendente:** `use-registrar-venda.ts:69-79` ("Contabilizar venda") manda `p_itens` como `ItemVenda` (`{quantidade, valor_unitario, descricao}`) **sem id de produto/serviço**; RPC espera `{tipo, id_referencia (string), nome, quantidade, preco_unitario}`. **Fix sugerido:** mapear `produto_id` → `id_referencia: String(produto_id)`, `nome_produto` → `nome`, `preco_unitario`. **Dono:** lane Pedidos/PDV (não tocar por esta lane). | Média |
 
 ---
 

@@ -1,7 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
-import { PEDIDOS, type Pedido, type StatusPedido } from "../components/pedidos/pedidosMockData";
+import {
+  PEDIDOS,
+  type ItemPedido,
+  type Pedido,
+  type StatusPedido,
+} from "../components/pedidos/pedidosMockData";
 
 interface DBVenda {
   id: string;
@@ -24,6 +29,14 @@ interface DBCliente {
   telefone: string | null;
   email: string | null;
   documento: string | null;
+}
+
+interface DBItemVenda {
+  id: string;
+  produto_id: number | null;
+  quantidade: number;
+  preco_unitario: number;
+  nome_produto: string;
 }
 
 function mapStatusVenda(status: string): StatusPedido {
@@ -74,10 +87,26 @@ function formatTelefone(telefone: string | null | undefined): string {
   return telefone;
 }
 
+function mapItensVenda(
+  itens: DBItemVenda[],
+  fotosPorProduto: Map<number, string>
+): ItemPedido[] {
+  return itens.map((item) => ({
+    id: item.id,
+    nome: item.nome_produto,
+    quantidade: item.quantidade,
+    precoUnitario: Number(item.preco_unitario),
+    foto: item.produto_id !== null && item.produto_id !== undefined
+      ? (fotosPorProduto.get(item.produto_id) ?? "")
+      : "",
+  }));
+}
+
 function mapVendaToPedido(
   db: DBVenda,
   cliente?: DBCliente | null,
-  statusPagamento: Pedido["statusPagamento"] = "pendente"
+  statusPagamento: Pedido["statusPagamento"] = "pendente",
+  itens: ItemPedido[] = []
 ): Pedido {
   return {
     id: db.id,
@@ -91,7 +120,7 @@ function mapVendaToPedido(
       tipo: "pf",
     },
     canal: mapCanalVenda(db.canal_venda),
-    itens: [],
+    itens,
     subtotal: Number(db.valor_total),
     frete: 0,
     desconto: Number(db.valor_desconto) || 0,
@@ -192,7 +221,40 @@ export function usePedido(id: string | undefined): UsePedidoReturn {
           statusPagamento = "confirmado";
         }
 
-        setPedido(mapVendaToPedido(dbVenda as DBVenda, cliente, statusPagamento));
+        // Busca itens da venda (me_itens_venda) + fotos dos produtos para o detalhe
+        const { data: itensData } = await supabase
+          .from("me_itens_venda")
+          .select("id, produto_id, quantidade, preco_unitario, nome_produto")
+          .eq("venda_id", dbVenda.id)
+          .eq("empresa_id", empresaId)
+          .order("criado_em", { ascending: true });
+
+        const itens = (itensData || []) as DBItemVenda[];
+
+        const produtoIds = itens
+          .map((i) => i.produto_id)
+          .filter((pid): pid is number => pid !== null && pid !== undefined);
+
+        const fotosPorProduto = new Map<number, string>();
+        if (produtoIds.length > 0) {
+          const { data: produtos } = await supabase
+            .from("me_produto")
+            .select("id, foto_url")
+            .in("id", produtoIds);
+
+          for (const p of produtos || []) {
+            fotosPorProduto.set(p.id, p.foto_url ?? "");
+          }
+        }
+
+        setPedido(
+          mapVendaToPedido(
+            dbVenda as DBVenda,
+            cliente,
+            statusPagamento,
+            mapItensVenda(itens, fotosPorProduto)
+          )
+        );
         setError(null);
         setLoading(false);
         return;
