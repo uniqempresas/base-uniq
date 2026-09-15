@@ -35,7 +35,6 @@ import {
   type StatusPedido,
   type Pedido,
 } from "./pedidosMockData";
-import { useRegistrarVenda } from "../../hooks/use-registrar-venda";
 import { usePedido } from "../../hooks/use-pedido";
 import { useAtualizarStatusPedido } from "../../hooks/use-atualizar-status-pedido";
 import { useConfirmarPagamento } from "../../hooks/use-confirmar-pagamento";
@@ -100,11 +99,9 @@ export function PedidoDetalhePage() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showTrackingModal, setShowTrackingModal] = useState(false);
   const [showContabilizarModal, setShowContabilizarModal] = useState(false);
-  const [vendaContabilizada, setVendaContabilizada] = useState(false);
   const [cancelMotivo, setCancelMotivo] = useState("");
   const [trackingCode, setTrackingCode] = useState(pedido?.codigoRastreio || "");
   const [newStatus, setNewStatus] = useState<StatusPedido | null>(null);
-  const { registrarVenda, loading: registrandoVenda } = useRegistrarVenda();
   const { atualizarStatus, loading: atualizandoStatus } = useAtualizarStatusPedido();
   const { confirmarPagamento, loading: confirmandoPagamento } = useConfirmarPagamento();
 
@@ -160,6 +157,7 @@ export function PedidoDetalhePage() {
   const nextStatuses = NEXT_STATUS[pedido.status] || [];
   const isCanceled = pedido.status === "cancelado";
   const isDelivered = pedido.status === "entregue";
+  const vendaContabilizada = pedido.status === "pago";
 
   const handleStatusUpdate = async () => {
     if (!newStatus) return;
@@ -314,27 +312,40 @@ export function PedidoDetalhePage() {
   const handleContabilizar = async () => {
     if (!pedido) return;
 
-    const resultado = await registrarVenda({
-      valor_total: pedido.total,
-      forma_pagamento: pedido.formaPagamento,
-      observacoes: `Venda contabilizada do pedido ${pedido.numero} - Cliente: ${pedido.cliente.nome}`,
-      origem: pedido.canal,
-      itens: pedido.itens.map((item) => ({
-        tipo: item.tipoItem ?? "produto",
-        id_referencia: item.produtoId != null ? String(item.produtoId) : "",
-        nome: item.nome,
-        quantidade: item.quantidade,
-        preco_unitario: item.precoUnitario,
-      })),
-    });
-
-    if (resultado.success) {
-      setVendaContabilizada(true);
-      toast.success(`Venda contabilizada! ID: ${resultado.id_venda?.slice(0, 8)}...`);
-      setShowContabilizarModal(false);
+    // A venda já existe em me_venda (fluxo n8n/RPC na chegada do pedido).
+    // Contabilizar = persistir status_venda='pago' + entrada no histórico.
+    if (!isFallback) {
+      const res = await atualizarStatus({
+        id: pedido.id,
+        status: "pago",
+        observacao: "Venda contabilizada manualmente",
+      });
+      if (!res.success) {
+        toast.error(`Erro ao contabilizar: ${res.error}`);
+        return;
+      }
+      // Espelho local — vendaContabilizada (status pago) vira true na hora
+      setPedidoLocal({ ...pedido, status: "pago" });
     } else {
-      toast.error(`Erro ao contabilizar: ${resultado.error}`);
+      // Modo mock: simulação local, sem RPC
+      setPedidoLocal({
+        ...pedido,
+        status: "pago",
+        statusPagamento: "confirmado",
+        timeline: [
+          ...pedido.timeline,
+          {
+            status: "pago",
+            dataHora: new Date().toISOString(),
+            responsavel: nomeResponsavel,
+            observacao: "Venda contabilizada manualmente",
+          },
+        ],
+      });
     }
+
+    toast.success("Venda contabilizada!");
+    setShowContabilizarModal(false);
   };
 
   // Ações do pedido (usadas no mobile logo abaixo do título e no desktop à direita)
@@ -1056,7 +1067,7 @@ export function PedidoDetalhePage() {
               <button
                 className="sm:flex-1 px-4 py-2.5 rounded-xl border border-[#efefef] text-sm text-[#1f2937] hover:bg-[#efefef] transition-colors"
                 onClick={() => setShowContabilizarModal(false)}
-                disabled={registrandoVenda}
+                disabled={atualizandoStatus}
               >
                 Cancelar
               </button>
@@ -1064,9 +1075,9 @@ export function PedidoDetalhePage() {
                 className="sm:flex-1 px-4 py-2.5 rounded-xl text-sm text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 style={{ background: "#2e7d32" }}
                 onClick={handleContabilizar}
-                disabled={registrandoVenda}
+                disabled={atualizandoStatus}
               >
-                {registrandoVenda ? (
+                {atualizandoStatus ? (
                   <>
                     <RefreshCw size={14} className="animate-spin" />
                     Registrando...
