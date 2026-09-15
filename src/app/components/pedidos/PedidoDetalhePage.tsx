@@ -430,8 +430,9 @@ export function PedidoDetalhePage() {
               const confirmar = () => {
                 setPedidoLocal({
                   ...pedido,
+                  status: "pago",
                   statusPagamento: "confirmado",
-                  timeline: [...pedido.timeline, { status: pedido.status, dataHora: new Date().toISOString(), responsavel: nomeResponsavel, observacao: "Pagamento confirmado manualmente" }],
+                  timeline: [...pedido.timeline, { status: "pago", dataHora: new Date().toISOString(), responsavel: nomeResponsavel, observacao: "Pagamento confirmado manualmente" }],
                 });
                 toast.success("Pagamento confirmado!");
               };
@@ -449,6 +450,17 @@ export function PedidoDetalhePage() {
 
               if (result.success) {
                 confirmar();
+
+                // Persiste status_venda='pago' + entrada no histórico
+                const res = await atualizarStatus({
+                  id: pedido.id,
+                  status: "pago",
+                  observacao: "Pagamento confirmado manualmente",
+                });
+
+                if (!res.success) {
+                  toast.warning(`Pagamento confirmado, mas o status do pedido não foi atualizado: ${res.error}`);
+                }
               } else {
                 toast.error(result.error || "Erro ao confirmar pagamento");
               }

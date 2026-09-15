@@ -861,6 +861,7 @@ export const NEXT_STATUS: Partial<Record<StatusPedido, StatusPedido[]>> = {
   aguardando: ["separacao", "cancelado"],
   recebido: ["confirmado", "cancelado"],
   confirmado: ["separacao", "cancelado"],
+  pago: ["separacao", "cancelado"],
   separacao: ["enviado", "cancelado"],
   enviado: ["entregue"],
   entregue: [],
