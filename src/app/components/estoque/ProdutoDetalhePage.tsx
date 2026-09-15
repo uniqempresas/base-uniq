@@ -249,6 +249,7 @@ export function ProdutoDetalhePage() {
   const [activeTab, setActiveTab] = useState<TabType>("geral");
   const [showAjuste, setShowAjuste] = useState(false);
   const [produtoParaEditar, setProdutoParaEditar] = useState<Produto | null>(null);
+  const [produtoParaDuplicar, setProdutoParaDuplicar] = useState<Produto | null>(null);
   const [toast, setToast] = useState("");
 
   const { produto, loading, error, isFallback, recarregar } = useProduto(id);
@@ -353,6 +354,19 @@ export function ProdutoDetalhePage() {
             setProdutoParaEditar(null);
             recarregar();
             showToast("Produto atualizado com sucesso!");
+          }}
+        />
+      )}
+
+      {produtoParaDuplicar && (
+        <ProdutoFormModal
+          produtoBase={produtoParaDuplicar}
+          tags={tagsConfig}
+          onClose={() => setProdutoParaDuplicar(null)}
+          onSuccess={() => {
+            setProdutoParaDuplicar(null);
+            recarregar();
+            showToast("Produto duplicado com sucesso!");
           }}
         />
       )}
@@ -547,7 +561,7 @@ export function ProdutoDetalhePage() {
                   {[
                     { label: "Ajustar estoque", icon: RefreshCw, action: () => setShowAjuste(true), color: "#0EA5E9" },
                     { label: "Editar produto", icon: Edit2, action: () => setProdutoParaEditar(produto), color: "#8B5CF6" },
-                    { label: "Duplicar produto", icon: Copy, action: () => {}, color: "#F59E0B" },
+                    { label: "Duplicar produto", icon: Copy, action: () => setProdutoParaDuplicar(produto), color: "#F59E0B" },
                     { label: "Imprimir etiqueta", icon: Barcode, action: () => {}, color: "#627271" },
                     { label: produto.status === "ativo" ? "Inativar produto" : "Ativar produto", icon: produto.status === "ativo" ? ToggleLeft : ToggleRight, action: () => {}, color: produto.status === "ativo" ? "#EF4444" : "#86cb92" },
                   ].map((a) => {

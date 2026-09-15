@@ -11,32 +11,39 @@ const STEPS = ["Informações", "Preços", "Estoque"];
 
 interface ProdutoFormModalProps {
   produto?: Produto | null; // null/undefined = modo criar; Produto = modo editar
+  produtoBase?: Produto | null; // null/undefined = modo criar normal; Produto = modo duplicar
   tags: Tag[];              // catálogo via useTags (mesmo de clientes)
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export function ProdutoFormModal({ produto, tags, onClose, onSuccess }: ProdutoFormModalProps) {
+export function ProdutoFormModal({ produto, produtoBase, tags, onClose, onSuccess }: ProdutoFormModalProps) {
   const ehEdicao = Boolean(produto);
+  const ehDuplicacao = Boolean(produtoBase);
   const { criarProduto, loading: salvandoCriar } = useCriarProduto();
   const { atualizarProduto, loading: salvandoEditar } = useAtualizarProduto();
   const salvando = ehEdicao ? salvandoEditar : salvandoCriar;
 
   const [step, setStep] = useState(1);
   const [erro, setErro] = useState("");
-  const [form, setForm] = useState(() => ({
-    nome: produto?.nome || "",
-    sku: produto?.sku || "",
-    categoria: produto?.categoria || "",
-    unidade: produto?.unidade || "Peça",
-    precoCusto: produto ? String(produto.precoCusto ?? 0) : "",
-    precoVenda: produto ? String(produto.precoVenda ?? 0) : "",
-    estoque: produto ? String(produto.estoque ?? 0) : "",
-    estoqueMinimo: produto ? String(produto.estoqueMinimo ?? 0) : "",
-    codigoBarras: produto?.codigoBarras || "",
-    descricao: produto?.descricaoCurta || "",
-  }));
-  const [tagsSelecionadas, setTagsSelecionadas] = useState<string[]>(produto?.tags || []);
+  const [form, setForm] = useState(() => {
+    const base = produtoBase || produto || null;
+    return {
+      nome: produtoBase ? `${produtoBase.nome} (cópia)` : base?.nome || "",
+      sku: produtoBase ? (produtoBase.sku ? `${produtoBase.sku}-COPIA` : "") : base?.sku || "",
+      categoria: base?.categoria || "",
+      unidade: base?.unidade || "Peça",
+      precoCusto: base ? String(base.precoCusto ?? 0) : "",
+      precoVenda: base ? String(base.precoVenda ?? 0) : "",
+      estoque: produtoBase ? "0" : base ? String(base.estoque ?? 0) : "",
+      estoqueMinimo: base ? String(base.estoqueMinimo ?? 0) : "",
+      codigoBarras: base?.codigoBarras || "",
+      descricao: base?.descricaoCurta || "",
+    };
+  });
+  const [tagsSelecionadas, setTagsSelecionadas] = useState<string[]>(
+    (produtoBase || produto)?.tags || []
+  );
 
   const margem =
     form.precoCusto && form.precoVenda
@@ -102,7 +109,7 @@ export function ProdutoFormModal({ produto, tags, onClose, onSuccess }: ProdutoF
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#efefef]">
           <div>
             <h3 className="text-[#1f2937] text-sm" style={{ fontWeight: 700 }}>
-              {ehEdicao ? "Editar Produto" : "Novo Produto"}
+              {ehDuplicacao ? "Duplicar Produto" : ehEdicao ? "Editar Produto" : "Novo Produto"}
             </h3>
             <p className="text-[#627271] text-xs">Passo {step} de {STEPS.length}</p>
           </div>
@@ -469,7 +476,7 @@ export function ProdutoFormModal({ produto, tags, onClose, onSuccess }: ProdutoF
               {salvando ? (
                 <><Loader2 size={15} className="animate-spin" />Salvando...</>
               ) : (
-                (ehEdicao ? "Salvar alterações" : "Salvar produto 🎉")
+                (ehDuplicacao ? "Duplicar produto 🎉" : (ehEdicao ? "Salvar alterações" : "Salvar produto 🎉"))
               )}
             </button>
           )}
