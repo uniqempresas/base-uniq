@@ -63,7 +63,8 @@ interface DBItemVenda {
 function mapStatusVenda(status: string): StatusPedido {
   const map: Record<string, StatusPedido> = {
     pendente: "aguardando",
-    confirmada: "confirmado",
+    confirmada: "recebido",
+    confirmado: "confirmado",
     pago: "pago",
     separacao: "separacao",
     enviado: "enviado",
