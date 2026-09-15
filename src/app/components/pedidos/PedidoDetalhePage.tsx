@@ -170,51 +170,89 @@ export function PedidoDetalhePage() {
       return;
     }
     const cfg = STATUS_CONFIG[newStatus];
-    const timeline = [
-      ...pedido.timeline,
-      {
-        status: newStatus,
-        dataHora: new Date().toISOString(),
-        responsavel: nomeResponsavel,
-        observacao: newStatus === "enviado" ? `Código de rastreio: ${trackingCode}` : undefined,
-        codigoRastreio: newStatus === "enviado" ? trackingCode : undefined,
-      },
-    ];
 
     // Persiste no banco quando o pedido é real (não mock)
     if (!isFallback) {
-      const res = await atualizarStatus({ id: pedido.id, status: newStatus });
+      const observacao = newStatus === "enviado" ? `Código de rastreio: ${trackingCode}` : undefined;
+      const codigoRastreio = newStatus === "enviado" ? trackingCode : undefined;
+      const res = await atualizarStatus({
+        id: pedido.id,
+        status: newStatus,
+        observacao,
+        codigoRastreio,
+      });
       if (!res.success) {
         toast.error(`Erro ao atualizar status: ${res.error}`);
         setShowStatusModal(false);
         setNewStatus(null);
         return;
       }
+      // Espelho local mínimo — timeline vem do banco no próximo fetch
+      setPedidoLocal({
+        ...pedido,
+        status: newStatus,
+        codigoRastreio: newStatus === "enviado" ? trackingCode : pedido.codigoRastreio,
+      });
+    } else {
+      // Fallback mock: reconstrói timeline em memória
+      const timeline = [
+        ...pedido.timeline,
+        {
+          status: newStatus,
+          dataHora: new Date().toISOString(),
+          responsavel: nomeResponsavel,
+          observacao: newStatus === "enviado" ? `Código de rastreio: ${trackingCode}` : undefined,
+          codigoRastreio: newStatus === "enviado" ? trackingCode : undefined,
+        },
+      ];
+      setPedidoLocal({ ...pedido, status: newStatus, timeline, codigoRastreio: newStatus === "enviado" ? trackingCode : pedido.codigoRastreio });
     }
 
-    setPedidoLocal({ ...pedido, status: newStatus, timeline, codigoRastreio: newStatus === "enviado" ? trackingCode : pedido.codigoRastreio });
     toast.success(`Status atualizado para "${cfg.label}"! 🎉`);
     setShowStatusModal(false);
     setNewStatus(null);
   };
 
-  const handleTrackingAdd = () => {
+  const handleTrackingAdd = async () => {
     if (!trackingCode.trim()) return;
-    setPedidoLocal({
-      ...pedido,
-      codigoRastreio: trackingCode,
-      status: "enviado",
-      timeline: [
-        ...pedido.timeline,
-        {
-          status: "enviado",
-          dataHora: new Date().toISOString(),
-          responsavel: nomeResponsavel,
-          codigoRastreio: trackingCode,
-          observacao: `Código de rastreio adicionado: ${trackingCode}`,
-        },
-      ],
-    });
+
+    // Persiste no banco quando o pedido é real (não mock)
+    if (!isFallback) {
+      const res = await atualizarStatus({
+        id: pedido.id,
+        status: "enviado",
+        codigoRastreio: trackingCode,
+        observacao: `Código de rastreio adicionado: ${trackingCode}`,
+      });
+      if (!res.success) {
+        toast.error(`Erro ao adicionar rastreio: ${res.error}`);
+        return;
+      }
+      // Espelho local mínimo — timeline vem do banco
+      setPedidoLocal({
+        ...pedido,
+        codigoRastreio: trackingCode,
+        status: "enviado",
+      });
+    } else {
+      // Fallback mock: reconstrói timeline em memória
+      setPedidoLocal({
+        ...pedido,
+        codigoRastreio: trackingCode,
+        status: "enviado",
+        timeline: [
+          ...pedido.timeline,
+          {
+            status: "enviado",
+            dataHora: new Date().toISOString(),
+            responsavel: nomeResponsavel,
+            codigoRastreio: trackingCode,
+            observacao: `Código de rastreio adicionado: ${trackingCode}`,
+          },
+        ],
+      });
+    }
+
     toast.success("Código de rastreio adicionado!");
     setShowTrackingModal(false);
   };
@@ -227,27 +265,39 @@ export function PedidoDetalhePage() {
 
     // Persiste no banco quando o pedido é real (não mock)
     if (!isFallback) {
-      const res = await atualizarStatus({ id: pedido.id, status: "cancelado" });
+      const res = await atualizarStatus({
+        id: pedido.id,
+        status: "cancelado",
+        observacao: cancelMotivo,
+      });
       if (!res.success) {
         toast.error(`Erro ao cancelar: ${res.error}`);
         return;
       }
+      // Espelho local mínimo — timeline vem do banco
+      setPedidoLocal({
+        ...pedido,
+        status: "cancelado",
+        motivoCancelamento: cancelMotivo,
+      });
+    } else {
+      // Fallback mock: reconstrói timeline em memória
+      setPedidoLocal({
+        ...pedido,
+        status: "cancelado",
+        motivoCancelamento: cancelMotivo,
+        timeline: [
+          ...pedido.timeline,
+          {
+            status: "cancelado",
+            dataHora: new Date().toISOString(),
+            responsavel: nomeResponsavel,
+            observacao: cancelMotivo,
+          },
+        ],
+      });
     }
 
-    setPedidoLocal({
-      ...pedido,
-      status: "cancelado",
-      motivoCancelamento: cancelMotivo,
-      timeline: [
-        ...pedido.timeline,
-        {
-          status: "cancelado",
-          dataHora: new Date().toISOString(),
-          responsavel: nomeResponsavel,
-          observacao: cancelMotivo,
-        },
-      ],
-    });
     toast.success("Pedido cancelado.");
     setShowCancelModal(false);
     setCancelMotivo("");

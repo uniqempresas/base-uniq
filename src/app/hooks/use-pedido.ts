@@ -5,6 +5,7 @@ import {
   PEDIDOS,
   type ItemPedido,
   type Pedido,
+  type TimelineEntry,
   type StatusPedido,
 } from "../components/pedidos/pedidosMockData";
 
@@ -20,6 +21,9 @@ interface DBVenda {
   canal_venda: string | null;
   tipo_venda: string | null;
   npedido: number | null;
+  codigo_rastreio: string | null;
+  motivo_cancelamento: string | null;
+  frete: number | null;
   criado_em: string;
 }
 
@@ -29,6 +33,22 @@ interface DBCliente {
   telefone: string | null;
   email: string | null;
   documento: string | null;
+  cpf_cnpj: string | null;
+  endereco: string | null;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  estado: string | null;
+  cep: string | null;
+}
+
+interface DBHistorico {
+  status: string;
+  observacao: string | null;
+  codigo_rastreio: string | null;
+  responsavel_usuario_id: string | null;
+  criado_em: string;
 }
 
 interface DBItemVenda {
@@ -105,41 +125,85 @@ function mapItensVenda(
   }));
 }
 
+function mapHistoricoToTimeline(h: DBHistorico[]): TimelineEntry[] {
+  return h.map((entry) => ({
+    status: mapStatusVenda(entry.status),
+    dataHora: entry.criado_em,
+    responsavel: "Sistema",
+    observacao: entry.observacao || undefined,
+    codigoRastreio: entry.codigo_rastreio || undefined,
+  }));
+}
+
 function mapVendaToPedido(
   db: DBVenda,
   cliente?: DBCliente | null,
   statusPagamento: Pedido["statusPagamento"] = "pendente",
-  itens: ItemPedido[] = []
+  itens: ItemPedido[] = [],
+  historico?: DBHistorico[] | null
 ): Pedido {
-  return {
-    id: db.id,
-    numero: gerarNumeroPedido(db.id),
-    dataHora: db.criado_em,
-    cliente: {
-      nome: cliente?.nome_cliente || "Cliente",
-      telefone: formatTelefone(cliente?.telefone),
-      email: cliente?.email || "",
-      documento: cliente?.documento || "",
-      tipo: "pf",
-    },
-    canal: mapCanalVenda(db.canal_venda),
-    itens,
-    subtotal: Number(db.valor_total),
-    frete: 0,
-    desconto: Number(db.valor_desconto) || 0,
-    total: Number(db.valor_total),
-    formaPagamento: mapFormaPagamento(db.forma_pagamento) as Pedido["formaPagamento"],
-    statusPagamento,
-    status: mapStatusVenda(db.status_venda),
-    timeline: [
+  // npedido: real quando existir, senão fallback sintético
+  const numeroPedido = db.npedido ? `#${db.npedido}` : gerarNumeroPedido(db.id);
+
+  // tipo PF/PJ derivado de cpf_cnpj (14 dígitos → PJ)
+  const cpfCnpj = cliente?.cpf_cnpj || cliente?.documento || "";
+  const cpfCnpjNum = cpfCnpj.replace(/\D/g, "");
+  const clienteTipo: "pf" | "pj" = cpfCnpjNum.length === 14 ? "pj" : "pf";
+
+  // endereço: montar só se endereco e cidade presentes
+  const endereco =
+    cliente?.endereco && cliente?.cidade
+      ? {
+          rua: cliente.endereco,
+          numero: cliente.numero || "",
+          complemento: cliente.complemento || undefined,
+          bairro: cliente.bairro || "",
+          cidade: cliente.cidade,
+          estado: cliente.estado || "",
+          cep: cliente.cep || "",
+        }
+      : undefined;
+
+  // timeline: do histórico quando disponível, senão fallback 1 entry
+  let timeline: TimelineEntry[];
+  if (historico && historico.length > 0) {
+    timeline = mapHistoricoToTimeline(historico);
+  } else {
+    timeline = [
       {
         status: mapStatusVenda(db.status_venda),
         dataHora: db.criado_em,
         responsavel: "Sistema",
         observacao: db.observacoes || undefined,
       },
-    ],
+    ];
+  }
+
+  return {
+    id: db.id,
+    numero: numeroPedido,
+    dataHora: db.criado_em,
+    cliente: {
+      nome: cliente?.nome_cliente || "Cliente",
+      telefone: formatTelefone(cliente?.telefone),
+      email: cliente?.email || "",
+      documento: cliente?.documento || "",
+      tipo: clienteTipo,
+    },
+    canal: mapCanalVenda(db.canal_venda),
+    itens,
+    subtotal: Number(db.valor_total),
+    frete: Number(db.frete) || 0,
+    desconto: Number(db.valor_desconto) || 0,
+    total: Number(db.valor_total),
+    formaPagamento: mapFormaPagamento(db.forma_pagamento) as Pedido["formaPagamento"],
+    statusPagamento,
+    status: mapStatusVenda(db.status_venda),
+    timeline,
+    codigoRastreio: db.codigo_rastreio || undefined,
+    motivoCancelamento: db.motivo_cancelamento || undefined,
     notasInternas: db.observacoes || undefined,
+    endereco,
   };
 }
 
@@ -190,7 +254,7 @@ export function usePedido(id: string | undefined): UsePedidoReturn {
       // Tenta buscar do banco (filtro de empresa obrigatório e incondicional)
       const { data: dbVenda, error: vendaError } = await supabase
         .from("me_venda")
-        .select("*")
+        .select("id, cliente_id, valor_total, valor_desconto, observacoes, status_venda, forma_pagamento, canal_venda, tipo_venda, npedido, codigo_rastreio, motivo_cancelamento, frete, criado_em")
         .eq("id", id)
         .eq("empresa_id", empresaId)
         .maybeSingle();
@@ -203,12 +267,12 @@ export function usePedido(id: string | undefined): UsePedidoReturn {
         if (dbVenda.cliente_id) {
           const { data: clienteData } = await supabase
             .from("me_cliente")
-            .select("id, nome_cliente, telefone, email, documento")
+            .select("id, nome_cliente, telefone, email, documento, cpf_cnpj, endereco, numero, complemento, bairro, cidade, estado, cep")
             .eq("id", dbVenda.cliente_id)
             .eq("empresa_id", empresaId)
             .maybeSingle();
 
-          cliente = clienteData;
+          cliente = clienteData as DBCliente | null;
         }
 
         // Busca status de pagamento na conta a receber vinculada (venda_id)
@@ -250,12 +314,21 @@ export function usePedido(id: string | undefined): UsePedidoReturn {
           }
         }
 
+        // Busca histórico de status do pedido
+        const { data: historicoData } = await supabase
+          .from("me_venda_historico")
+          .select("status, observacao, codigo_rastreio, responsavel_usuario_id, criado_em")
+          .eq("venda_id", dbVenda.id)
+          .eq("empresa_id", empresaId)
+          .order("criado_em", { ascending: true });
+
         setPedido(
           mapVendaToPedido(
             dbVenda as DBVenda,
             cliente,
             statusPagamento,
-            mapItensVenda(itens, fotosPorProduto)
+            mapItensVenda(itens, fotosPorProduto),
+            historicoData as DBHistorico[] | null
           )
         );
         setError(null);

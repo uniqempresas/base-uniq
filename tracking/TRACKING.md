@@ -239,6 +239,34 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 - `PedidosListaPage`: seção "Produtos do pedido" no modal de criação (select de `me_produto` via `useProdutos`, quantidade ±, total automático; valor manual vira somente-leitura quando há itens; descrição auto-gerada)
 - Sem itens → fluxo anterior preservado (valor manual + descrição obrigatória)
 
+**Documentos criados (T2.10 — Detalhe do Pedido Sem Mock, 15/09/2026):**
+- PRD: `tracking/plans/PRD-Semana2-T2.10-DetalhePedidoSemMock.md`
+- SPEC: `tracking/specs/SPEC-Semana2-T2.10-DetalhePedidoSemMock.md`
+- WIRE: `tracking/wireframe/WIRE-Semana2-T2.10-DetalhePedidoSemMock.md`
+
+**Status (T2.10):** ✅ CONCLUÍDO (15/09/2026) — WIRE aprovado, implementado e build validado.
+
+**Implementação concluída (T2.10 — commit, 15/09/2026):**
+- Migration aplicada no Supabase (krrkfgv...): `me_venda.codigo_rastreio`, `me_venda.motivo_cancelamento`, `me_venda.frete numeric DEFAULT 0` + tabela `me_venda_historico` (status/observacao/codigo_rastreio/responsavel_usuario_id/criado_em, índice `(venda_id, criado_em)`)
+- `use-pedido.ts`: busca `me_venda_historico` ordenado; mapeia endereço, `npedido` (fallback sintético), PF/PJ por `cpf_cnpj` (14 díg), `frete`, `codigoRastreio`, `motivoCancelamento` reais
+- `use-atualizar-status-pedido.ts`: aceita `observacao` + `codigoRastreio`; grava `codigo_rastreio`/`motivo_cancelamento` na venda e INSERT na `me_venda_historico` (com `perfil.id` como responsável)
+- `PedidoDetalhePage.tsx`: ações de status/rastreio/cancelamento persistem no banco no modo real; timeline reconstruída em memória **somente** no fallback mock; espelho local mínimo no modo real
+- Checklist do SPEC verificado; `npm run build` ✅
+
+**Escopo (resumo do diagnóstico mock vs real do detalhe do pedido):**
+
+| Campo | Hoje | Correção |
+|---|---|---|
+| Código de rastreio | estado local (some ao recarregar) | coluna `me_venda.codigo_rastreio` + persiste no histórico |
+| Motivo de cancelamento | estado local | coluna `me_venda.motivo_cancelamento` |
+| Timeline/histórico | 1 entry + estado local | tabela `me_venda_historico` (INSERT a cada mudança de status) |
+| Endereço de entrega | só no mock | mapear endereço já existente em `me_cliente` |
+| Nº do pedido | `PD-2026-HASH` sintético | usar `me_venda.npedido` quando existir |
+| PF/PJ | sempre "Pessoa Física" | derivar de `me_cliente.cpf_cnpj` |
+| Frete | sempre 0 | coluna `me_venda.frete` (default 0) |
+
+**Já real (não refazer):** dados da venda, cliente (nome/telefone/email/doc), itens + fotos, status de pagamento (`me_contas_receber`), atualizar status, confirmar pagamento, contabilizar venda (RPC).
+
 **🔒 Segurança — Isolamento por empresa (T2.6):**
 - **Problema:** Hooks de leitura não filtravam por `empresa_id` — qualquer usuário via dados de todas as empresas
 - **Hooks afetados:** `use-clientes`, `use-cliente`, `use-pedidos`, `use-pedido`, `use-produtos`, `useConversasReais`
