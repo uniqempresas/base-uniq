@@ -25,6 +25,9 @@ export interface ItemPedido {
   quantidade: number;
   precoUnitario: number;
   foto: string;
+  /** Id no banco (me_produto/me_servico) — usado para contabilizar venda na RPC */
+  produtoId?: number;
+  tipoItem?: "produto" | "servico";
 }
 
 export interface TimelineEntry {

@@ -34,6 +34,7 @@ interface DBCliente {
 interface DBItemVenda {
   id: string;
   produto_id: number | null;
+  tipo_item: string | null;
   quantidade: number;
   preco_unitario: number;
   nome_produto: string;
@@ -96,6 +97,8 @@ function mapItensVenda(
     nome: item.nome_produto,
     quantidade: item.quantidade,
     precoUnitario: Number(item.preco_unitario),
+    produtoId: item.produto_id ?? undefined,
+    tipoItem: item.tipo_item === "servico" ? "servico" : "produto",
     foto: item.produto_id !== null && item.produto_id !== undefined
       ? (fotosPorProduto.get(item.produto_id) ?? "")
       : "",
@@ -224,7 +227,7 @@ export function usePedido(id: string | undefined): UsePedidoReturn {
         // Busca itens da venda (me_itens_venda) + fotos dos produtos para o detalhe
         const { data: itensData } = await supabase
           .from("me_itens_venda")
-          .select("id, produto_id, quantidade, preco_unitario, nome_produto")
+          .select("id, produto_id, tipo_item, quantidade, preco_unitario, nome_produto")
           .eq("venda_id", dbVenda.id)
           .eq("empresa_id", empresaId)
           .order("criado_em", { ascending: true });

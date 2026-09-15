@@ -26,6 +26,8 @@
 | 10 | 11/09/2026 | Menu lateral (mobile) | "Visão Geral" aparece 2× + "Dashboard Hub" — todos idênticos (levam ao mesmo dashboard). **Refinamento do fundador:** eliminar as duplicadas e manter **"Minha Empresa" como item pai expansível** com **"Visão Geral" como sub-item dentro** (leva ao Dashboard). Motivo: se "Minha Empresa" navegar pro dashboard toda vez que for clicado, fica impossível chegar direto em "Cadastros" (sempre passando pelo dash). | Média | ✅ Implementado (11/09) — removido `dashboard-hub` duplicado; subnav "Minha Empresa" = [Visão Geral → /dashboard, Cadastros]. Vale para desktop e drawer mobile (mesma fonte `SUBNAV_SECTIONS`). **Aguarda validação do fundador.** | — |
 | 11 | 11/09/2026 | Menu lateral (mobile) | **"Vendas & PDV" dentro de "Minha Empresa" está no lugar errado** — remover dali, pois o módulo **PDV & Vendas permanece na barra lateral** (ele não sai da aplicação, só não deve ficar aninhado dentro de "Minha Empresa") | Média | ✅ Implementado (11/09) — `vendas-pdv` removido da subnav "Minha Empresa"; "Vendas & PDV" segue como rail independente. **Aguarda validação do fundador.** | — |
 | 12 | 11/09/2026 | CRM — Novo Cliente | O modal "Novo Cliente" **não persiste nada**: `handleSubmit` simula 1,2s e fecha (toast-only). O formulário escolhe tags (fixas `TAG_OPTIONS`) mas nada é gravado em `crm_leads`/`me_cliente` — que também **não têm coluna de tags**. Grave para essa feature ganhar sentido. | **Crítica** | ✅ Implementado (11/09, T2.8/T2.9, commit `3de7bfc`) — "Novo Cliente" persiste em `crm_leads` (origem manual, status novo, com tags); tags configuráveis em `/crm/configuracoes`. **Aguarda validação do fundador.** | [PRD](plans/PRD-Semana2-T2.8-ConfiguracoesTags.md) · [SPEC](specs/SPEC-Semana2-T2.8-ConfiguracoesTags.md) · [WIRE](wireframe/WIRE-Semana2-T2.8-ConfiguracoesTags.md) · [SPEC T2.9](specs/SPEC-Semana2-T2.9-ProdutosNoPedido.md) |
+| 13 | 11/09/2026 | Pedidos — Novo Pedido (com produto) | Ao adicionar pedido com produto criado, **o modal não fechou sozinho** — erro silencioso, pedido ficou gravado **sem itens** (3 de 6 vendas no banco estão sem itens). **Diagnóstico (confirmado):** `use-criar-pedido.ts` insere `me_venda` e depois `me_itens_venda` em chamada separada; **RLS está ATIVO em `me_itens_venda`** (me_itens_venda tem RLS ativa com política ALL autenticados por empresa; `me_venda` não tem RLS) → insert dos itens falha silenciosamente → hook retorna `success:false` → modal não fecha; schema OK (desconto tem DEFAULT 0, não é a causa). Correção futura: capturar/logar erro de inserção de itens + tratar erro de item sem derrubar o pedido | Alta | 📝 Anotado (11/09) — **não corrigir ainda** (pedido do fundador) | — |
+| 14 | 11/09/2026 | Pedidos — detalhe do pedido | No pedido criado com produto, **o item não aparece — só o valor**. **Diagnóstico (confirmado):** `use-pedido.ts:94` fixa `itens: []` e **nunca consulta `me_itens_venda`** — mesmo com itens gravados no banco, a tela não os exibe; incluir leitura de `me_itens_venda` no hook | Alta | ✅ Implementado (15/09, commit `de7c86b`) — `use-pedido.ts` busca `me_itens_venda` (+ `foto_url` via `me_produto`) e popula `itens` no detalhe. Validação: venda WhatsApp `0c901c4a`, "Surpresa de Uva" ×2 visível. **Aguarda validação do fundador no celular (Vercel).** | — |
 
 ---
 
@@ -33,9 +35,9 @@
 
 | Métrica | Valor |
 |---|---|
-| Total de itens | 12 |
-| Implementados | 8 |
-| Anotados (p/ correção futura) | 4 |
+| Total de itens | 14 |
+| Implementados | 9 |
+| Anotados (p/ correção futura) | 5 |
 | Validados pelo fundador | 1 (item 7 — DRE) |
 | Pendentes de validação | 5 |
 | Críticos (bloqueiam uso) | 4 (itens 3, 4, 6, 7 — aguardam reteste; item 12 resolvido) |
@@ -50,4 +52,4 @@
 
 ---
 
-*Atualizado em: 11/09/2026 — itens 1–7 implementados e deployed; DRE validado pelo fundador (item 7). Fundador validando pelo celular (Vercel): itens 8–11 anotados de uso real (11/09), aguardando decisão/correção. Item 12 (Novo Cliente / tags) resolvido pela T2.8 + T2.9 (commit `3de7bfc`, deploy Vercel success) — aguarda validação.*
+*Atualizado em: 11/09/2026 — itens 1–7 implementados e deployed; DRE validado pelo fundador (item 7). Fundador validando pelo celular (Vercel): itens 8–11 anotados de uso real (11/09), aguardando decisão/correção. Item 12 (Novo Cliente / tags) resolvido pela T2.8 + T2.9 (commit `3de7bfc`, deploy Vercel success) — aguarda validação. Itens 13–14 (Pedidos: modal não fecha + item não aparece) anotados em 11/09 com diagnóstico confirmado — **aguardando autorização do fundador para corrigir**.*

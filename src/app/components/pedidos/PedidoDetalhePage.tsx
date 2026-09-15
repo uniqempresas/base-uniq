@@ -39,6 +39,7 @@ import { useRegistrarVenda } from "../../hooks/use-registrar-venda";
 import { usePedido } from "../../hooks/use-pedido";
 import { useAtualizarStatusPedido } from "../../hooks/use-atualizar-status-pedido";
 import { useConfirmarPagamento } from "../../hooks/use-confirmar-pagamento";
+import { useAuth } from "../../contexts/AuthContext";
 
 function StatusBadge({ status, large }: { status: StatusPedido; large?: boolean }) {
   const cfg = STATUS_CONFIG[status];
@@ -89,8 +90,12 @@ export function PedidoDetalhePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { pedido: pedidoReal, loading, isFallback } = usePedido(id);
+  const { perfil, empresa } = useAuth();
   const [pedidoLocal, setPedidoLocal] = useState<Pedido | undefined>(undefined);
   const pedido = pedidoLocal || pedidoReal;
+  // Responsável e empresa reais (fallback demo = persona do mock data)
+  const nomeResponsavel = perfil?.nome_usuario || "Maria Silva";
+  const nomeEmpresa = empresa?.nome_fantasia || "Loja da Maria";
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showTrackingModal, setShowTrackingModal] = useState(false);
@@ -170,7 +175,7 @@ export function PedidoDetalhePage() {
       {
         status: newStatus,
         dataHora: new Date().toISOString(),
-        responsavel: "Maria Silva",
+        responsavel: nomeResponsavel,
         observacao: newStatus === "enviado" ? `Código de rastreio: ${trackingCode}` : undefined,
         codigoRastreio: newStatus === "enviado" ? trackingCode : undefined,
       },
@@ -204,7 +209,7 @@ export function PedidoDetalhePage() {
         {
           status: "enviado",
           dataHora: new Date().toISOString(),
-          responsavel: "Maria Silva",
+          responsavel: nomeResponsavel,
           codigoRastreio: trackingCode,
           observacao: `Código de rastreio adicionado: ${trackingCode}`,
         },
@@ -238,7 +243,7 @@ export function PedidoDetalhePage() {
         {
           status: "cancelado",
           dataHora: new Date().toISOString(),
-          responsavel: "Maria Silva",
+          responsavel: nomeResponsavel,
           observacao: cancelMotivo,
         },
       ],
@@ -251,7 +256,7 @@ export function PedidoDetalhePage() {
   const handleWhatsApp = () => {
     const phone = pedido.cliente.telefone.replace(/\D/g, "");
     const msg = encodeURIComponent(
-      `Olá ${pedido.cliente.nome.split(" ")[0]}! Aqui é a Loja da Maria. Referente ao seu pedido ${pedido.numero}, status atual: ${STATUS_CONFIG[pedido.status].label}. Qualquer dúvida, estamos aqui! 😊`
+      `Olá ${pedido.cliente.nome.split(" ")[0]}! Aqui é a ${nomeEmpresa}. Referente ao seu pedido ${pedido.numero}, status atual: ${STATUS_CONFIG[pedido.status].label}. Qualquer dúvida, estamos aqui! 😊`
     );
     window.open(`https://wa.me/55${phone}?text=${msg}`, "_blank");
   };
@@ -265,9 +270,11 @@ export function PedidoDetalhePage() {
       observacoes: `Venda contabilizada do pedido ${pedido.numero} - Cliente: ${pedido.cliente.nome}`,
       origem: pedido.canal,
       itens: pedido.itens.map((item) => ({
+        tipo: item.tipoItem ?? "produto",
+        id_referencia: item.produtoId != null ? String(item.produtoId) : "",
+        nome: item.nome,
         quantidade: item.quantidade,
-        valor_unitario: item.precoUnitario,
-        descricao: item.nome,
+        preco_unitario: item.precoUnitario,
       })),
     });
 
@@ -374,7 +381,7 @@ export function PedidoDetalhePage() {
                 setPedidoLocal({
                   ...pedido,
                   statusPagamento: "confirmado",
-                  timeline: [...pedido.timeline, { status: pedido.status, dataHora: new Date().toISOString(), responsavel: "Maria Silva", observacao: "Pagamento confirmado manualmente" }],
+                  timeline: [...pedido.timeline, { status: pedido.status, dataHora: new Date().toISOString(), responsavel: nomeResponsavel, observacao: "Pagamento confirmado manualmente" }],
                 });
                 toast.success("Pagamento confirmado!");
               };

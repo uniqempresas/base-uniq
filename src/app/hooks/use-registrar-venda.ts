@@ -2,12 +2,14 @@ import { useState, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 
+/** Item no shape canônico esperado pela RPC registrar_venda */
 export interface ItemVenda {
-  produto_id?: string;
-  servico_id?: string;
+  tipo: "produto" | "servico";
+  /** Id no banco (me_produto.id/me_servico.id) como string */
+  id_referencia: string;
+  nome: string;
   quantidade: number;
-  valor_unitario: number;
-  descricao?: string;
+  preco_unitario: number;
 }
 
 export interface RegistrarVendaParams {
