@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { X, CheckCircle2, Loader2, Barcode } from "lucide-react";
+import { X, CheckCircle2, Loader2, Barcode, Camera, Trash2, Package } from "lucide-react";
 import { PRODUTOS, CATEGORIA_COLORS, formatCurrency, calcMargem, type Produto } from "./estoqueMockData";
 import { useCriarProduto } from "../../hooks/use-criar-produto";
 import { useAtualizarProduto } from "../../hooks/use-atualizar-produto";
 import { getTagPalette, type Tag } from "../../hooks/use-tags";
+import { useAuth } from "../../contexts/AuthContext";
+import { useUploadProdutoFoto } from "../../hooks/use-upload-produto";
 
 const CATEGORIAS = [...new Set(PRODUTOS.map((p) => p.categoria))];
 
@@ -20,9 +22,11 @@ interface ProdutoFormModalProps {
 export function ProdutoFormModal({ produto, produtoBase, tags, onClose, onSuccess }: ProdutoFormModalProps) {
   const ehEdicao = Boolean(produto);
   const ehDuplicacao = Boolean(produtoBase);
+  const { empresa } = useAuth();
   const { criarProduto, loading: salvandoCriar } = useCriarProduto();
   const { atualizarProduto, loading: salvandoEditar } = useAtualizarProduto();
-  const salvando = ehEdicao ? salvandoEditar : salvandoCriar;
+  const { uploadarFoto, carregando } = useUploadProdutoFoto();
+  const salvando = ehEdicao ? (salvandoEditar || carregando) : (salvandoCriar || carregando);
 
   const [step, setStep] = useState(1);
   const [erro, setErro] = useState("");
@@ -41,9 +45,19 @@ export function ProdutoFormModal({ produto, produtoBase, tags, onClose, onSucces
       descricao: base?.descricaoCurta || "",
     };
   });
+  const [fotoArquivo, setFotoArquivo] = useState<File | null>(null);
+  const [fotoPreview, setFotoPreview] = useState<string>(
+    (produtoBase || produto)?.foto || ""
+  );
+  const [fotoRemovida, setFotoRemovida] = useState(false);
+  const [erroFoto, setErroFoto] = useState("");
   const [tagsSelecionadas, setTagsSelecionadas] = useState<string[]>(
     (produtoBase || produto)?.tags || []
   );
+
+  const base = produtoBase || produto || null;
+  const catColorsForPhoto =
+    CATEGORIA_COLORS[form.categoria] || CATEGORIA_COLORS["Outros"];
 
   const margem =
     form.precoCusto && form.precoVenda
@@ -53,6 +67,19 @@ export function ProdutoFormModal({ produto, produtoBase, tags, onClose, onSucces
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setErro("");
+
+    // Upload primeiro: produto só salva se a foto subir (regra 1 do PRD).
+    let fotoUrlFinal: string | undefined;
+    if (fotoArquivo) {
+      const res = await uploadarFoto(empresa?.id || "", fotoArquivo);
+      if (!res.success) {
+        setErro(res.error || "Erro ao enviar a foto.");
+        return;
+      }
+      fotoUrlFinal = res.url;
+    } else if (fotoRemovida) {
+      fotoUrlFinal = "";
+    }
 
     if (produto) {
       // produto.id é string no front (mock "p1"; DB number → String(db.id)) → Number() no submit
@@ -67,6 +94,7 @@ export function ProdutoFormModal({ produto, produtoBase, tags, onClose, onSucces
         codigoBarras: form.codigoBarras || undefined,
         descricao: form.descricao || undefined,
         tags: tagsSelecionadas,
+        fotoUrl: fotoUrlFinal,
       });
 
       if (resultado.success) {
@@ -87,6 +115,8 @@ export function ProdutoFormModal({ produto, produtoBase, tags, onClose, onSucces
       codigoBarras: form.codigoBarras || undefined,
       descricao: form.descricao || undefined,
       tags: tagsSelecionadas,
+      // No duplicar, herda a URL da foto original; no criar sem foto, undefined → hook grava null.
+      fotoUrl: fotoUrlFinal !== undefined ? fotoUrlFinal : base?.foto,
     });
 
     if (resultado.success) {
@@ -151,6 +181,85 @@ export function ProdutoFormModal({ produto, produtoBase, tags, onClose, onSucces
         <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-5 space-y-4">
           {step === 1 && (
             <>
+              {/* Foto do produto */}
+              <div>
+                <p className="block text-[#1f2937] text-xs mb-1.5" style={{ fontWeight: 500 }}>
+                  Foto do produto
+                </p>
+                <div className="flex items-center gap-4">
+                  <div
+                    className="w-24 h-24 rounded-2xl overflow-hidden flex items-center justify-center shrink-0"
+                    style={{ background: catColorsForPhoto.bg }}
+                  >
+                    {fotoPreview ? (
+                      <img
+                        src={fotoPreview}
+                        alt="Prévia do produto"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Package size={40} style={{ color: catColorsForPhoto.text, opacity: 0.4 }} />
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex gap-2">
+                      <label
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs cursor-pointer transition-colors"
+                        style={{ background: "#efefef", color: "#1f2937", fontWeight: 600 }}
+                      >
+                        <Camera size={13} />
+                        Enviar foto
+                        <input
+                          type="file"
+                          accept="image/*"
+                          aria-label="Enviar foto do produto"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = "";
+                            if (!file) return;
+                            if (!file.type.startsWith("image/")) {
+                              setErroFoto("Envie uma imagem (JPG, PNG ou WebP).");
+                              return;
+                            }
+                            if (file.size > 5 * 1024 * 1024) {
+                              setErroFoto("Imagem muito grande. Envie uma foto de até 5 MB.");
+                              return;
+                            }
+                            setFotoArquivo(file);
+                            setFotoPreview(URL.createObjectURL(file));
+                            setFotoRemovida(false);
+                            setErroFoto("");
+                          }}
+                        />
+                      </label>
+                      {(fotoPreview || base?.foto) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFotoArquivo(null);
+                            setFotoPreview("");
+                            setFotoRemovida(Boolean(base));
+                            setErroFoto("");
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs border border-[#efefef] text-red-500 hover:bg-red-50 transition-colors"
+                          style={{ fontWeight: 500 }}
+                        >
+                          <Trash2 size={13} />
+                          Remover
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[#627271] text-[11px]">JPG, PNG ou WebP · máx 5 MB</p>
+                  </div>
+                </div>
+                {erroFoto && (
+                  <p className="mt-1.5 text-xs text-red-600" style={{ fontWeight: 500 }}>
+                    {erroFoto}
+                  </p>
+                )}
+              </div>
+
               <div>
                 <label className="block text-[#1f2937] text-xs mb-1.5" style={{ fontWeight: 500 }}>
                   Nome do produto *

@@ -107,6 +107,7 @@ export const PRODUTOS: Produto[] = [
     ultimaMovimentacao: "Hoje, 10:30",
     totalVendido: 234,
     tags: ["Cliente Fiel", "Prospect"],
+    foto: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=800",
   },
   {
     id: "p2",
@@ -136,6 +137,7 @@ export const PRODUTOS: Produto[] = [
     dataCadastro: "03/02/2024",
     ultimaMovimentacao: "Ontem, 15:20",
     totalVendido: 89,
+    foto: "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=800",
   },
   {
     id: "p3",
@@ -158,6 +160,7 @@ export const PRODUTOS: Produto[] = [
     dataCadastro: "20/11/2023",
     ultimaMovimentacao: "Há 3 dias",
     totalVendido: 156,
+    foto: "https://images.unsplash.com/photo-1551024506-0bccd828d307?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=800",
   },
   {
     id: "p4",

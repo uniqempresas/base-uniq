@@ -73,7 +73,9 @@ function MargemChip({ pct }: { pct: number }) {
 /* ─────────── Product Grid Card ─────────── */
 function ProdutoGridCard({ produto, onClick, onDelete, onEdit }: { produto: Produto; onClick: () => void; onDelete: () => void; onEdit: () => void }) {
   const [hovered, setHovered] = useState(false);
+  const [imgFalhou, setImgFalhou] = useState(false);
   const catColors = CATEGORIA_COLORS[produto.categoria] || CATEGORIA_COLORS["Outros"];
+  const temFoto = Boolean(produto.foto) && !imgFalhou;
   const margem = calcMargem(produto.precoCusto, produto.precoVenda);
   const statusColor =
     produto.estoqueStatus === "zerado" ? "#EF4444" : produto.estoqueStatus === "baixo" ? "#F59E0B" : "#1f2937";
@@ -93,8 +95,20 @@ function ProdutoGridCard({ produto, onClick, onDelete, onEdit }: { produto: Prod
         className="h-24 sm:h-36 rounded-t-2xl flex items-center justify-center relative overflow-hidden"
         style={{ background: catColors.bg }}
       >
-        <Package size={28} className="sm:hidden" style={{ color: catColors.text, opacity: 0.3 }} />
-        <Package size={48} className="hidden sm:block" style={{ color: catColors.text, opacity: 0.3 }} />
+        {temFoto ? (
+          <img
+            src={produto.foto}
+            alt={produto.nome}
+            className="absolute inset-0 w-full h-full object-cover"
+            onError={() => setImgFalhou(true)}
+            loading="lazy"
+          />
+        ) : (
+          <>
+            <Package size={28} className="sm:hidden" style={{ color: catColors.text, opacity: 0.3 }} />
+            <Package size={48} className="hidden sm:block" style={{ color: catColors.text, opacity: 0.3 }} />
+          </>
+        )}
 
         {/* Badges top — encostados ao topo no mobile, como antes no sm+ */}
         <div className="absolute top-2 left-2 sm:top-2.5 sm:left-2.5 flex flex-col gap-1">

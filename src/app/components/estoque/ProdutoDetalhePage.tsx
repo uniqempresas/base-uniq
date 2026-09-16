@@ -386,9 +386,18 @@ export function ProdutoDetalhePage() {
           </button>
 
           <div className="flex flex-col sm:flex-row gap-5">
-            {/* Product icon */}
-            <div className="w-20 h-20 rounded-2xl flex items-center justify-center shrink-0 shadow-lg" style={{ background: catColors.bg }}>
-              <Package size={36} style={{ color: catColors.text }} />
+            {/* Product icon / foto */}
+            <div className="w-20 h-20 rounded-2xl overflow-hidden flex items-center justify-center shrink-0 shadow-lg" style={{ background: catColors.bg }}>
+              {produto.foto ? (
+                <img
+                  src={produto.foto}
+                  alt={produto.nome}
+                  className="w-full h-full object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
+              ) : (
+                <Package size={36} style={{ color: catColors.text }} />
+              )}
             </div>
 
             {/* Info */}
