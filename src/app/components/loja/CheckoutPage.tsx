@@ -6,7 +6,7 @@ import {
   ArrowLeft, ShoppingCart, Check, ChevronRight, Loader2,
   MapPin, CreditCard, Zap, Shield, Truck, Tag, X,
   AlertCircle, CheckCircle2, Package, MessageCircle,
-  Printer, Copy, Banknote, Search, Minus, Plus,
+  Printer, Copy, Banknote, Search, Minus, Plus, Trash2,
 } from "lucide-react";
 import {
   PRODUTOS_LOJA, FRETE_OPCOES, CUPONS_VALIDOS, PAGAMENTO_LOJA_CONFIG,
@@ -1086,8 +1086,9 @@ function CheckoutTenant({ slug }: { slug: string }) {
                         onClick={() => carrinho.remover(i.produtoId)}
                         className="shrink-0 text-red-400 hover:text-red-600 transition-colors"
                         aria-label={`Remover ${i.nome} da sacola`}
+                        title="Remover da sacola"
                       >
-                        <X size={14} />
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   ))}

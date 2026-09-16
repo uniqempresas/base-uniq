@@ -125,6 +125,7 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 - RPC `registrar_venda` com `p_origem='loja'` / `p_status='confirmada'` / vencimento=hoje → pedido aparece em `/vendas/pedidos` como **Recebido** (canal `loja` já existia em `CANAL_CONFIG`)
 - Confirmação com nº do pedido; "Meus pedidos" por telefone digitado (pré-preenchido do último checkout)
 - Hooks novos: `use-loja-tenant`, `use-loja-produtos`, `use-loja-produto`, `use-loja-cliente`, `use-loja-criar-pedido` (exporta `buscarProdutosCanonicos`), `use-loja-meus-pedidos`, `use-carrinho-loja` (chave `uniq_loja_carrinho_<slug>`)
+- Botão **remover item** (ícone lixeira) no resumo "SEU PEDIDO" do checkout tenant — usa `carrinho.remover(produtoId)`; último item removido → redirect para vitrine
 - Banco: produtos da Doceê ativados com `exibir_vitrine=true` (16 itens)
 - ⚠️ **Endurecimento pendente:** vitrine chama RPC com anon key (RLS desligado — pendência P5). Antes de qualquer cliente real: função `SECURITY DEFINER` com validação de tenant.
 
