@@ -1,15 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import {
   ArrowLeft, Star, Truck, Shield, RotateCcw, Share2,
   Heart, ShoppingCart, Zap, Plus, Minus, Check,
   ChevronRight, MessageCircle, Package, X, ChevronLeft,
-  Tag, AlertTriangle,
+  Tag, AlertTriangle, ImageOff, Loader2,
 } from "lucide-react";
 import {
   PRODUTOS_LOJA, formatCurrencyLoja, calcDesconto,
+  whatsappLinkLoja,
   type ItemCarrinhoLoja, type ProdutoLoja,
 } from "./lojaMockData";
+import { useCarrinhoLoja } from "../../hooks/use-carrinho-loja";
+import { useLojaTenant } from "../../hooks/use-loja-tenant";
+import { useLojaProduto } from "../../hooks/use-loja-produto";
+import { LojaNaoEncontrada } from "./LojaNaoEncontrada";
+import type { ProdutoLoja as ProdutoVitrine } from "../../types/loja";
 
 function Stars({ rating, size = 14 }: { rating: number; size?: number }) {
   return (
@@ -28,8 +34,177 @@ const AVALIACOES_MOCK = [
   { id: 3, nome: "Juliana M.", nota: 4, data: "10/03/2024", texto: "Ótimo produto, entrega rápida. Só achei a embalagem um pouco frágil, mas o produto em si é excelente." },
 ];
 
+/* ─────────── [T2] Produto do tenant (/loja/:slug/produto/:id) ─────────── */
+
+function ProdutoTenant({ slug, id }: { slug: string; id: string }) {
+  const navigate = useNavigate();
+  const { tenant, loading: loadingTenant, error: errorTenant } = useLojaTenant(slug);
+  const { produto, loading, error, refetch } = useLojaProduto(tenant?.empresaId, parseInt(id, 10));
+  const carrinho = useCarrinhoLoja(slug);
+  const [quantidade, setQuantidade] = useState(1);
+  const [adicionado, setAdicionado] = useState(false);
+
+  if (!loadingTenant && (!tenant || errorTenant)) return <LojaNaoEncontrada />;
+
+  const waLink = whatsappLinkLoja(tenant?.whatsapp);
+
+  // Produto inexistente → volta para a vitrine
+  useEffect(() => {
+    if (!loading && !produto) {
+      navigate(`/loja/${slug}`, { replace: true });
+    }
+  }, [loading, produto, slug, navigate]);
+
+  const naSacola = produto ? carrinho.itens.find(i => i.produtoId === produto.id) : null;
+  const maximo = produto ? Math.max(1, produto.estoque) : 1;
+
+  const handleAdicionar = () => {
+    if (!produto) return;
+    carrinho.adicionar(produto, quantidade);
+    setAdicionado(true);
+    setTimeout(() => navigate(`/loja/${slug}`), 600);
+  };
+
+  return (
+    <div className="min-h-screen bg-muted pb-28">
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-white border-b border-border">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
+          <button onClick={() => navigate(`/loja/${slug}`)}
+            className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center hover:bg-muted transition-colors">
+            <ArrowLeft size={16} className="text-foreground" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <p className="text-foreground text-sm truncate" style={{ fontWeight: 700 }}>
+              {tenant?.nomeFantasia || "..."}
+            </p>
+          </div>
+          <button onClick={() => navigate(`/loja/${slug}/checkout`)}
+            className="relative w-9 h-9 rounded-xl bg-muted flex items-center justify-center hover:bg-muted transition-colors">
+            <ShoppingCart size={16} className="text-foreground" />
+            {carrinho.quantidadeTotal > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[9px] flex items-center justify-center"
+                style={{ background: "#86cb92", color: "#1f2937", fontWeight: 800 }}>
+                {carrinho.quantidadeTotal}
+              </span>
+            )}
+          </button>
+        </div>
+      </header>
+
+      <div className="max-w-3xl mx-auto px-4 py-5">
+        {/* Loading skeleton */}
+        {loading && (
+          <div className="animate-pulse space-y-4">
+            <div className="aspect-square bg-muted rounded-3xl" />
+            <div className="h-7 bg-muted rounded w-2/3" />
+            <div className="h-5 bg-muted rounded w-1/3" />
+            <div className="h-24 bg-muted rounded-xl" />
+          </div>
+        )}
+
+        {/* Erro de rede */}
+        {error && !loading && (
+          <div className="mb-4 p-3 rounded-xl text-xs flex items-center gap-2"
+            style={{ background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C" }}>
+            <AlertTriangle size={14} />
+            <span className="flex-1">Não foi possível carregar o produto.</span>
+            <button onClick={refetch} className="underline" style={{ fontWeight: 700 }}>Tentar novamente</button>
+          </div>
+        )}
+
+        {produto && !loading && (
+          <>
+            {/* Foto */}
+            <div className="relative rounded-3xl overflow-hidden bg-white mb-5 aspect-square border border-border">
+              {produto.fotoUrl ? (
+                <img src={produto.fotoUrl} alt={produto.nome}
+                  className="w-full h-full object-cover" style={{ opacity: produto.esgotado ? 0.5 : 1 }} />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <ImageOff size={40} className="text-muted-foreground/40" />
+                </div>
+              )}
+              {produto.esgotado && (
+                <div className="absolute inset-0 bg-foreground/40 flex items-center justify-center">
+                  <p className="text-white bg-foreground/60 px-4 py-2 rounded-xl" style={{ fontWeight: 700 }}>Produto Esgotado</p>
+                </div>
+              )}
+            </div>
+
+            {/* Info */}
+            <h1 className="text-foreground mb-2" style={{ fontWeight: 800, fontSize: "1.35rem", lineHeight: 1.25 }}>
+              {produto.nome}
+            </h1>
+            <p className="text-foreground mb-5" style={{ fontWeight: 800, fontSize: "1.1rem", color: produto.esgotado ? "#627271" : "#1f2937" }}>
+              {formatCurrencyLoja(produto.preco)} <span className="text-muted-foreground text-xs" style={{ fontWeight: 500 }}>/ unidade</span>
+            </p>
+
+            {produto.descricao && (
+              <div className="mb-6">
+                <div className="h-px bg-border mb-4" />
+                <p className="text-foreground text-sm leading-relaxed whitespace-pre-line">{produto.descricao}</p>
+              </div>
+            )}
+
+            {produto.estoque > 0 && produto.estoque < 10 && !produto.esgotado && (
+              <p className="text-amber-600 text-xs mb-3" style={{ fontWeight: 600 }}>
+                ⚠️ Apenas {produto.estoque} em estoque!
+              </p>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* CTA fixo inferior */}
+      {produto && !loading && (
+        <div className="fixed bottom-0 inset-x-0 z-40 p-3 bg-white/95 backdrop-blur border-t border-border">
+          <div className="max-w-3xl mx-auto flex items-center gap-4">
+            {!produto.esgotado && (
+              <div className="flex items-center gap-2 shrink-0">
+                <button onClick={() => setQuantidade(q => Math.max(1, q - 1))}
+                  className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center hover:bg-muted transition-colors">
+                  <Minus size={14} className="text-foreground" />
+                </button>
+                <span className="w-8 text-center text-foreground text-sm" style={{ fontWeight: 700 }}>{quantidade}</span>
+                <button onClick={() => setQuantidade(q => Math.min(maximo, q + 1))}
+                  className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center hover:bg-muted transition-colors">
+                  <Plus size={14} className="text-foreground" />
+                </button>
+              </div>
+            )}
+            <button
+              onClick={handleAdicionar}
+              disabled={produto.esgotado}
+              className="flex-1 py-3.5 rounded-2xl text-white flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+              style={{ background: produto.esgotado ? "#9CA3AF" : adicionado ? "#4ade80" : "#1f2937", fontWeight: 700, fontSize: "0.95rem" }}
+            >
+              {produto.esgotado ? (
+                <>Indisponível</>
+              ) : adicionado ? (
+                <><Check size={18} /> Adicionado!</>
+              ) : naSacola ? (
+                <>Ja tem {naSacola.quantidade} na sacola</>
+              ) : (
+                <><ShoppingCart size={18} /> Adicionar à sacola · {formatCurrencyLoja(produto.preco * quantidade)}</>
+              )}
+            </button>
+            <a href={waLink} target="_blank" rel="noreferrer"
+              className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
+              style={{ background: "#25D366" }}>
+              <MessageCircle size={18} className="text-white" />
+            </a>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ProdutoLojaPage() {
-  const { id } = useParams();
+  const { slug, id } = useParams();
+  if (slug && id) return <ProdutoTenant slug={slug} id={id} />;
+
   const navigate = useNavigate();
   const produto = PRODUTOS_LOJA.find(p => p.id === id) || PRODUTOS_LOJA[0];
   const desconto = calcDesconto(produto.preco, produto.precoAntigo);

@@ -105,10 +105,16 @@ export const router = createBrowserRouter([
     ],
   },
   // Loja Virtual - public routes (no AppLayout)
+  // ⚠️ Rotas estáticas ANTES das dinâmicas (/loja/:slug) — senão "checkout" vira slug
   { path: "/loja", Component: LojaPage },
   { path: "/loja/produto/:id", Component: ProdutoLojaPage },
   { path: "/loja/checkout", Component: CheckoutPage },
   { path: "/loja/pedidos", Component: MeusPedidosPage },
+  // Loja Virtual multi-tenant (SPEC §3)
+  { path: "/loja/:slug", Component: LojaPage },
+  { path: "/loja/:slug/produto/:id", Component: ProdutoLojaPage },
+  { path: "/loja/:slug/checkout", Component: CheckoutPage },
+  { path: "/loja/:slug/pedidos", Component: MeusPedidosPage },
   // Catálogo público (no AppLayout)
   { path: "/catalogo", Component: CatalogoPage },
   // App routes - pathless layout

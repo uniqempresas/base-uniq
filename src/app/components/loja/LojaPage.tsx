@@ -1,14 +1,21 @@
 import { useState, useRef } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import {
   Search, ShoppingCart, Star, Filter, X, ChevronDown,
   Heart, Share2, Truck, Tag, Zap, SlidersHorizontal,
-  ArrowUpDown, ChevronRight, Package, MessageCircle,
+  ArrowUpDown, ChevronRight, Package, MessageCircle, ImageOff,
+  AlertTriangle,
 } from "lucide-react";
 import {
   PRODUTOS_LOJA, CATEGORIAS_LOJA, formatCurrencyLoja, calcDesconto,
+  whatsappLinkLoja,
   type ItemCarrinhoLoja, type ProdutoLoja,
 } from "./lojaMockData";
+import { useCarrinhoLoja } from "../../hooks/use-carrinho-loja";
+import { useLojaTenant } from "../../hooks/use-loja-tenant";
+import { useLojaProdutos } from "../../hooks/use-loja-produtos";
+import { LojaNaoEncontrada } from "./LojaNaoEncontrada";
+import type { ProdutoLoja as ProdutoVitrine } from "../../types/loja";
 
 /* ─── Estrelas ─── */
 function Stars({ rating, small }: { rating: number; small?: boolean }) {
@@ -200,8 +207,213 @@ function CartDrawer({ itens, onClose, onCheckout, onUpdateQty, onRemove }: {
   );
 }
 
+/* ─────────── [T1] Vitrine do tenant (/loja/:slug) ─────────── */
+
+function VitrineCardTenant({ produto, slug, naSacola, estoqueMax, onAdd }: {
+  produto: ProdutoVitrine; slug: string; naSacola: boolean; estoqueMax: boolean; onAdd: () => void;
+}) {
+  const navigate = useNavigate();
+
+  return (
+    <div className="bg-white rounded-2xl overflow-hidden border border-border flex flex-col transition-shadow hover:shadow-md"
+      style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
+      {/* Foto + badge */}
+      <button onClick={() => navigate(`/loja/${slug}/produto/${produto.id}`)} className="block relative aspect-square bg-muted w-full">
+        {produto.fotoUrl ? (
+          <img src={produto.fotoUrl} alt={produto.nome}
+            className="w-full h-full object-cover" style={{ opacity: produto.esgotado ? 0.5 : 1 }} />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <ImageOff size={26} className="text-muted-foreground/50" />
+          </div>
+        )}
+        {produto.esgotado && (
+          <span className="absolute top-2 left-2 px-2 py-0.5 rounded-lg bg-foreground text-white text-[10px]"
+            style={{ fontWeight: 700 }}>
+            Esgotado
+          </span>
+        )}
+      </button>
+
+      {/* Info */}
+      <div className="p-3 flex flex-col flex-1 text-left">
+        <p className="text-foreground text-sm leading-tight mb-1 line-clamp-2" style={{ fontWeight: 600 }}>
+          {produto.nome}
+        </p>
+        <p className="text-foreground text-base mb-3" style={{ fontWeight: 800, color: produto.esgotado ? "#627271" : "#1f2937" }}>
+          {formatCurrencyLoja(produto.preco)}
+        </p>
+        <button
+          onClick={onAdd}
+          disabled={produto.esgotado || estoqueMax}
+          className="mt-auto w-full py-2.5 rounded-xl text-xs font-bold transition-all active:scale-[0.97]"
+          style={{
+            background: estoqueMax ? "#efefef" : "#86cb92",
+            color: estoqueMax ? "#627271" : "#1f2937",
+          }}
+        >
+          {produto.esgotado ? "Indisponível" : estoqueMax ? "✓ No Carrinho" : "Adicionar"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function LojaVitrineTenant({ slug }: { slug: string }) {
+  const navigate = useNavigate();
+  const { tenant, loading: loadingTenant, error: errorTenant } = useLojaTenant(slug);
+  const { produtos, loading, error, isFallback, refetch } = useLojaProdutos(tenant?.empresaId);
+  const carrinho = useCarrinhoLoja(slug);
+  const [busca, setBusca] = useState("");
+
+  // Tenant encerrado: erro real (sem fallback mock)
+  if (!loadingTenant && (!tenant || errorTenant)) return <LojaNaoEncontrada />;
+
+  const waLink = whatsappLinkLoja(tenant?.whatsapp);
+  const visiveis = produtos.filter(p => !busca || p.nome.toLowerCase().includes(busca.toLowerCase()));
+
+  return (
+    <div className="min-h-screen bg-muted pb-24">
+      {/* ── Header tenant ── */}
+      <header className="bg-white border-b border-border">
+        <div className="max-w-3xl mx-auto px-4 pt-5 pb-4 flex items-center gap-3">
+          {tenant?.logoUrl ? (
+            <img src={tenant.logoUrl} alt={tenant.nomeFantasia}
+              className="w-11 h-11 rounded-2xl object-cover border border-border bg-muted" />
+          ) : (
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ background: "#86cb92" }}>
+              <span className="text-sm" style={{ fontWeight: 900, color: "#1f2937" }}>
+                {(tenant?.nomeFantasia || "L").charAt(0).toUpperCase()}
+              </span>
+            </div>
+          )}
+          <div className="min-w-0">
+            <h1 className="text-foreground text-lg leading-tight truncate" style={{ fontWeight: 800 }}>
+              {tenant?.nomeFantasia || "..."}
+            </h1>
+            <p className="text-muted-foreground text-xs">Peça online · Entrega combinada pelo WhatsApp</p>
+          </div>
+        </div>
+
+        {/* Busca */}
+        <div className="max-w-3xl mx-auto px-4 pb-4">
+          <div className="relative">
+            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input value={busca} onChange={e => setBusca(e.target.value)}
+              placeholder="Buscar no cardápio..."
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border text-foreground text-sm outline-none focus:border-primary bg-muted" />
+            {busca && (
+              <button onClick={() => setBusca("")} className="absolute right-3 top-1/2 -translate-y-1/2">
+                <X size={14} className="text-muted-foreground" />
+              </button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-3xl mx-auto px-4 py-5">
+        {/* Aviso de catálogo demo (fallback) */}
+        {isFallback && (
+          <div className="mb-4 p-3 rounded-xl text-xs flex items-center gap-2"
+            style={{ background: "#FFFBEB", border: "1px solid #FDE68A", color: "#92400E" }}>
+            <AlertTriangle size={14} />
+            Exibindo catálogo de demonstração.
+          </div>
+        )}
+
+        {/* Erro de rede: retry */}
+        {error && (
+          <div className="mb-4 p-3 rounded-xl text-xs flex items-center gap-2"
+            style={{ background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C" }}>
+            <AlertTriangle size={14} />
+            <span className="flex-1">Não foi possível carregar o catálogo.</span>
+            <button onClick={refetch} className="underline" style={{ fontWeight: 700 }}>Tentar novamente</button>
+          </div>
+        )}
+
+        {/* Loading skeleton */}
+        {loading && (
+          <div className="grid grid-cols-2 gap-3">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="bg-white rounded-2xl overflow-hidden border border-border animate-pulse">
+                <div className="aspect-square bg-muted" />
+                <div className="p-3 space-y-2">
+                  <div className="h-3 bg-muted rounded w-3/4" />
+                  <div className="h-5 bg-muted rounded w-1/3" />
+                  <div className="h-8 bg-muted rounded-xl" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Empty */}
+        {!loading && visiveis.length === 0 && (
+          <div className="bg-white rounded-2xl border border-border p-10 text-center">
+            <Package size={40} className="text-muted mx-auto mb-3" />
+            <p className="text-foreground mb-1" style={{ fontWeight: 600 }}>
+              {busca ? "Nenhum produto encontrado" : "Nenhum produto disponível no momento"}
+            </p>
+            <p className="text-muted-foreground text-sm mb-5">
+              {busca ? "Tente outro termo" : "Faça seu pedido pelo WhatsApp"}
+            </p>
+            {!busca && (
+              <a href={waLink} target="_blank" rel="noreferrer"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm"
+                style={{ background: "#25D366", color: "white", fontWeight: 600 }}>
+                <MessageCircle size={15} />Falar no WhatsApp
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* Grid */}
+        {!loading && visiveis.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {visiveis.map(p => (
+              <VitrineCardTenant
+                key={p.id} produto={p} slug={slug}
+                naSacola={carrinho.temItem(p.id)}
+                estoqueMax={carrinho.itens.find(i => i.produtoId === p.id)?.quantidade === p.estoque}
+                onAdd={() => carrinho.adicionar(p)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Barra fixa do sacola ── */}
+      {carrinho.quantidadeTotal > 0 && (
+        <div className="fixed bottom-0 inset-x-0 z-40 p-3" style={{ background: "linear-gradient(transparent, rgba(243,244,246,0.9) 40%)" }}>
+          <div className="max-w-3xl mx-auto">
+            <button
+              onClick={() => navigate(`/loja/${slug}/checkout`)}
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-white border border-border shadow-lg"
+              style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.12)" }}
+            >
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "#86cb92" }}>
+                <ShoppingCart size={18} style={{ color: "#1f2937" }} />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-foreground text-sm" style={{ fontWeight: 700 }}>
+                  {carrinho.quantidadeTotal} {carrinho.quantidadeTotal === 1 ? "item" : "itens"}
+                </p>
+                <p className="text-foreground text-xs">{formatCurrencyLoja(carrinho.totalSnapshot)}</p>
+              </div>
+              <span className="text-foreground text-sm" style={{ fontWeight: 800 }}>Ver sacola</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── Main Page ─── */
 export function LojaPage() {
+  const { slug } = useParams();
+  if (slug) return <LojaVitrineTenant slug={slug} />;
+
   const navigate = useNavigate();
   const [carrinho, setCarrinho] = useState<ItemCarrinhoLoja[]>([]);
   const [showCart, setShowCart] = useState(false);

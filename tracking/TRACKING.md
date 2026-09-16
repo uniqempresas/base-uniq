@@ -107,6 +107,29 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 
 ---
 
+### 🟢 MÓDULO LOJA VIRTUAL INTEGRADA (15/09/2026)
+
+**WHY:** a vitrine pública da Doceê vende por um 3º canal (além de balcão e WhatsApp) com os pedidos caindo na Base UNIQ no mesmo fluxo de status que a esposa já opera.
+
+**Status:** ✅ CONCLUÍDO — pipeline SDD completo (PRD/SPEC/WIRE) + implementação + build OK.
+
+**Documentos:**
+- PRD: `tracking/plans/PRD-LojaVirtual-DoceE.md` (decisões D1–D4: slug multi-tenant · endereço preferido/editável com ViaCEP · "Esgotado" na vitrine · sem login — identificação só por telefone)
+- SPEC: `tracking/specs/SPEC-LojaVirtual-DoceE.md`
+- WIRE: `tracking/wireframe/WIRE-LojaVirtual-DoceE.md`
+
+**Implementação:**
+- Rotas públicas multi-tenant: `/loja/:slug`, `/loja/:slug/produto/:id`, `/loja/:slug/checkout`, `/loja/:slug/pedidos` (demo `/loja` intacto; estáticas antes das dinâmicas)
+- Vitrine lê `me_produto` (`exibir_vitrine=true`, ativo, por `empresa_id`) com fallback mock; badge **Esgotado** quando `estoque_atual <= 0`
+- Checkout **anti-fraude**: re-resolve id/preço/estoque no banco antes da RPC (preço do navegador nunca é gravado; estoque insuficiente → modal por item, RPC não chamada); cliente find-or-create por telefone normalizado (DDI 55) em `me_cliente` (`origem='loja'`, endereço nos campos novos); ViaCEP pré-preenche endereço (backlog B5 viabilizado); consentimento LGPD obrigatório; pagamento Pix/Dinheiro registrado (sem gateway)
+- RPC `registrar_venda` com `p_origem='loja'` / `p_status='confirmada'` / vencimento=hoje → pedido aparece em `/vendas/pedidos` como **Recebido** (canal `loja` já existia em `CANAL_CONFIG`)
+- Confirmação com nº do pedido; "Meus pedidos" por telefone digitado (pré-preenchido do último checkout)
+- Hooks novos: `use-loja-tenant`, `use-loja-produtos`, `use-loja-produto`, `use-loja-cliente`, `use-loja-criar-pedido` (exporta `buscarProdutosCanonicos`), `use-loja-meus-pedidos`, `use-carrinho-loja` (chave `uniq_loja_carrinho_<slug>`)
+- Banco: produtos da Doceê ativados com `exibir_vitrine=true` (16 itens)
+- ⚠️ **Endurecimento pendente:** vitrine chama RPC com anon key (RLS desligado — pendência P5). Antes de qualquer cliente real: função `SECURITY DEFINER` com validação de tenant.
+
+---
+
 ### 🔵 SEMANA 1 — Fio de Prumo
 
 **WHY:** provar que a arquitetura conecta. Uma mensagem real atravessando o sistema. Não é construir tudo — é validar a fundação.

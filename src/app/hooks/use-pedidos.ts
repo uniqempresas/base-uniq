@@ -26,7 +26,7 @@ interface DBCliente {
   documento: string | null;
 }
 
-function mapStatusVenda(status: string): StatusPedido {
+export function mapStatusVenda(status: string): StatusPedido {
   const map: Record<string, StatusPedido> = {
     pendente: "aguardando",
     confirmada: "recebido",

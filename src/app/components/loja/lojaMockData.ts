@@ -8,6 +8,9 @@ export type PedidoStatus =
 
 export type PagamentoTipoLoja = "pix" | "credito" | "debito" | "boleto";
 
+/** Catálogo mock adaptado para a vitrine multi-tenant (ids numéricos 1..n) — fallback mock-first */
+import type { ProdutoLoja as ProdutoLojaVitrineType } from "../../types/loja";
+
 export interface ProdutoLoja {
   id: string;
   nome: string;
@@ -378,3 +381,52 @@ export const CUPONS_VALIDOS: Record<string, { desconto: number; tipo: "fixo" | "
   "BEMVINDO": { desconto: 20, tipo: "fixo" },
   "FRETE0": { desconto: 0, tipo: "fixo" },
 };
+
+/* ─── Loja Virtual multi-tenant (SPEC-LojaVirtual-DoceE) ─── */
+
+/** Mock do catálogo adaptado ao type da vitrine real (id numérico = índice + 1) */
+export const PRODUTOS_LOJA_VITRINE: ProdutoLojaVitrineType[] = PRODUTOS_LOJA.map((p, i) => ({
+  id: i + 1,
+  nome: p.nome,
+  preco: p.preco,
+  fotoUrl: p.imagem,
+  descricao: p.descricaoLonga,
+  estoque: p.estoque,
+  esgotado: p.estoque <= 0,
+}));
+
+/** Telefone normalizado: somente dígitos, com DDI 55 (mesmo padrão dos hooks do CRM) */
+export function normalizarTelefoneLoja(telefone: string): string {
+  const digitos = telefone.replace(/\D/g, "");
+  if (!digitos) return "";
+  const semZeroInicial = digitos.startsWith("0") ? digitos.slice(1) : digitos;
+  if (semZeroInicial.startsWith("55") && (semZeroInicial.length === 12 || semZeroInicial.length === 13)) {
+    return semZeroInicial;
+  }
+  if (semZeroInicial.length === 10 || semZeroInicial.length === 11) {
+    return `55${semZeroInicial}`;
+  }
+  return semZeroInicial;
+}
+
+/** Formata dígitos como (11) 99999-9999 / (11) 9999-9999 */
+export function formatTelefoneLoja(telefone: string): string {
+  const nums = telefone.replace(/\D/g, "").slice(-11);
+  if (nums.length <= 2) return nums;
+  if (nums.length <= 7) return `(${nums.slice(0, 2)}) ${nums.slice(2)}`;
+  return `(${nums.slice(0, 2)}) ${nums.slice(2, 7)}-${nums.slice(7)}`;
+}
+
+/** Nº curto e amigável do pedido a partir do id_venda (uuid) */
+export function formatNumeroPedidoLoja(idVenda: string): string {
+  const curto = idVenda.replace(/-/g, "").slice(-6).toUpperCase();
+  return curto.padStart(6, "0");
+}
+
+/** Link wa.me a partir do telefone da empresa */
+export function whatsappLinkLoja(whatsapp?: string | null): string {
+  const digitos = (whatsapp || "").replace(/\D/g, "");
+  if (!digitos) return "https://wa.me/55";
+  const numero = digitos.startsWith("55") && digitos.length >= 12 ? digitos : `55${digitos}`;
+  return `https://wa.me/${numero}`;
+}

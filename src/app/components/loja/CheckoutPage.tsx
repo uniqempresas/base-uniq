@@ -1,15 +1,27 @@
-import { useState, useRef } from "react";
-import { useNavigate, useLocation } from "react-router";
+import { useState, useRef, useEffect } from "react";
+import { useNavigate, useLocation, useParams } from "react-router";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ArrowLeft, ShoppingCart, Check, ChevronRight, Loader2,
   MapPin, CreditCard, Zap, Shield, Truck, Tag, X,
   AlertCircle, CheckCircle2, Package, MessageCircle,
-  Printer, Copy, Banknote,
+  Printer, Copy, Banknote, Search, Minus, Plus,
 } from "lucide-react";
 import {
   PRODUTOS_LOJA, FRETE_OPCOES, CUPONS_VALIDOS, PAGAMENTO_LOJA_CONFIG,
-  formatCurrencyLoja, type ItemCarrinhoLoja, type PagamentoTipoLoja,
+  formatCurrencyLoja, formatNumeroPedidoLoja, whatsappLinkLoja,
+  type ItemCarrinhoLoja, type PagamentoTipoLoja,
 } from "./lojaMockData";
+import { maskCEP, maskPhone } from "../../lib/document-mask";
+import { checkoutLojaSchema, type CheckoutLojaData } from "../../lib/validators";
+import { z } from "zod";
+import { useCarrinhoLoja } from "../../hooks/use-carrinho-loja";
+import { useLojaTenant } from "../../hooks/use-loja-tenant";
+import { useLojaClientePorTelefone } from "../../hooks/use-loja-cliente";
+import { buscarProdutosCanonicos, useLojaCriarPedido, type ItemErroEstoque, type ProdutoCanonico } from "../../hooks/use-loja-criar-pedido";
+import { LojaNaoEncontrada } from "./LojaNaoEncontrada";
+import type { ResumoPedidoLoja } from "../../types/loja";
 
 /* ─── Default cart if no state ─── */
 const DEFAULT_CART: ItemCarrinhoLoja[] = [
@@ -36,6 +48,9 @@ function InputField({ label, value, onChange, placeholder, type = "text", error,
 }
 
 export function CheckoutPage() {
+  const { slug } = useParams();
+  if (slug) return <CheckoutTenant slug={slug} />;
+
   const navigate = useNavigate();
   const location = useLocation();
   const carrinho: ItemCarrinhoLoja[] = (location.state as any)?.carrinho || DEFAULT_CART;
@@ -658,5 +673,568 @@ function RotateCcw({ size, className }: { size: number; className?: string }) {
       <polyline points="1 4 1 10 7 10"></polyline>
       <path d="M3.51 15a9 9 0 1 0 .49-4.95"></path>
     </svg>
+  );
+}
+
+/* ═══════════════ [T3] Checkout do tenant + [T4] Confirmação ═══════════════ */
+
+function Campo({ label, error, children, obrigatorio }: {
+  label: string; error?: string; children: React.ReactNode; obrigatorio?: boolean;
+}) {
+  return (
+    <div>
+      <label className="block text-foreground text-xs mb-1.5" style={{ fontWeight: 600 }}>
+        {label} {obrigatorio && <span className="text-red-500">*</span>}
+      </label>
+      {children}
+      {error && <p className="text-red-500 text-[11px] mt-1">{error}</p>}
+    </div>
+  );
+}
+
+/** Busca CEP no ViaCEP — sucesso pré-preenche rua/bairro/cidade/UF (editável); falha de rede segue manual */
+async function buscarViaCep(cep: string): Promise<{
+  endereco?: string; bairro?: string; cidade?: string; estado?: string; naoEncontrado?: boolean;
+}> {
+  try {
+    const resp = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    const dados = (await resp.json()) as { erro?: boolean; logradouro?: string; bairro?: string; localidade?: string; uf?: string };
+    if (dados.erro) return { naoEncontrado: true };
+    return {
+      endereco: dados.logradouro || "",
+      bairro: dados.bairro || "",
+      cidade: dados.localidade || "",
+      estado: dados.uf || "",
+    };
+  } catch (e) {
+    console.error("[CheckoutTenant] Falha no ViaCEP:", e);
+    return {}; // campos seguem preenchíveis manualmente
+  }
+}
+
+function ConfirmationTenant({ slug, resumo, telefone }: { slug: string; resumo: ResumoPedidoLoja; telefone: string }) {
+  const navigate = useNavigate();
+  return (
+    <div className="min-h-screen bg-muted flex flex-col items-center justify-center px-6 text-center">
+      <div className="w-20 h-20 rounded-full flex items-center justify-center mb-5" style={{ background: "#D1FAE5" }}>
+        <CheckCircle2 size={38} style={{ color: "#059669" }} />
+      </div>
+      <h1 className="text-foreground text-2xl mb-1" style={{ fontWeight: 800 }}>
+        Pedido recebido!
+      </h1>
+      <p className="text-muted-foreground text-sm mb-6">A loja confirma pelo WhatsApp e combina a entrega</p>
+
+      <div className="bg-white rounded-2xl border border-border p-5 w-full max-w-sm mb-6 space-y-2 text-left">
+        <div className="flex justify-between">
+          <span className="text-muted-foreground text-sm">Pedido</span>
+          <span className="text-foreground text-sm" style={{ fontWeight: 700 }}>
+            nº {resumo.idVenda ? formatNumeroPedidoLoja(resumo.idVenda) : "—"}
+          </span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground text-sm">Total</span>
+          <span className="text-foreground text-sm" style={{ fontWeight: 700 }}>{formatCurrencyLoja(resumo.valorTotal)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground text-sm">Pagamento</span>
+          <span className="text-foreground text-sm" style={{ fontWeight: 700 }}>
+            {resumo.formaPagamento === "Dinheiro" ? "Na entrega (dinheiro)" : "Pix"}
+          </span>
+        </div>
+      </div>
+
+      <p className="text-muted-foreground text-xs max-w-xs mb-8 leading-relaxed">
+        Acompanhe pelo telefone <strong className="text-foreground">{telefone}</strong> em "Meus pedidos".
+      </p>
+
+      <div className="w-full max-w-sm space-y-3">
+        <button onClick={() => navigate(`/loja/${slug}/pedidos`)}
+          className="w-full py-3.5 rounded-2xl" style={{ background: "#1f2937", color: "white", fontWeight: 700 }}>
+          Ver meus pedidos
+        </button>
+        <button onClick={() => navigate(`/loja/${slug}`)}
+          className="w-full py-3.5 rounded-2xl border border-border bg-white text-foreground" style={{ fontWeight: 600 }}>
+          Voltar para a loja
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CheckoutTenant({ slug }: { slug: string }) {
+  const navigate = useNavigate();
+  const { tenant, loading: loadingTenant, error: errorTenant } = useLojaTenant(slug);
+  const carrinho = useCarrinhoLoja(slug);
+  const { criarPedido, loading: enviando, error: erroPedido } = useLojaCriarPedido();
+
+  const [etapa, setEtapa] = useState<"form" | "confirmacao">("form");
+  const [resumo, setResumo] = useState<ResumoPedidoLoja | null>(null);
+  const [precosCanonicos, setPrecosCanonicos] = useState<ProdutoCanonico[] | null>(null);
+  const [carregandoCanonicos, setCarregandoCanonicos] = useState(true);
+  const [precoAtualizado, setPrecoAtualizado] = useState(false);
+  const [errosEstoqueModal, setErrosEstoqueModal] = useState<ItemErroEstoque[] | null>(null);
+  const [bannerIndisponivel, setBannerIndisponivel] = useState(false);
+  const [carregandoCep, setCarregandoCep] = useState(false);
+  const [cepErro, setCepErro] = useState("");
+
+  // Schema zod com optional().default() gera Input ≠ Output; usamos os dois tipos do RHF
+  type CheckoutLojaEntrada = z.input<typeof checkoutLojaSchema>;
+  const form = useForm<CheckoutLojaEntrada, any, CheckoutLojaData>({
+    resolver: zodResolver(checkoutLojaSchema),
+    defaultValues: {
+      nome: "",
+      telefone: "",
+      cep: "",
+      endereco: "",
+      numero: "",
+      bairro: "",
+      cidade: "",
+      estado: "",
+      formaPagamento: "Pix",
+      consentimentoLgpd: false as unknown as true, // validação zod exige literal true
+    },
+  });
+
+  const telefoneDigitado = form.watch("telefone") || "";
+  const { cliente, loading: carregandoCliente } = useLojaClientePorTelefone(tenant?.empresaId, telefoneDigitado);
+
+  // Tenant não encontrado
+  if (!loadingTenant && (!tenant || errorTenant)) return <LojaNaoEncontrada />;
+
+  // Carrinho vazio (após carregar) → volta para a vitrine
+  useEffect(() => {
+    if (carrinho.carregado && carrinho.itens.length === 0 && etapa === "form") {
+      navigate(`/loja/${slug}`, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carrinho.carregado, carrinho.itens.length, slug, etapa]);
+
+  // Pré-fill de cliente existente (decisão D2 — preferir existente, editável)
+  useEffect(() => {
+    if (!cliente) return;
+    const preencher = (campo: "nome" | "cep" | "endereco" | "numero" | "complemento" | "bairro" | "cidade" | "estado", valor: string | null) => {
+      if (!valor) return;
+      if (form.getValues(campo)) return; // não sobrescreve o que o cliente digitou
+      form.setValue(campo, valor, { shouldValidate: campo === "cep" });
+    };
+    preencher("nome", cliente.nome);
+    preencher("cep", cliente.cep);
+    preencher("endereco", cliente.endereco);
+    preencher("numero", cliente.numero);
+    preencher("complemento", cliente.complemento);
+    preencher("bairro", cliente.bairro);
+    preencher("cidade", cliente.cidade);
+    preencher("estado", cliente.estado);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cliente]);
+
+  // Preços canônicos do banco (anti-fraude §2.5) + resumo do checkout
+  useEffect(() => {
+    let cancelado = false;
+    const carregar = async () => {
+      if (!tenant || carrinho.itens.length === 0) return;
+      setCarregandoCanonicos(true);
+      try {
+        const canonicos = await buscarProdutosCanonicos(tenant.empresaId, carrinho.itens.map(i => i.produtoId));
+        if (cancelado) return;
+        setPrecosCanonicos(canonicos);
+        const mudou = canonicos.length > 0 && carrinho.itens.some(i => {
+          const c = canonicos.find(p => p.id === i.produtoId);
+          return c && c.preco !== i.precoSnapshot;
+        });
+        setPrecoAtualizado(mudou);
+        setBannerIndisponivel(false);
+      } catch (e) {
+        console.error("[CheckoutTenant] Erro ao resolver preços canônicos:", e);
+        if (!cancelado) {
+          setBannerIndisponivel(true); // banco indisponível → pedido pelo WhatsApp
+          setPrecosCanonicos(null);
+        }
+      } finally {
+        if (!cancelado) setCarregandoCanonicos(false);
+      }
+    };
+    carregar();
+    return () => {
+      cancelado = true;
+    };
+  }, [tenant?.empresaId, carrinho.itens]);
+
+  // Se nenhum item sobrou no carrinho (modal) e não redirecionou, fecha o modal
+  useEffect(() => {
+    if (carrinho.carregado && carrinho.itens.length === 0) setErrosEstoqueModal(null);
+  }, [carrinho.carregado, carrinho.itens.length]);
+
+  const handleBuscarCep = async () => {
+    const cep = form.getValues("cep").replace(/\D/g, "");
+    if (cep.length !== 8) {
+      setCepErro("Digite um CEP válido");
+      return;
+    }
+    setCarregandoCep(true);
+    setCepErro("");
+    const r = await buscarViaCep(cep);
+    setCarregandoCep(false);
+    if (r.naoEncontrado) {
+      setCepErro("CEP não encontrado");
+      return;
+    }
+    form.setValue("endereco", r.endereco || "", { shouldValidate: true });
+    form.setValue("bairro", r.bairro || "");
+    form.setValue("cidade", r.cidade || "");
+    form.setValue("estado", r.estado || "");
+  };
+
+  const resolverPedido = async (dados: CheckoutLojaData) => {
+    if (!tenant) return;
+    setBannerIndisponivel(false);
+
+    const resultado = await criarPedido({
+      empresaId: tenant.empresaId,
+      nomeCliente: dados.nome,
+      telefone: dados.telefone,
+      dados: {
+        nome: dados.nome,
+        telefone: dados.telefone,
+        cep: dados.cep,
+        endereco: dados.endereco,
+        numero: dados.numero,
+        complemento: dados.complemento || "",
+        bairro: dados.bairro,
+        cidade: dados.cidade,
+        estado: dados.estado,
+        formaPagamento: dados.formaPagamento,
+        observacoes: dados.observacoes || "",
+        consentimentoLgpd: true,
+      },
+      itens: carrinho.itens,
+    });
+
+    if (resultado.success && resultado.resumo) {
+      try {
+        localStorage.setItem(`uniq_loja_telefone_${slug}`, dados.telefone);
+      } catch (e) {
+        console.error("[CheckoutTenant] Erro ao salvar telefone:", e);
+      }
+      carrinho.limpar();
+      setResumo(resultado.resumo);
+      setEtapa("confirmacao");
+      return;
+    }
+
+    if (resultado.errosEstoque && resultado.errosEstoque.length > 0) {
+      setErrosEstoqueModal(resultado.errosEstoque);
+      return;
+    }
+
+    // Qualquer outro erro = banco indisponível/gravação → banner + WhatsApp
+    setBannerIndisponivel(true);
+  };
+
+  const waLink = whatsappLinkLoja(tenant?.whatsapp);
+  const errosDoForm = form.formState.errors;
+
+  // Resumo com preços canônicos (banco decide o valor; §2.5)
+  const itensResumo = !carrinho.carregado
+    ? []
+    : carrinho.itens.map(i => {
+        const c = precosCanonicos?.find(p => p.id === i.produtoId);
+        const preco = c ? c.preco : i.precoSnapshot;
+        const estoque = c ? c.estoque : i.quantidade;
+        return { ...i, precoEfetivo: preco, estoqueEfetivo: estoque };
+      });
+  const totalEfetivo = itensResumo.reduce((s, i) => s + i.precoEfetivo * i.quantidade, 0);
+
+  // Confirmação (T4)
+  if (etapa === "confirmacao" && resumo) {
+    return <ConfirmationTenant slug={slug} resumo={resumo} telefone={telefoneDigitado} />;
+  }
+
+  return (
+    <div className="min-h-screen bg-muted">
+      {/* Modal de erro de estoque (§2.5.3) */}
+      {errosEstoqueModal && errosEstoqueModal.length > 0 && (
+        <div className="fixed inset-0 z-50 bg-foreground/60 flex items-end sm:items-center justify-center p-4" onClick={() => setErrosEstoqueModal(null)}>
+          <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4" style={{ background: "#FEF2F2" }}>
+              <AlertCircle size={24} className="text-red-500" />
+            </div>
+            <h2 className="text-foreground text-lg mb-1" style={{ fontWeight: 800 }}>Ajuste seu pedido</h2>
+            <p className="text-muted-foreground text-sm mb-5">Alguns itens não têm estoque suficiente:</p>
+            <div className="space-y-3 mb-6">
+              {errosEstoqueModal.map(e => (
+                <div key={e.produtoId} className="p-3 rounded-xl border border-border bg-muted">
+                  <p className="text-foreground text-sm mb-0.5" style={{ fontWeight: 600 }}>{e.nome}</p>
+                  <p className="text-red-600 text-xs mb-2" style={{ fontWeight: 500 }}>
+                    {e.estoqueDisponivel > 0
+                      ? `Só temos ${e.estoqueDisponivel} ${e.estoqueDisponivel === 1 ? "unidade" : "unidades"}.`
+                      : "Produto indisponível."}
+                  </p>
+                  <div className="flex gap-2">
+                    {e.estoqueDisponivel > 0 && (
+                      <button
+                        onClick={() => {
+                          carrinho.alterarQuantidade(e.produtoId, e.estoqueDisponivel);
+                          setErrosEstoqueModal(null);
+                        }}
+                        className="flex-1 py-2 rounded-xl text-xs" style={{ background: "#86cb92", color: "#1f2937", fontWeight: 700 }}>
+                        Diminuir para {e.estoqueDisponivel}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => { carrinho.remover(e.produtoId); setErrosEstoqueModal(null); }}
+                      className="flex-1 py-2 rounded-xl text-xs border border-border text-foreground" style={{ fontWeight: 600 }}>
+                      Remover item
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Skeletons do carrinho/tenant */}
+      {(loadingTenant || !carrinho.carregado) && (
+        <div className="min-h-screen bg-muted">
+          <header className="sticky top-0 z-40 bg-white border-b border-border">
+            <div className="max-w-3xl mx-auto px-4 py-3 animate-pulse">
+              <div className="h-10 bg-muted rounded-xl w-1/3" />
+            </div>
+          </header>
+          <div className="max-w-3xl mx-auto px-4 py-5 space-y-4 animate-pulse">
+            <div className="h-32 bg-white rounded-2xl border border-border" />
+            <div className="h-64 bg-white rounded-2xl border border-border" />
+            <div className="h-14 bg-white rounded-2xl border border-border" />
+          </div>
+        </div>
+      )}
+
+      {!loadingTenant && carrinho.carregado && (
+        <>
+          {/* Header */}
+          <header className="sticky top-0 z-40 bg-white border-b border-border">
+            <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
+              <button onClick={() => navigate(`/loja/${slug}`)}
+                className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center hover:bg-muted transition-colors">
+                <ArrowLeft size={16} className="text-foreground" />
+              </button>
+              <div>
+                <h1 className="text-foreground text-sm" style={{ fontWeight: 700 }}>Finalizar pedido</h1>
+                <p className="text-muted-foreground text-xs">{tenant?.nomeFantasia}</p>
+              </div>
+            </div>
+          </header>
+
+          <div className="max-w-3xl mx-auto px-4 py-5 pb-28">
+            {/* Banner loja indisponível (§2.5.4) */}
+            {bannerIndisponivel && (
+              <div className="mb-4 p-4 rounded-2xl text-center" style={{ background: "#FFFBEB", border: "1.5px solid #FDE68A" }}>
+                <p className="text-amber-900 text-sm mb-1" style={{ fontWeight: 700 }}>
+                  Loja indisponível no momento
+                </p>
+                <p className="text-amber-800 text-xs mb-3">Faça seu pedido pelo WhatsApp</p>
+                <a href={waLink} target="_blank" rel="noreferrer"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm"
+                  style={{ background: "#25D366", color: "white", fontWeight: 700 }}>
+                  <MessageCircle size={15} /> Falar no WhatsApp
+                </a>
+              </div>
+            )}
+
+            <form onSubmit={form.handleSubmit(resolverPedido)}>
+              {/* ── Seu pedido ── */}
+              <div className="bg-white rounded-2xl border border-border p-4 mb-4">
+                <p className="text-foreground text-xs mb-3 flex items-center gap-1.5" style={{ fontWeight: 700 }}>
+                  <ShoppingCart size={14} /> SEU PEDIDO
+                </p>
+                <div className="space-y-2.5 mb-3">
+                  {itensResumo.map(i => (
+                    <div key={i.produtoId} className="flex items-start gap-2 text-sm">
+                      <span className="text-muted-foreground shrink-0">{i.quantidade}×</span>
+                      <span className="flex-1 text-foreground leading-tight" style={{ fontWeight: 500 }}>{i.nome}</span>
+                      <span className="text-foreground shrink-0" style={{ fontWeight: 700 }}>
+                        {formatCurrencyLoja(i.precoEfetivo * i.quantidade)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between pt-3 border-t border-border">
+                  <span className="text-foreground" style={{ fontWeight: 700 }}>Total</span>
+                  <span className="text-foreground text-lg" style={{ fontWeight: 900 }}>
+                    {carregandoCanonicos ? "..." : formatCurrencyLoja(totalEfetivo)}
+                  </span>
+                </div>
+                {precoAtualizado && !carregandoCanonicos && (
+                  <p className="text-xs mt-2" style={{ color: "#B45309", fontWeight: 600 }}>
+                    ⚠️ Alguns preços foram atualizados pela loja.
+                  </p>
+                )}
+              </div>
+
+              {/* ── Seus dados ── */}
+              <div className="bg-white rounded-2xl border border-border p-4 mb-4 space-y-3">
+                <p className="text-foreground text-xs flex items-center gap-1.5" style={{ fontWeight: 700 }}>
+                  <MapPin size={14} /> SEUS DADOS
+                </p>
+                <Campo label="Nome" obrigatorio error={errosDoForm.nome?.message}>
+                  <input {...form.register("nome")}
+                    className="w-full px-4 py-3 rounded-xl border text-foreground text-sm outline-none focus:border-primary"
+                    style={{ borderColor: errosDoForm.nome ? "#EF4444" : "#efefef", fontSize: "16px" }} />
+                </Campo>
+                <Campo label="Telefone" obrigatorio error={errosDoForm.telefone?.message}>
+                  <input inputMode="tel"
+                    {...form.register("telefone", {
+                      onChange: e => form.setValue("telefone", maskPhone(e.target.value), { shouldValidate: true }),
+                    })}
+                    placeholder="(11) 99999-9999"
+                    className="w-full px-4 py-3 rounded-xl border text-foreground text-sm outline-none focus:border-primary"
+                    style={{ borderColor: errosDoForm.telefone ? "#EF4444" : "#efefef", fontSize: "16px" }} />
+                  {carregandoCliente && (
+                    <p className="text-muted-foreground text-[11px] mt-1 flex items-center gap-1">
+                      <Loader2 size={11} className="animate-spin" /> Buscando seus dados...
+                    </p>
+                  )}
+                  {!carregandoCliente && cliente && (
+                    <p className="text-[11px] mt-1" style={{ color: "#059669", fontWeight: 600 }}>
+                      ✓ Dados encontrados. Confira o endereço abaixo.
+                    </p>
+                  )}
+                </Campo>
+              </div>
+
+              {/* ── Entrega ── */}
+              <div className="bg-white rounded-2xl border border-border p-4 mb-4 space-y-3">
+                <p className="text-foreground text-xs flex items-center gap-1.5" style={{ fontWeight: 700 }}>
+                  <Truck size={14} /> ENTREGA
+                </p>
+                <Campo label="CEP" obrigatorio error={cepErro || errosDoForm.cep?.message}>
+                  <div className="flex gap-2">
+                    <input inputMode="numeric"
+                      {...form.register("cep", {
+                        onChange: e => form.setValue("cep", maskCEP(e.target.value), { shouldValidate: true }),
+                      })}
+                      placeholder="00000-000"
+                      className="flex-1 px-4 py-3 rounded-xl border text-foreground text-sm outline-none focus:border-primary"
+                      style={{ borderColor: cepErro || errosDoForm.cep ? "#EF4444" : "#efefef", fontSize: "16px" }} />
+                    <button type="button" onClick={handleBuscarCep} disabled={carregandoCep}
+                      className="px-4 py-3 rounded-xl border border-border text-foreground text-xs flex items-center gap-1.5"
+                      style={{ fontWeight: 600, background: "white" }}>
+                      {carregandoCep ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+                      Buscar
+                    </button>
+                  </div>
+                </Campo>
+                <Campo label="Rua" obrigatorio error={errosDoForm.endereco?.message}>
+                  <input {...form.register("endereco")}
+                    className="w-full px-4 py-3 rounded-xl border text-foreground text-sm outline-none focus:border-primary"
+                    style={{ borderColor: errosDoForm.endereco ? "#EF4444" : "#efefef", fontSize: "16px" }} />
+                </Campo>
+                <div className="grid grid-cols-2 gap-3">
+                  <Campo label="Número" obrigatorio error={errosDoForm.numero?.message}>
+                    <input {...form.register("numero")}
+                      className="w-full px-4 py-3 rounded-xl border text-foreground text-sm outline-none focus:border-primary"
+                      style={{ borderColor: errosDoForm.numero ? "#EF4444" : "#efefef", fontSize: "16px" }} />
+                  </Campo>
+                  <Campo label="Complemento" error={errosDoForm.complemento?.message}>
+                    <input {...form.register("complemento")} placeholder="Ap 45 / referência"
+                      className="w-full px-4 py-3 rounded-xl border border-border text-foreground text-sm outline-none focus:border-primary"
+                      style={{ fontSize: "16px" }} />
+                  </Campo>
+                </div>
+                <Campo label="Bairro" obrigatorio error={errosDoForm.bairro?.message}>
+                  <input {...form.register("bairro")}
+                    className="w-full px-4 py-3 rounded-xl border text-foreground text-sm outline-none focus:border-primary"
+                    style={{ borderColor: errosDoForm.bairro ? "#EF4444" : "#efefef", fontSize: "16px" }} />
+                </Campo>
+                <div className="grid grid-cols-2 gap-3">
+                  <Campo label="Cidade" obrigatorio error={errosDoForm.cidade?.message}>
+                    <input {...form.register("cidade")}
+                      className="w-full px-4 py-3 rounded-xl border text-foreground text-sm outline-none focus:border-primary"
+                      style={{ borderColor: errosDoForm.cidade ? "#EF4444" : "#efefef", fontSize: "16px" }} />
+                  </Campo>
+                  <Campo label="UF" obrigatorio error={errosDoForm.estado?.message}>
+                    <input {...form.register("estado")} maxLength={2} placeholder="SP"
+                      className="w-full px-4 py-3 rounded-xl border text-foreground text-sm outline-none focus:border-primary uppercase"
+                      style={{ borderColor: errosDoForm.estado ? "#EF4444" : "#efefef", fontSize: "16px" }} />
+                  </Campo>
+                </div>
+              </div>
+
+              {/* ── Pagamento ── */}
+              <div className="bg-white rounded-2xl border border-border p-4 mb-4">
+                <p className="text-foreground text-xs mb-3 flex items-center gap-1.5" style={{ fontWeight: 700 }}>
+                  <CreditCard size={14} /> PAGAMENTO
+                </p>
+                <div className="space-y-2">
+                  {([
+                    { valor: "Pix", label: "Pix", desc: "Chave gerada no momento do pedido" },
+                    { valor: "Dinheiro", label: "Na entrega (dinheiro)", desc: "Pague ao receber" },
+                  ] as const).map(op => (
+                    <label key={op.valor} className="flex items-center gap-3 p-3 rounded-xl border border-border cursor-pointer transition-colors hover:bg-muted"
+                      style={{ borderColor: form.watch("formaPagamento") === op.valor ? "#86cb92" : "#efefef" }}>
+                      <input type="radio" value={op.valor}
+                        {...form.register("formaPagamento")}
+                        className="accent-primary" />
+                      <div>
+                        <p className="text-foreground text-sm" style={{ fontWeight: 600 }}>{op.label}</p>
+                        <p className="text-muted-foreground text-[11px]">{op.desc}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                {errosDoForm.formaPagamento && (
+                  <p className="text-red-500 text-[11px] mt-1">{errosDoForm.formaPagamento.message}</p>
+                )}
+              </div>
+
+              {/* ── Observações ── */}
+              <div className="bg-white rounded-2xl border border-border p-4 mb-4">
+                <p className="text-foreground text-xs mb-3" style={{ fontWeight: 700 }}>Observações</p>
+                <textarea {...form.register("observacoes")} rows={2} placeholder="Ex.: sem morango, por favor"
+                  className="w-full px-4 py-3 rounded-xl border border-border text-foreground text-sm outline-none focus:border-primary resize-none"
+                  style={{ fontSize: "16px" }} />
+                {errosDoForm.observacoes && (
+                  <p className="text-red-500 text-[11px] mt-1">{errosDoForm.observacoes.message}</p>
+                )}
+              </div>
+
+              {/* ── LGPD ── */}
+              <div className="bg-white rounded-2xl border border-border p-4 mb-4">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input type="checkbox"
+                    {...form.register("consentimentoLgpd")}
+                    className="mt-0.5 w-4 h-4 accent-primary" />
+                  <span className="text-foreground text-xs leading-relaxed" style={{ fontWeight: 500 }}>
+                    Autorizo o uso dos meus dados para processar o pedido. <span className="text-red-500">*</span>
+                  </span>
+                </label>
+                {errosDoForm.consentimentoLgpd && (
+                  <p className="text-red-500 text-[11px] mt-1.5">{errosDoForm.consentimentoLgpd.message}</p>
+                )}
+              </div>
+
+              {/* CTA fixo */}
+              <div className="fixed bottom-0 inset-x-0 z-40 p-3 bg-white/95 backdrop-blur border-t border-border">
+                <div className="max-w-3xl mx-auto">
+                  <button type="submit" disabled={enviando || carregandoCanonicos || bannerIndisponivel}
+                    className="w-full py-4 rounded-2xl flex items-center justify-center gap-2 text-white transition-all active:scale-[0.98] disabled:opacity-60"
+                    style={{ background: bannerIndisponivel ? "#9CA3AF" : "#1f2937", fontWeight: 800, fontSize: "1rem" }}>
+                    {enviando ? (
+                      <><Loader2 size={18} className="animate-spin" /> Registrando pedido...</>
+                    ) : (
+                      <>Confirmar pedido · {formatCurrencyLoja(totalEfetivo)}</>
+                    )}
+                  </button>
+                  {erroPedido && (
+                    <p className="text-red-500 text-[11px] text-center mt-1.5">{erroPedido}</p>
+                  )}
+                </div>
+              </div>
+            </form>
+          </div>
+        </>
+      )}
+    </div>
   );
 }

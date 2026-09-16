@@ -69,3 +69,20 @@ export const supplierFormSchema = z
   });
 
 export type SupplierFormData = z.infer<typeof supplierFormSchema>;
+
+/* ─── Loja Virtual (SPEC-LojaVirtual-DoceE §7) ─── */
+export const checkoutLojaSchema = z.object({
+  nome: z.string().trim().min(2, "Informe seu nome"),
+  telefone: z.string().refine(v => v.replace(/\D/g, "").length >= 10, "Telefone inválido"),
+  cep: z.string().refine(v => v.replace(/\D/g, "").length === 8, "CEP inválido"),
+  endereco: z.string().trim().min(3, "Informe a rua"),
+  numero: z.string().trim().min(1, "Número obrigatório"),
+  complemento: z.string().trim().optional().default(""),
+  bairro: z.string().trim().min(2, "Informe o bairro"),
+  cidade: z.string().trim().min(2, "Informe a cidade"),
+  estado: z.string().length(2, "UF inválida"),
+  formaPagamento: z.enum(["Pix", "Dinheiro"]),
+  observacoes: z.string().max(300, "Máximo de 300 caracteres").optional().default(""),
+  consentimentoLgpd: z.literal(true, { error: "É preciso aceitar para continuar" }),
+});
+export type CheckoutLojaData = z.infer<typeof checkoutLojaSchema>;
