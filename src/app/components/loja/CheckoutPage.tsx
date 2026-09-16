@@ -10,7 +10,8 @@ import {
 } from "lucide-react";
 import {
   PRODUTOS_LOJA, FRETE_OPCOES, CUPONS_VALIDOS, PAGAMENTO_LOJA_CONFIG,
-  formatCurrencyLoja, formatNumeroPedidoLoja, whatsappLinkLoja,
+  formatCurrencyLoja, formatNumeroPedidoLoja, whatsappLinkLoja, normalizarTelefoneLoja,
+  formatTelefoneLoja,
   type ItemCarrinhoLoja, type PagamentoTipoLoja,
 } from "./lojaMockData";
 import { maskCEP, maskPhone } from "../../lib/document-mask";
@@ -19,6 +20,7 @@ import { z } from "zod";
 import { useCarrinhoLoja } from "../../hooks/use-carrinho-loja";
 import { useLojaTenant } from "../../hooks/use-loja-tenant";
 import { useLojaClientePorTelefone } from "../../hooks/use-loja-cliente";
+import { useLojaSessao } from "../../hooks/use-loja-sessao";
 import { buscarProdutosCanonicos, useLojaCriarPedido, type ItemErroEstoque, type ProdutoCanonico } from "../../hooks/use-loja-criar-pedido";
 import { LojaNaoEncontrada } from "./LojaNaoEncontrada";
 import type { ResumoPedidoLoja } from "../../types/loja";
@@ -714,6 +716,8 @@ async function buscarViaCep(cep: string): Promise<{
 
 function ConfirmationTenant({ slug, resumo, telefone }: { slug: string; resumo: ResumoPedidoLoja; telefone: string }) {
   const navigate = useNavigate();
+
+  const telefoneExibido = maskPhone(telefone);
   return (
     <div className="min-h-screen bg-muted flex flex-col items-center justify-center px-6 text-center">
       <div className="w-20 h-20 rounded-full flex items-center justify-center mb-5" style={{ background: "#D1FAE5" }}>
@@ -744,11 +748,11 @@ function ConfirmationTenant({ slug, resumo, telefone }: { slug: string; resumo: 
       </div>
 
       <p className="text-muted-foreground text-xs max-w-xs mb-8 leading-relaxed">
-        Acompanhe pelo telefone <strong className="text-foreground">{telefone}</strong> em "Meus pedidos".
+        Acompanhe pelo telefone <strong className="text-foreground">{telefoneExibido}</strong> em "Meus pedidos".
       </p>
 
       <div className="w-full max-w-sm space-y-3">
-        <button onClick={() => navigate(`/loja/${slug}/pedidos`)}
+        <button onClick={() => navigate(`/loja/${slug}/conta`)}
           className="w-full py-3.5 rounded-2xl" style={{ background: "#1f2937", color: "white", fontWeight: 700 }}>
           Ver meus pedidos
         </button>
@@ -766,6 +770,7 @@ function CheckoutTenant({ slug }: { slug: string }) {
   const { tenant, loading: loadingTenant, error: errorTenant } = useLojaTenant(slug);
   const carrinho = useCarrinhoLoja(slug);
   const { criarPedido, loading: enviando, error: erroPedido } = useLojaCriarPedido();
+  const sessao = useLojaSessao(slug);
 
   const [etapa, setEtapa] = useState<"form" | "confirmacao">("form");
   const [resumo, setResumo] = useState<ResumoPedidoLoja | null>(null);
@@ -827,6 +832,17 @@ function CheckoutTenant({ slug }: { slug: string }) {
     preencher("estado", cliente.estado);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cliente]);
+
+  // E4: sessão ativa → pré-preenche o telefone (identificação automática no checkout)
+  useEffect(() => {
+    if (!sessao.carregado || !sessao.logado || !sessao.sessao) return;
+    const atual = form.getValues("telefone") || "";
+    if (atual.replace(/\D/g, "") === sessao.sessao.telefone) return; // já é o da sessão
+    if (atual) return; // cliente digitou outro telefone — respeita
+    const mascarado = formatTelefoneLoja(sessao.sessao.telefone); // DDI 55 é removido no display
+    form.setValue("telefone", mascarado, { shouldValidate: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessao.carregado, sessao.logado, sessao.sessao?.telefone]);
 
   // Preços canônicos do banco (anti-fraude §2.5) + resumo do checkout
   useEffect(() => {
@@ -911,6 +927,15 @@ function CheckoutTenant({ slug }: { slug: string }) {
     });
 
     if (resultado.success && resultado.resumo) {
+      // Auto-login: cria sessão local com o cliente resolvido pelo banco (SPEC-AreaCliente §6 / E4).
+      // Nunca cria sessão sem clienteId real.
+      if (resultado.clienteId) {
+        sessao.entrar({
+          telefone: normalizarTelefoneLoja(dados.telefone),
+          clienteId: resultado.clienteId,
+          nomeCliente: dados.nome,
+        });
+      }
       try {
         localStorage.setItem(`uniq_loja_telefone_${slug}`, dados.telefone);
       } catch (e) {

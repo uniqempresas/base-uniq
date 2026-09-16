@@ -4,7 +4,7 @@ import {
   Search, ShoppingCart, Star, Filter, X, ChevronDown,
   Heart, Share2, Truck, Tag, Zap, SlidersHorizontal,
   ArrowUpDown, ChevronRight, Package, MessageCircle, ImageOff,
-  AlertTriangle,
+  AlertTriangle, User, ClipboardList,
 } from "lucide-react";
 import {
   PRODUTOS_LOJA, CATEGORIAS_LOJA, formatCurrencyLoja, calcDesconto,
@@ -14,6 +14,7 @@ import {
 import { useCarrinhoLoja } from "../../hooks/use-carrinho-loja";
 import { useLojaTenant } from "../../hooks/use-loja-tenant";
 import { useLojaProdutos } from "../../hooks/use-loja-produtos";
+import { useLojaSessao } from "../../hooks/use-loja-sessao";
 import { LojaNaoEncontrada } from "./LojaNaoEncontrada";
 import type { ProdutoLoja as ProdutoVitrine } from "../../types/loja";
 
@@ -263,6 +264,7 @@ function LojaVitrineTenant({ slug }: { slug: string }) {
   const navigate = useNavigate();
   const { tenant, loading: loadingTenant, error: errorTenant } = useLojaTenant(slug);
   const { produtos, loading, error, isFallback, refetch } = useLojaProdutos(tenant?.empresaId);
+  const sessao = useLojaSessao(slug);
   const carrinho = useCarrinhoLoja(slug);
   const [busca, setBusca] = useState("");
 
@@ -287,12 +289,29 @@ function LojaVitrineTenant({ slug }: { slug: string }) {
               </span>
             </div>
           )}
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="text-foreground text-lg leading-tight truncate" style={{ fontWeight: 800 }}>
               {tenant?.nomeFantasia || "..."}
             </h1>
             <p className="text-muted-foreground text-xs">Peça online · Entrega combinada pelo WhatsApp</p>
           </div>
+
+          {/* Área do cliente (L3): sessão ativa → "Meus pedidos"; senão → "Entrar" sempre visível */}
+          {sessao.carregado && sessao.logado ? (
+            <button onClick={() => navigate(`/loja/${slug}/conta`)}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs shrink-0"
+              style={{ background: "#1f2937", color: "white", fontWeight: 700 }}>
+              <ClipboardList size={14} />
+              Meus pedidos
+            </button>
+          ) : (
+            <button onClick={() => navigate(`/loja/${slug}/entrar`)}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs shrink-0 border border-border bg-white"
+              style={{ color: "#1f2937", fontWeight: 700, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
+              <User size={14} />
+              Entrar
+            </button>
+          )}
         </div>
 
         {/* Busca */}

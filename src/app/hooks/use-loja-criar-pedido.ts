@@ -31,6 +31,8 @@ export interface CriarPedidoLojaParams {
 export interface CriarPedidoLojaResult {
   success: boolean;
   resumo?: ResumoPedidoLoja;
+  /** me_cliente.id resolvido no find-or-create — usado para criar a sessão no sucesso (§6) */
+  clienteId?: string | null;
   /** estoque insuficiente: NÃO chamou a RPC */
   errosEstoque?: ItemErroEstoque[];
   /** algum preço do banco difere do snapshot exibido na vitrine */
@@ -209,6 +211,7 @@ export function useLojaCriarPedido() {
 
       return {
         success: true,
+        clienteId,
         precoAtualizado,
         resumo: {
           idVenda,

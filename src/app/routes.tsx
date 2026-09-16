@@ -36,6 +36,8 @@ import { LojaPage } from "./components/loja/LojaPage";
 import { ProdutoLojaPage } from "./components/loja/ProdutoLojaPage";
 import { CheckoutPage } from "./components/loja/CheckoutPage";
 import { MeusPedidosPage } from "./components/loja/MeusPedidosPage";
+import { EntrarClientePage } from "./components/loja/EntrarClientePage";
+import { ContaClientePage } from "./components/loja/ContaClientePage";
 // Financeiro
 import { FinanceiroDashboardPage } from "./components/financeiro/FinanceiroDashboardPage";
 import { FluxoCaixaPage } from "./components/financeiro/FluxoCaixaPage";
@@ -115,6 +117,9 @@ export const router = createBrowserRouter([
   { path: "/loja/:slug/produto/:id", Component: ProdutoLojaPage },
   { path: "/loja/:slug/checkout", Component: CheckoutPage },
   { path: "/loja/:slug/pedidos", Component: MeusPedidosPage },
+  // Área do cliente (SPEC-LojaVirtual-AreaCliente §3) — tenant-only
+  { path: "/loja/:slug/entrar", Component: EntrarClientePage },
+  { path: "/loja/:slug/conta", Component: ContaClientePage },
   // Catálogo público (no AppLayout)
   { path: "/catalogo", Component: CatalogoPage },
   // App routes - pathless layout

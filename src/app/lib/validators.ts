@@ -70,10 +70,17 @@ export const supplierFormSchema = z
 
 export type SupplierFormData = z.infer<typeof supplierFormSchema>;
 
-/* ─── Loja Virtual (SPEC-LojaVirtual-DoceE §7) ─── */
+/* ─── Loja Virtual (SPEC-LojaVirtual-DoceE §7 / SPEC-LojaVirtual-AreaCliente §4) ─── */
+
+/** Telefone com máscara — ≥ 10 dígitos (compartilhado entre checkout e área do cliente) */
+export const telefoneSchema = z
+  .string()
+  .min(1, "Informe o telefone")
+  .refine(v => v.replace(/\D/g, "").length >= 10, "Telefone inválido");
+
 export const checkoutLojaSchema = z.object({
   nome: z.string().trim().min(2, "Informe seu nome"),
-  telefone: z.string().refine(v => v.replace(/\D/g, "").length >= 10, "Telefone inválido"),
+  telefone: telefoneSchema,
   cep: z.string().refine(v => v.replace(/\D/g, "").length === 8, "CEP inválido"),
   endereco: z.string().trim().min(3, "Informe a rua"),
   numero: z.string().trim().min(1, "Número obrigatório"),

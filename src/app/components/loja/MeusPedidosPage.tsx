@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams, Navigate } from "react-router";
 import {
   ArrowLeft, Package, Search, ChevronDown, ChevronRight,
   ChevronUp, MapPin, CreditCard, Truck, RefreshCw,
@@ -8,13 +8,10 @@ import {
 } from "lucide-react";
 import {
   PEDIDOS_MOCK, STATUS_CONFIG_PEDIDO, PAGAMENTO_LOJA_CONFIG,
-  formatCurrencyLoja, whatsappLinkLoja,
+  formatCurrencyLoja,
   type PedidoStatus, type Pedido,
 } from "./lojaMockData";
-import { maskPhone } from "../../lib/document-mask";
-import { useLojaTenant } from "../../hooks/use-loja-tenant";
-import { useLojaMeusPedidos, type PedidoLoja } from "../../hooks/use-loja-meus-pedidos";
-import { LojaNaoEncontrada } from "./LojaNaoEncontrada";
+import type { PedidoLoja } from "../../hooks/use-loja-meus-pedidos";
 
 const TIMELINE_STATUS: PedidoStatus[] = [
   "aguardando_pagamento",
@@ -263,7 +260,7 @@ function PedidoCard({ pedido, expanded, onToggle }: { pedido: Pedido; expanded: 
 
 export function MeusPedidosPage() {
   const { slug } = useParams();
-  if (slug) return <MeusPedidosTenant slug={slug} />;
+  if (slug) return <Navigate to={`/loja/${slug}/conta`} replace />;
 
   const navigate = useNavigate();
   const [expandedId, setExpandedId] = useState<string | null>(PEDIDOS_MOCK[0]?.id || null);
@@ -376,9 +373,9 @@ export function MeusPedidosPage() {
   );
 }
 
-/* ─────────── [T5] Meus pedidos do tenant (/loja/:slug/pedidos) ─────────── */
+/* ─────────── [T5+] Área do cliente (tenant) — componentes reusados pela ContaClientePage ─────────── */
 
-function formatarDataHora(iso: string): string {
+export function formatarDataHora(iso: string): string {
   try {
     return new Date(iso).toLocaleString("pt-BR", {
       day: "2-digit",
@@ -391,7 +388,7 @@ function formatarDataHora(iso: string): string {
   }
 }
 
-function PedidoTenantCard({ pedido }: { pedido: PedidoLoja }) {
+export function PedidoTenantCard({ pedido }: { pedido: PedidoLoja }) {
   return (
     <div className="bg-white rounded-2xl border border-border p-4"
       style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
@@ -418,117 +415,5 @@ function PedidoTenantCard({ pedido }: { pedido: PedidoLoja }) {
   );
 }
 
-function MeusPedidosTenant({ slug }: { slug: string }) {
-  const navigate = useNavigate();
-  const { tenant, loading: loadingTenant, error: errorTenant } = useLojaTenant(slug);
-  const [telefone, setTelefone] = useState(() => {
-    try {
-      return localStorage.getItem(`uniq_loja_telefone_${slug}`) || "";
-    } catch (e) {
-      return "";
-    }
-  });
-  const { pedidos, loading, error, buscar } = useLojaMeusPedidos(tenant?.empresaId, telefone);
-
-  if (!loadingTenant && (!tenant || errorTenant)) return <LojaNaoEncontrada />;
-
-  const waLink = whatsappLinkLoja(tenant?.whatsapp);
-
-  return (
-    <div className="min-h-screen bg-muted">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-white border-b border-border">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
-          <button onClick={() => navigate(`/loja/${slug}`)}
-            className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center hover:bg-muted transition-colors">
-            <ArrowLeft size={16} className="text-foreground" />
-          </button>
-          <div>
-            <h1 className="text-foreground text-sm" style={{ fontWeight: 700 }}>Meus pedidos</h1>
-            <p className="text-muted-foreground text-xs">{tenant?.nomeFantasia}</p>
-          </div>
-          <div className="flex-1" />
-          <button onClick={() => navigate(`/loja/${slug}`)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs"
-            style={{ background: "#86cb92", color: "#1f2937", fontWeight: 600 }}>
-            <ShoppingBag size={13} />Nova compra
-          </button>
-        </div>
-      </header>
-
-      <div className="max-w-2xl mx-auto px-4 py-5">
-        {/* Telefone */}
-        <div className="mb-5">
-          <label className="block text-foreground text-xs mb-1.5" style={{ fontWeight: 600 }}>
-            Telefone *
-          </label>
-          <div className="flex gap-2">
-            <input inputMode="tel"
-              value={telefone}
-              onChange={e => setTelefone(maskPhone(e.target.value))}
-              placeholder="(11) 99999-9999"
-              className="flex-1 px-4 py-3 rounded-xl border border-border text-foreground text-sm outline-none focus:border-primary bg-white"
-              style={{ fontSize: "16px" }} />
-            <button onClick={buscar}
-              className="px-5 py-3 rounded-xl text-white text-sm"
-              style={{ background: "#1f2937", fontWeight: 700 }}>
-              Buscar
-            </button>
-          </div>
-          {error && (
-            <p className="text-red-500 text-[11px] mt-1.5">{error}</p>
-          )}
-        </div>
-
-        {/* Loading skeleton */}
-        {loading && (
-          <div className="space-y-3 animate-pulse">
-            {[1, 2].map(i => (
-              <div key={i} className="bg-white rounded-2xl border border-border p-4 space-y-2">
-                <div className="h-4 bg-muted rounded w-1/2" />
-                <div className="h-6 bg-muted rounded w-2/3" />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Empty */}
-        {!loading && pedidos.length === 0 && (
-          <div className="bg-white rounded-2xl border border-border p-12 text-center">
-            <Package size={40} className="text-muted mx-auto mb-3" />
-            <p className="text-foreground mb-1" style={{ fontWeight: 600 }}>
-              Nenhum pedido encontrado para este telefone
-            </p>
-            <p className="text-muted-foreground text-sm mb-5">Seus pedidos aparecem aqui após a confirmação.</p>
-            <button onClick={() => navigate(`/loja/${slug}`)}
-              className="px-6 py-2.5 rounded-xl text-white text-sm"
-              style={{ background: "#1f2937", fontWeight: 600 }}>
-              Fazer primeira compra
-            </button>
-          </div>
-        )}
-
-        {/* Lista */}
-        {!loading && pedidos.length > 0 && (
-          <div className="space-y-3">
-            {pedidos.map(p => (
-              <PedidoTenantCard key={p.idVenda} pedido={p} />
-            ))}
-          </div>
-        )}
-
-        {/* Suporte WhatsApp */}
-        <div className="mt-8 p-4 rounded-2xl border border-border bg-white text-center">
-          <MessageCircle size={24} className="text-[#25D366] mx-auto mb-2" />
-          <p className="text-foreground text-sm mb-1" style={{ fontWeight: 600 }}>Precisa de ajuda com seu pedido?</p>
-          <p className="text-muted-foreground text-xs mb-3">Nossa equipe está pronta para te ajudar</p>
-          <a href={waLink} target="_blank" rel="noreferrer"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm"
-            style={{ background: "#25D366", color: "white", fontWeight: 600 }}>
-            <MessageCircle size={15} />Falar no WhatsApp
-          </a>
-        </div>
-      </div>
-    </div>
-  );
-}
+/* A rota /loja/:slug/pedidos agora redireciona para /loja/:slug/conta
+   (ContaClientePage gerencia sessão + lista de pedidos do cliente). */

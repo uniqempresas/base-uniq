@@ -130,6 +130,34 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 
 ---
 
+### 🟢 ÁREA DO CLIENTE NA LOJA — login por telefone (16/09/2026)
+
+**WHY:** o cliente final da Doceê acompanha os próprios pedidos sem senha — entra só com o telefone, com sessão escopada por loja (o mesmo telefone pode ser cliente de várias lojas da Base UNIQ).
+
+**Status:** 🔶 EM IMPLEMENTAÇÃO — pipeline SDD completo (PRD/SPEC/WIRE) + WIRE aprovado pelo fundador (dispensou confirmação formal); implementação em curso.
+
+**Documentos:**
+- PRD: `tracking/plans/PRD-LojaVirtual-AreaCliente.md` (decisões E1–E6 abaixo)
+- SPEC: `tracking/specs/SPEC-LojaVirtual-AreaCliente.md`
+- WIRE: `tracking/wireframe/WIRE-LojaVirtual-AreaCliente.md`
+
+**Decisões do fundador (16/09/2026):**
+
+| # | Decisão | Resolução |
+|---|---|---|
+| E1 | Verificação de identidade | **Telefone puro na semana de testes** — sem senha, sem código. **OTP via WhatsApp registrado como evolução obrigatória antes de cliente real** (PRD §6: tabela `loja_login_otp` + Evolution/n8n + `SECURITY DEFINER`) |
+| E2 | Conteúdo da área | **Só pedidos** (lista com status) — dados editáveis ficam para v2 |
+| E3 | Escopo da sessão | **Por loja** — chave `uniq_loja_sessao_<slug>`; lookup sempre por `(empresa_id, telefone)` |
+| E4 | Onde o login acontece | **Navegação sempre livre** (vitrine/produto/sacola nunca pedem login); identificação **só no checkout** (telefone de "Seus dados" é o login) e em `/entrar` para "Meus pedidos"; com sessão, checkout pré-preenche |
+| E5 | Duração da sessão | **24 horas** (sliding — renova a cada acesso) |
+| E6 | Porta de entrada | **Botão "Entrar" sempre visível no header da vitrine** quando deslogado (logado vira "Meus pedidos") |
+
+**Escopo previsto (SPEC §9):** hook `use-loja-sessao.ts` · telas `/loja/:slug/entrar` e `/loja/:slug/conta` (guarda de sessão) · `/loja/:slug/pedidos` → redirect para `/conta` · auto-login no sucesso do checkout · header Entrar/Meus pedidos · Sair preserva carrinho.
+
+**Já valendo desde o módulo Loja Virtual:** primeira compra **salva o cliente automaticamente** em `me_cliente` (`origem='loja'`, find-or-create por telefone) — o cliente aparece no CRM da Base UNIQ.
+
+---
+
 ### 🔵 SEMANA 1 — Fio de Prumo
 
 **WHY:** provar que a arquitetura conecta. Uma mensagem real atravessando o sistema. Não é construir tudo — é validar a fundação.
@@ -431,6 +459,31 @@ Decisão do fundador após validar na Vercel: **pedido que chega do n8n/WhatsApp
 
 ---
 
+## 🖼️ IMAGEM DE PRODUTO (16/09/2026) — WIRE aprovado, implementação em andamento
+
+**WHY:** a vitrine e o catálogo da Doceê vendem sem foto (placeholder de caixa); a esposa cadastra produtos sem anexar imagem. A foto do produto deve viver no Supabase Storage (decisão do fundador).
+
+**Status:** ⚡ WIRE **aprovado pelo fundador** (16/09/2026) — implementação delegada ao @fixer (task `unk-1` / `ses_f55fc7...`); ao terminar: reconciliação + build + **commit e push** para a Vercel validar no celular.
+
+**Documentos:**
+- PRD: `tracking/plans/PRD-ImagemProduto.md` (D1–D5: bucket `uniq_me_produtos` · 1 foto v1 · upload no salvar · path `{empresaId}/{uuid}.{ext}` · máx 5 MB)
+- SPEC: `tracking/specs/SPEC-ImagemProduto.md` (hook novo `use-upload-produto.ts` + seção de foto no `ProdutoFormModal` + foto no grid/detalhe)
+- WIRE: `tracking/wireframe/WIRE-ImagemProduto.md`
+
+**Pesquisa (nada de migration — backend já pronto):**
+- `me_produto.foto_url` já existe (text nullable) · bucket público `uniq_me_produtos` já existe · políticas RLS corretas (INSERT/UPDATE/DELETE authenticated, SELECT public)
+- Hooks de leitura já mapeiam `foto_url` (estoque, loja, pedidos); `useCriarProduto`/`useAtualizarProduto` já aceitam `fotoUrl`
+- **Gap único:** nenhum `storage.upload` existe no app; `ProdutoFormModal` não tem campo de foto; grid/detalhe ignoram `produto.foto`
+
+**Implementação (escopo delegado ao @fixer):**
+- `src/app/hooks/use-upload-produto.ts` (novo) — upload para `uniq_me_produtos` + `getPublicUrl`; validação image/* e ≤ 5 MB
+- `src/app/components/estoque/ProdutoFormModal.tsx` — seção "Foto do produto" (preview + enviar + remover) e `fotoUrl` no save
+- `src/app/components/estoque/ProdutosPage.tsx` — `ProdutoGridCard` exibe `produto.foto` (fallback placeholder)
+- `src/app/components/estoque/ProdutoDetalhePage.tsx` — header com foto (fallback ícone)
+- `src/app/components/estoque/estoqueMockData.ts` — `foto` em 2–3 mocks
+
+---
+
 ## ➕ PENDÊNCIAS QUE DEPENDEM DO FUNDADOR
 
 | # | Item | Necessário antes de | Observação |
@@ -453,7 +506,7 @@ Decisão do fundador após validar na Vercel: **pedido que chega do n8n/WhatsApp
 | B2 | **Cadastro de produtos/serviços** | Para o PDV funcionar de ponta a ponta, precisa de tela de cadastro de produtos (`me_produto`, `me_servicos`) com preço, estoque, categoria e foto. | Alta |
 | B3 | **Autocomplete de cliente no Novo Pedido** | Na tela de criar pedido (`PedidosListaPage`), ao digitar o nome do cliente, buscar no banco (`me_cliente`) e sugerir cadastros existentes — evita duplicar clientes. | Média |
 | B4 | **Vincular pedido a cliente existente** | Hoje `useCriarPedido` busca por nome exato. Melhorar para busca fuzzy ou por telefone, e permitir selecionar cliente existente vs criar novo. | Média |
-| B5 | **Busca de endereço por CEP** | Ao criar cliente/pedido, integrar ViaCEP ou similar para preencher endereço automaticamente. | Baixa |
+| ~~B5~~ | ~~**Busca de endereço por CEP**~~ | ✅ Resolvido (15/09/2026) — ViaCEP integrado no checkout da Loja Virtual (SPEC-LojaVirtual-DoceE §7); pré-preenche rua/bairro/cidade/UF com campos editáveis. | Fechado |
 | ~~B6~~ | ~~**Completar SDD da T2.9**~~ | ✅ Resolvido (11/09/2026) — PRD e WIRE criados em `tracking/plans/` e `tracking/wireframe/`. | Fechado |
 | B7 | **Erro TS em `ProdutoDetalhePage.tsx:456` — `tab.badge` possivelmente `undefined`** | Arquivo da lane "Editar Produto" (trabalho paralelo, 12/09/2026). `TABS` (linhas 322–327) tem shapes inconsistentes: só a aba `movimentacoes` tem `badge` (as demais não); a guarda `{"badge" in tab && tab.badge > 0}` (linha 456) não estreita o tipo → LSP: `'tab.badge' is possibly 'undefined'`. **Fix sugerido:** tipar o elemento de `TABS` com `badge?: number` explícito e usar `tab.badge != null && tab.badge > 0` (ou `typeof tab.badge === "number"`). **Dono:** lane Editar Produto (não tocar por esta lane). | Média |
 | B8 | **~~"Contabilizar venda" envia `p_itens` sem `produto_id`/`servico_id`~~** | ✅ Resolvido (15/09/2026). Parte 1: `use-pedido.ts` busca `me_itens_venda` (+ `foto_url` via `me_produto`) e popula `itens` no detalhe — validação: venda `0c901c4a`, "Surpresa de Uva" ×2. Parte 2: `ItemPedido` ganhou `produtoId`/`tipoItem`; `ItemVenda` e `handleContabilizar` mandam payload canônico da RPC (`{tipo, id_referencia, nome, quantidade, preco_unitario}`). Commit `de7c86b` (parte 1). | Fechado |
