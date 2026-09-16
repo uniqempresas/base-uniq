@@ -398,7 +398,12 @@ function ModalCancelarModulo({
 }) {
   const [checked, setChecked] = useState(false);
   if (!modulo) return null;
-  const dataFim = modulo.dataRenovacao || 'fim do ciclo atual';
+  const dataFim =
+    modulo.status === 'trial'
+      ? modulo.dataTrialFim || 'fim do trial'
+      : modulo.dataRenovacao || 'fim do ciclo atual';
+  const periodoFim =
+    modulo.status === 'trial' ? 'fim do trial' : 'fim do ciclo atual';
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -408,8 +413,9 @@ function ModalCancelarModulo({
           </div>
           <DialogTitle>Cancelar {modulo.nome}?</DialogTitle>
           <DialogDescription>
-            O módulo deixará de aparecer no menu e não estará mais disponível a partir do dia{' '}
-            <strong>{dataFim}</strong> (fim do ciclo atual).
+            O módulo deixará de aparecer no menu e não estará mais disponível a partir do{' '}
+            <strong>{periodoFim}</strong>
+            {dataFim !== periodoFim ? ` (${dataFim})` : ''}.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2">
@@ -649,8 +655,12 @@ export function MeusModulosPage() {
   const confirmarCancelar = () => {
     if (!moduloSelecionado) return;
     cancelarModulo(moduloSelecionado.codigo);
+    const periodo =
+      moduloSelecionado.status === 'trial'
+        ? 'fim do trial'
+        : 'fim do ciclo atual';
     toast.info(
-      `${moduloSelecionado.nome} será cancelado no fim do ciclo atual (${moduloSelecionado.dataRenovacao || '—'}).`
+      `${moduloSelecionado.nome} será cancelado no ${periodo} (${moduloSelecionado.dataRenovacao || moduloSelecionado.dataTrialFim || '—'}).`
     );
     setModalCancelarOpen(false);
   };

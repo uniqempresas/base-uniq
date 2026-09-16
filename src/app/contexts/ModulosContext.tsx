@@ -6,7 +6,6 @@ import {
   type ModuloStatus,
 } from '../lib/modulos';
 
-const REATIVACAO_MIGRATION_KEY = 'uniq-modulos-cancelados-reativados-v1';
 const AGENDA_INCLUSA_MIGRATION_KEY = 'uniq-agenda-inclusa-v1';
 
 type ModulosContextValue = {
@@ -35,15 +34,12 @@ function carregarModulos(): Modulo[] {
     const existentes = new Map(parsed.map((modulo) => [modulo.id, modulo]));
     const mesclados = MODULOS_ATIVOS_INICIAIS.map((modulo) => existentes.get(modulo.id) || modulo);
 
+    // Nota: a migração de reativação (cancelado → core) foi REMOVIDA.
+    // Ela reconvertia módulos cancelados para "core" na primeira carga sem a
+    // chave, fazendo o cancelamento parecer que "não funcionava" — o módulo
+    // voltava como "Incluso" e perdia o botão Cancelar. Cancelamento agora é
+    // definitivo: status 'cancelado' persiste.
     let resultado = mesclados;
-    if (!localStorage.getItem(REATIVACAO_MIGRATION_KEY)) {
-      resultado = resultado.map((modulo) =>
-        modulo.status === 'cancelado'
-          ? { ...modulo, status: 'core' as ModuloStatus, dataRenovacao: undefined, dataTrialFim: undefined }
-          : modulo,
-      );
-      localStorage.setItem(REATIVACAO_MIGRATION_KEY, 'true');
-    }
     if (!localStorage.getItem(AGENDA_INCLUSA_MIGRATION_KEY)) {
       resultado = resultado.map((modulo) => modulo.codigo === 'agenda' && modulo.status === 'nao_adquirido'
         ? { ...modulo, status: 'core' as ModuloStatus, dataRenovacao: undefined, dataTrialFim: undefined }
