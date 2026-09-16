@@ -1081,6 +1081,14 @@ function CheckoutTenant({ slug }: { slug: string }) {
                       <span className="text-foreground shrink-0" style={{ fontWeight: 700 }}>
                         {formatCurrencyLoja(i.precoEfetivo * i.quantidade)}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => carrinho.remover(i.produtoId)}
+                        className="shrink-0 text-red-400 hover:text-red-600 transition-colors"
+                        aria-label={`Remover ${i.nome} da sacola`}
+                      >
+                        <X size={14} />
+                      </button>
                     </div>
                   ))}
                 </div>
