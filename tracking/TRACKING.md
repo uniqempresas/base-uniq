@@ -233,6 +233,11 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 - **Teste verde (execução 4363, venda `0c901c4a`):** 2× "Surpresa de Uva" → `me_venda` R$ 16,00 status `confirmada` canal `whatsapp` · `me_itens_venda` id 62 × 2 @ R$ 8 · estoque 62: 10→8 · conta a receber R$ 16 venc. 15/10/2026 · forma Pix.
 - **Pendente:** ativar `docee_criarpedido` + salvar `atendente_Docee` + teste real no WhatsApp da Doceê (critérios de aceite do PRD). Observação: `p_forma_pagamento` pode gravar minúsculo ("pix") na conta a receber — sugerir à AI "Pix" capitalizado.
 
+**Correção — duplicidade de clientes WhatsApp × loja (16/09/2026 ✅):**
+> **Problema:** o fluxo `atendente_Docee` decidia "cliente novo?" por **"tem conversa?"** (IF em `Grava Novo Cliente`), não por "tem cadastro?". Sem conversa prévia, `Cria_Cliente` inseria sem checar telefone — criando duplicados em `me_cliente` (2 encontrados na mesma empresa, e.g. `5511941484562` em 13/09/2026). O fluxo da loja já era correto (find-or-create por telefone normalizado).
+- **Banco — migration `20260916_normaliza_telefone_me_cliente` (aplicada 16/09/2026):** função `fn_normalizar_telefone` (IMMUTABLE, espelha `normalizarTelefoneLoja`); trigger `trg_me_cliente_normaliza_telefone` (BEFORE INSERT OR UPDATE OF telefone); backfill de normalização; merge idempotente dos duplicados via `DO $dedup$` (vencedor por mais campos preenchidos → `criado_em` mais antigo, reaponta as 9 tabelas filhas); índice único parcial `ux_me_cliente_empresa_telefone (empresa_id, telefone) WHERE telefone IS NOT NULL` como rede de segurança. Verificado: `com_duplicado=0`, 18 linhas, todos os telefones em formato canônico `55`+DDD+9; trigger e índice presentes.
+- **n8n — workflow `atendente_Docee` (64 nós, ativo):** adicionados `Consulta Cliente` (Supabase GET `me_cliente` por `telefone` + `empresa_id`) e `Cliente Ja Cadastrado` (IF `$json.id` notEmpty) entre `Criar_Conversa1` e `Cria_Cliente`; se já cadastrado → `Wait4` (só cria/atualiza conversa); senão → `Cria_Cliente`. Validação n8n: 0 erros, 0 warnings. Testes ponta a ponta: INSERT duplicado falha com `23505`; trigger normaliza máscaras; consulta por telefone real retorna o cliente (não recria).
+
 **Documentos criados (T2.3):**
 - PRD: `tracking/plans/PRD-Semana2-T2.3-PedidosBanco.md`
 - SPEC: `tracking/specs/SPEC-Semana2-T2.3-PedidosBanco.md`
