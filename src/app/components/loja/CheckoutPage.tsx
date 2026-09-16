@@ -1051,7 +1051,7 @@ function CheckoutTenant({ slug }: { slug: string }) {
             </div>
           </header>
 
-          <div className="max-w-3xl mx-auto px-4 py-5 pb-28">
+          <div className="max-w-3xl mx-auto px-4 py-5" style={{ paddingBottom: "calc(7rem + env(safe-area-inset-bottom, 0px))" }}>
             {/* Banner loja indisponível (§2.5.4) */}
             {bannerIndisponivel && (
               <div className="mb-4 p-4 rounded-2xl text-center" style={{ background: "#FFFBEB", border: "1.5px solid #FDE68A" }}>
@@ -1143,16 +1143,16 @@ function CheckoutTenant({ slug }: { slug: string }) {
                   <Truck size={14} /> ENTREGA
                 </p>
                 <Campo label="CEP" obrigatorio error={cepErro || errosDoForm.cep?.message}>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 min-w-0">
                     <input inputMode="numeric"
                       {...form.register("cep", {
                         onChange: e => form.setValue("cep", maskCEP(e.target.value), { shouldValidate: true }),
                       })}
                       placeholder="00000-000"
-                      className="flex-1 px-4 py-3 rounded-xl border text-foreground text-sm outline-none focus:border-primary"
+                      className="min-w-0 flex-1 px-4 py-3 rounded-xl border text-foreground text-sm outline-none focus:border-primary"
                       style={{ borderColor: cepErro || errosDoForm.cep ? "#EF4444" : "#efefef", fontSize: "16px" }} />
                     <button type="button" onClick={handleBuscarCep} disabled={carregandoCep}
-                      className="px-4 py-3 rounded-xl border border-border text-foreground text-xs flex items-center gap-1.5"
+                      className="shrink-0 whitespace-nowrap px-4 py-3 rounded-xl border border-border text-foreground text-xs flex items-center gap-1.5"
                       style={{ fontWeight: 600, background: "white" }}>
                       {carregandoCep ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
                       Buscar
@@ -1249,7 +1249,8 @@ function CheckoutTenant({ slug }: { slug: string }) {
               </div>
 
               {/* CTA fixo */}
-              <div className="fixed bottom-0 inset-x-0 z-40 p-3 bg-white/95 backdrop-blur border-t border-border">
+              <div className="fixed bottom-0 inset-x-0 z-40 p-3 bg-white/95 backdrop-blur border-t border-border"
+                style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))" }}>
                 <div className="max-w-3xl mx-auto">
                   <button type="submit" disabled={enviando || carregandoCanonicos || bannerIndisponivel}
                     className="w-full py-4 rounded-2xl flex items-center justify-center gap-2 text-white transition-all active:scale-[0.98] disabled:opacity-60"
