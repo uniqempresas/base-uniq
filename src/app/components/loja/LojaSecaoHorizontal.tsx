@@ -1,21 +1,21 @@
-import { useNavigate } from "react-router";
 import { ImageOff } from "lucide-react";
 import { formatCurrencyLoja } from "./lojaMockData";
 import type { ProdutoLoja } from "../../types/loja";
 
 export interface LojaSecaoHorizontalProps {
   titulo: string;
-  slug: string;
   produtos: ProdutoLoja[];
 }
 
 /**
  * Seção com trilha horizontal (WIRE bloco ⑦) — a "vitrine dentro da vitrine".
  * Não renderiza com menos de 3 itens: seção quase vazia não ajuda a navegar.
+ *
+ * Os cards NÃO navegam (decisão do fundador, 17/09/2026): a página do produto
+ * ainda carrega conteúdo que não é da Doceê. Voltam a ser clicáveis quando essa
+ * tela for refeita (PRD V5).
  */
-export function LojaSecaoHorizontal({ titulo, slug, produtos }: LojaSecaoHorizontalProps) {
-  const navigate = useNavigate();
-
+export function LojaSecaoHorizontal({ titulo, produtos }: LojaSecaoHorizontalProps) {
   if (produtos.length < 3) return null;
 
   return (
@@ -26,11 +26,9 @@ export function LojaSecaoHorizontal({ titulo, slug, produtos }: LojaSecaoHorizon
 
       <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {produtos.map((p) => (
-          <button
+          <div
             key={p.id}
-            type="button"
-            onClick={() => navigate(`/loja/${slug}/produto/${p.id}`)}
-            className="w-36 shrink-0 snap-start overflow-hidden rounded-lg border bg-white text-left transition-shadow hover:shadow-md focus-visible:ring-2 focus-visible:ring-[#86cb92]/40 focus-visible:outline-none"
+            className="w-36 shrink-0 snap-start overflow-hidden rounded-lg border bg-white text-left"
             style={{ borderColor: "#efefef" }}
           >
             <div className="relative aspect-square w-full" style={{ background: "#efefef" }}>
@@ -64,7 +62,7 @@ export function LojaSecaoHorizontal({ titulo, slug, produtos }: LojaSecaoHorizon
                 {formatCurrencyLoja(p.preco)}
               </p>
             </div>
-          </button>
+          </div>
         ))}
       </div>
     </section>

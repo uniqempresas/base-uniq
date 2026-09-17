@@ -44,9 +44,10 @@ function ProdutoTenant({ slug, id }: { slug: string; id: string }) {
   const [quantidade, setQuantidade] = useState(1);
   const [adicionado, setAdicionado] = useState(false);
 
-  if (!loadingTenant && (!tenant || errorTenant)) return <LojaNaoEncontrada />;
-
-  const waLink = whatsappLinkLoja(tenant?.whatsapp);
+  // ⚠️ TODOS os hooks rodam ANTES de qualquer return condicional.
+  // O early return de tenant inválido executava 7 hooks num render e 6 no
+  // seguinte → erro React #310 (a mesma classe que derrubou o app em 11/09).
+  // Como a rota é PÚBLICA, qualquer URL com slug errado derrubava a tela.
 
   // Produto inexistente → volta para a vitrine
   useEffect(() => {
@@ -55,6 +56,9 @@ function ProdutoTenant({ slug, id }: { slug: string; id: string }) {
     }
   }, [loading, produto, slug, navigate]);
 
+  if (!loadingTenant && (!tenant || errorTenant)) return <LojaNaoEncontrada />;
+
+  const waLink = whatsappLinkLoja(tenant?.whatsapp);
   const naSacola = produto ? carrinho.itens.find(i => i.produtoId === produto.id) : null;
   const maximo = produto ? Math.max(1, produto.estoque) : 1;
 

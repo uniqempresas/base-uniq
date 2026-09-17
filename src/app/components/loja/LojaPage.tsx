@@ -215,10 +215,9 @@ function CartDrawer({ itens, onClose, onCheckout, onUpdateQty, onRemove }: {
 
 /* ─────────── [T1] Vitrine do tenant (/loja/:slug) ─────────── */
 
-function VitrineCardTenant({ produto, slug, estoqueMax, onAdd }: {
-  produto: ProdutoVitrine; slug: string; naSacola: boolean; estoqueMax: boolean; onAdd: () => void;
+function VitrineCardTenant({ produto, estoqueMax, onAdd }: {
+  produto: ProdutoVitrine; naSacola: boolean; estoqueMax: boolean; onAdd: () => void;
 }) {
-  const navigate = useNavigate();
   const [adicionado, setAdicionado] = useState(false);
 
   // Selo de desconto SÓ com preço "de" real (PRD V6) — o banco da Doceê não tem.
@@ -239,9 +238,12 @@ function VitrineCardTenant({ produto, slug, estoqueMax, onAdd }: {
   return (
     <div className="flex flex-col overflow-hidden rounded-lg border bg-white transition-shadow hover:shadow-md"
       style={{ borderColor: "#efefef" }}>
-      {/* Foto + selos */}
-      <button type="button" onClick={() => navigate(`/loja/${slug}/produto/${produto.id}`)}
-        className="relative block aspect-square w-full" style={{ background: "#efefef" }}>
+      {/* Foto + selos — SEM navegação por enquanto (decisão do fundador, 17/09/2026).
+          A página do produto existe (/loja/:slug/produto/:id), mas hoje carrega
+          conteúdo que não é da Doceê (avaliações mock de cosméticos) e tinha uma
+          corrida que devolvia o cliente para a vitrine — o que parecia recarregar
+          a página. O card volta a ser clicável quando a tela for refeita (PRD V5). */}
+      <div className="relative block aspect-square w-full" style={{ background: "#efefef" }}>
         {produto.fotoUrl ? (
           <img src={produto.fotoUrl} alt={produto.nome} loading="lazy"
             className="h-full w-full object-cover" style={{ opacity: produto.esgotado ? 0.5 : 1 }} />
@@ -265,7 +267,7 @@ function VitrineCardTenant({ produto, slug, estoqueMax, onAdd }: {
             </span>
           )}
         </div>
-      </button>
+      </div>
 
       {/* Info */}
       <div className="flex flex-1 flex-col p-3 text-left">
@@ -389,8 +391,8 @@ function LojaVitrineTenant({ slug }: { slug: string }) {
             onSelecionarCategoria={setCategoriaAtiva}
           />
 
-          {/* Seção horizontal (WIRE bloco ⑦) */}
-          {!loading && <LojaSecaoHorizontal titulo="Destaques" slug={slug} produtos={destaques} />}
+        {/* Seção horizontal (WIRE bloco ⑦) */}
+        {!loading && <LojaSecaoHorizontal titulo="Destaques" produtos={destaques} />}
         </div>
 
         {/* Aviso de catálogo demo (fallback) */}
@@ -464,7 +466,7 @@ function LojaVitrineTenant({ slug }: { slug: string }) {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {visiveis.map(p => (
                 <VitrineCardTenant
-                  key={p.id} produto={p} slug={slug}
+                  key={p.id} produto={p}
                   naSacola={carrinho.temItem(p.id)}
                   estoqueMax={carrinho.itens.find(i => i.produtoId === p.id)?.quantidade === p.estoque}
                   onAdd={() => carrinho.adicionar(p)}

@@ -606,6 +606,16 @@ Decisão do fundador após validar na Vercel: **pedido que chega do n8n/WhatsApp
 - **Risco:** `routes.tsx` virou arquivo crítico de ~68 rotas. Caminho de import errado quebra a rota (o build pega esse caso).
 - **Próximo ganho possível:** os 224 KB gzip do entry ainda contêm React, react-router, supabase-js, zod, react-hook-form e o código da loja/auth. Reduzir mais exigiria revisar o que a loja realmente importa.
 
+**Correção — clicar no produto "recarregava" a página (17/09/2026):**
+
+- **Sintoma relatado:** ao tocar num produto, a página parecia recarregar.
+- **Causa real — e NÃO era ausência de tela:** a página do produto existe (`ProdutoLojaPage`, `/loja/:slug/produto/:id`, desde o módulo da Loja Virtual). O que acontecia era uma **corrida em `useLojaProduto`**: antes de o tenant resolver, `empresaId` ainda é `undefined` e o hook cai direto no **fallback mock**; como os ids do mock não correspondem aos ids reais da Doceê, `produto` ficava `null` e `loading` virava `false` — o que disparava o efeito "produto inexistente" → `navigate('/loja/:slug', { replace: true })`. O cliente era devolvido à vitrine: exatamente o que parece um reload.
+- **Decisão do fundador:** **desabilitar a navegação do card** — a página do produto ainda carrega conteúdo que não é da Doceê (`AVALIACOES_MOCK` com textos de cosmético, datados de 2024). Volta a ser clicável quando for refeita (PRD V5).
+- **Implementado:** `VitrineCardTenant` e `LojaSecaoHorizontal` pararam de navegar (a foto virou `<div>` sem `onClick`; `slug` saiu das props). **Comprar continua idêntico** — o botão "Adicionar" não foi tocado.
+- 🐞 **Segundo bug, MAIS GRAVE, encontrado no mesmo arquivo e corrigido:** em `ProdutoLojaPage.ProdutoTenant` o `useEffect` rodava **depois** de um return condicional de tenant inválido — 7 hooks num render e 6 no seguinte. É a **mesma classe do erro React #310** que derrubou o app em 11/09, e disparava em **qualquer URL pública com slug errado** (`/loja/xxx/produto/1`). Hooks movidos para antes do return.
+- **Pendente para quando a página do produto voltar:** corrigir o fallback antecipado do `useLojaProduto` (não cair no mock antes de o tenant resolver) e substituir o conteúdo mock da tela (avaliações, parcelamento, frete).
+- **Verificação:** `tsc --noEmit` sem erros nos arquivos da loja · `npm run build` ✅ · o comportamento de clique **não foi verificado em runtime** (sem browser) — confirmar no celular.
+
 **📌 Ajuste visual ainda em aberto (não era o problema):** densidade da tela — massa escura do banner, seção "Destaques" duplicando a grade, e densidade da arte. Nada disso foi mexido; fica registrado caso o fundador queira aliviar depois de olhar com o carregamento corrigido.
 - Hooks novos: `use-loja-categorias`, `use-loja-appearance` · estendidos: `use-loja-tenant`, `use-loja-produtos`
 - Migration `20260917120000_docee_categorias_vitrine` **aplicada**: 5 categorias da Doceê + `categoria_id` nos 16 produtos (verificado: 16/16, 0 órfãos)
