@@ -687,6 +687,22 @@ Decisão do fundador após validar na Vercel: **pedido que chega do n8n/WhatsApp
 
 ---
 
+**✅ Foto do contato do WhatsApp importada para `me_cliente` (17/09/2026):**
+
+- **Pedido:** importar para `me_cliente` a foto do contato que já é salva em `crm_chat_conversas.foto_contato`.
+- **⚠️ Armadilha medida ANTES de gravar qualquer coisa:** as URLs são `pps.whatsapp.net` com assinatura de expiração (`oe`). A do Leandro (`oe=696E3167`) decodifica para **19/01/2026** e responde **403** — prova empírica de que `oe` é expiração. A do Thamires (`oe=6AB97DAB`) vence em **27/09/2026**. **Guardar o link = imagem quebrada em ~10 dias.**
+- **Outros dois fatos medidos:** `me_cliente.foto_url` **já existia** (nenhuma migration de coluna foi necessária) e `crm_chat_conversas.cliente_id` está **NULL nas 25 conversas** — o casamento é por telefone (`fn_normalizar_telefone(canal_id) = me_cliente.telefone`), que liga 7 conversas a cliente.
+- **Solução:** Edge Function **`persistir-foto-cliente`** (deploy via MCP — o MCP não tem ferramenta de Storage, mas Edge Function roda com `SUPABASE_SERVICE_ROLE_KEY` injetado). Baixa a foto, valida host/tipo/tamanho, sobe em `uniq_me_produtos/clientes/{cliente_id}.jpg` e grava a URL **estável** em `me_cliente.foto_url`.
+- **Resultado — 4 clientes:** Thamires, Thalita, Luan e Henriq, todos com URL pública do Storage respondendo **HTTP 200 `image/jpeg`** e bytes idênticos aos originais.
+- **Guardas comprovadas em dados reais:** Laura (**placeholder do Vecteezy**) recusada pelo allowlist de host; Leandro (**URL expirada**) recusada por 403. Nos dois casos o cliente **não foi tocado**.
+- **Segurança:** segredo compartilhado `x-uniq-secret` (401 sem ele **e** com valor errado — testado), allowlist de host (anti-SSRF), limite de 2 MB, exige `content-type: image/*` e só grava se o cliente ainda não tem foto. O valor do segredo vive **só** na function deployada e no `.env` (gitignored, verificado fora do `git status`).
+- ⚠️ **Cópias locais de segurança** dos 4 arquivos em `C:\Users\henri\AppData\Local\Temp\opencode\fotos-clientes\` — baixadas antes do vencimento.
+- **⏳ Pendente com o fundador:** ligar a function no fluxo `atendente_Docee` do n8n (POST com `{ telefone }` + header `x-uniq-secret`) para as conversas novas persistirem a foto sozinhas.
+- **Fora de escopo:** exibir a foto na UI do CRM — é mudança de tela, pede o pipeline SDD completo (PRD/SPEC/WIRE).
+- **SPEC:** `tracking/specs/SPEC-PersistirFotoCliente.md`
+
+---
+
 ## ➕ PENDÊNCIAS QUE DEPENDEM DO FUNDADOR
 
 | # | Item | Necessário antes de | Observação |
