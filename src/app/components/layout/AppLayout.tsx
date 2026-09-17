@@ -83,6 +83,10 @@ const SUBNAV_SECTIONS: SubNavSection[] = [
     subtitle: "Visão Geral",
     items: [
       { id: "visao-geral", label: "Visão Geral", path: "/dashboard", icon: LayoutDashboard },
+      // Atalho para Pedidos direto da visão da empresa (mesmo destino do item em
+      // Vendas & PDV). A subnav mostra só a seção do rail ativo, então não há
+      // dois itens acesos ao mesmo tempo.
+      { id: "me-pedidos", label: "Pedidos", path: "/vendas/pedidos", icon: ShoppingCart },
       {
         id: "cadastros",
         label: "Cadastros",
