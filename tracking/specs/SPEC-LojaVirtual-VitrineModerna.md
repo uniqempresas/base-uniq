@@ -198,6 +198,40 @@ O banner tem **altura fixa e largura variável**, com `object-cover` (preenche e
 O componente `VeuBanner` decide pelo conteúdo: sem imagem → superfície grafite; com imagem e texto → véu; com imagem e sem texto → sem véu.
 
 **Não existe tela para editar banners** (V4 fora da v1). Para publicar: subir o arquivo no bucket público `uniq_me_produtos` e escrever o JSON em `me_empresa.appearance.hero.banners[]`.
+Alternativa usada em 17/09/2026: colocar o arquivo em `public/banners/` — o Vite copia para a raiz do `dist/` e a Vercel serve em `https://base-uniq.vercel.app/banners/<arquivo>`.
+
+#### Receita para gerar a arte em IA
+
+Ferramentas de IA geram em proporções fixas. Peça a mais próxima da exata:
+
+| Slot | Proporção exata | Peça à IA | Exporte em |
+|---|---|---|---|
+| Desktop | 4,67:1 | `47:10` (Midjourney) ou `4:1` | **2240 × 480** |
+| Mobile | 2,25:1 | `9:4` ou `21:9` | **1080 × 480** |
+
+Se a ferramenta só oferecer 16:9 (1,78:1): gere **2240 × 1260** e recorte a **faixa central de 480px** — apenas ~38% da altura sobrevive, então o assunto tem de estar rigorosamente no centro.
+
+**Caminho mais simples (uma geração só):** gere em **21:9** e exporte os dois recortes —
+- `mobile_url`: 1080 × 480 (quase sem corte: 21:9 = 2,33:1 contra 2,25:1 do slot)
+- `desktop_url`: 2240 × 480 (recorte central da mesma arte)
+
+**Como escrever o prompt:**
+- **Sem texto na imagem.** IA erra letras — e aqui o texto vem do dado do banner (`title` / `subtitle` / `button_text`), então fica nítido e trocável sem refazer a arte.
+- **Assunto à direita**, deixando ~40% da esquerda livre e calmo: ali entram o véu escuro e o texto.
+- **Assunto centralizado na vertical** — o recorte varia de 2,24:1 a 3,79:1 conforme a largura do celular.
+- **Fundo escuro/neutro** funciona melhor, porque o véu e o texto são claros.
+- Evite: texto, logotipo, marca d'água, rostos ou produtos cortados nas bordas.
+
+**Exportação:** JPG ou WebP · **≤ 300 KB** · nada de PNG pesado.
+
+#### Banners de marca do repositório (placeholders oficiais)
+
+Enquanto não há arte final, o repositório entrega dois SVGs de marca (vetoriais, paleta do `DESIGN.md`, **sem texto embutido** — estratégia A):
+
+- `public/banners/docee-banner-desktop.svg` — 2240 × 480
+- `public/banners/docee-banner-mobile.svg` — 1080 × 480
+
+São decorativos e abstraídos de propósito: não tentam ilustrar doces, então não envelhecem nem competem com a arte real. Trocar é substituir a URL no JSON.
 
 ### `VitrineCardTenant` (evolução)
 - Mantém foto, nome, preço, ação. Ganha: **categoria** (micro-texto), **selo de desconto condicional** (V6), selo "Esgotado".

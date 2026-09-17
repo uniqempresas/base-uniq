@@ -15,10 +15,10 @@ function texto(valor: unknown): string {
   return typeof valor === "string" ? valor.trim() : "";
 }
 
-/** Só devolve os tipos de link que a vitrine sabe acionar */
+/** Só devolve os tipos de link que a vitrine sabe acionar (`grid` = âncora interna) */
 function normalizarLink(valor: unknown): BannerLoja["linkTipo"] {
   const v = texto(valor);
-  if (v === "product" || v === "external" || v === "category") return v;
+  if (v === "product" || v === "external" || v === "category" || v === "grid") return v;
   return null;
 }
 
