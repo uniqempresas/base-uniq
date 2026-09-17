@@ -47,8 +47,6 @@ export function EntrarClientePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessao.carregado, sessao.logado, slug]);
 
-  if (!loadingTenant && (!tenant || errorTenant)) return <LojaNaoEncontrada />;
-
   const telefoneValido = digitos.length >= 10;
   const waLink = whatsappLinkLoja(tenant?.whatsapp);
 
@@ -67,6 +65,12 @@ export function EntrarClientePage() {
     if (semCliente) setNaoEncontrado(true);
     if (erroLookup) setBancoIndisponivel(true);
   }, [semCliente, erroLookup]);
+
+  // ⚠️ Guarda DEPOIS de todos os hooks. Antes ela ficava no meio do componente:
+  // no 1º render `loadingTenant` é true e a guarda não dispara; no 2º, com slug
+  // inválido, ela dispara e o número de hooks cai → React #310 em qualquer URL
+  // pública com slug errado (ex.: /loja/xxx/entrar).
+  if (!loadingTenant && (!tenant || errorTenant)) return <LojaNaoEncontrada />;
 
   const handleEntrar = form.handleSubmit(async dados => {
     if (carregandoCliente) return; // botão mostra "Verificando..."

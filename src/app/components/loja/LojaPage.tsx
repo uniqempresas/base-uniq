@@ -508,7 +508,18 @@ function LojaVitrineTenant({ slug }: { slug: string }) {
 export function LojaPage() {
   const { slug } = useParams();
   if (slug) return <LojaVitrineTenant slug={slug} />;
+  return <LojaDemo />;
+}
 
+/**
+ * Variante de demonstração (`/loja`), sem tenant.
+ *
+ * ⚠️ Componente SEPARADO de propósito. Antes os hooks da demo viviam no mesmo
+ * componente do `if (slug)`, então o número de hooks mudava ao alternar entre
+ * `/loja` e `/loja/:slug` — mesmo componente na árvore, contagem diferente →
+ * erro React #310 (a mesma classe que derrubou o app em 11/09).
+ */
+function LojaDemo() {
   const navigate = useNavigate();
   const [carrinho, setCarrinho] = useState<ItemCarrinhoLoja[]>([]);
   const [showCart, setShowCart] = useState(false);

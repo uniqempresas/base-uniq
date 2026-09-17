@@ -261,7 +261,15 @@ function PedidoCard({ pedido, expanded, onToggle }: { pedido: Pedido; expanded: 
 export function MeusPedidosPage() {
   const { slug } = useParams();
   if (slug) return <Navigate to={`/loja/${slug}/conta`} replace />;
+  return <MeusPedidosDemo />;
+}
 
+/**
+ * Variante de demonstração (`/loja/pedidos`).
+ * ⚠️ Componente separado de propósito — ver comentário em `LojaDemo`
+ * (`LojaPage.tsx`): evita React #310 na troca entre as duas variantes.
+ */
+function MeusPedidosDemo() {
   const navigate = useNavigate();
   const [expandedId, setExpandedId] = useState<string | null>(PEDIDOS_MOCK[0]?.id || null);
   const [statusFiltro, setStatusFiltro] = useState<PedidoStatus | "todos">("todos");

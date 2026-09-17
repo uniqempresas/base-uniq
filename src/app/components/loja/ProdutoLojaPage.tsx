@@ -208,7 +208,15 @@ function ProdutoTenant({ slug, id }: { slug: string; id: string }) {
 export function ProdutoLojaPage() {
   const { slug, id } = useParams();
   if (slug && id) return <ProdutoTenant slug={slug} id={id} />;
+  return <ProdutoDemo id={id} />;
+}
 
+/**
+ * Variante de demonstração (`/loja/produto/:id`), sem tenant.
+ * ⚠️ Componente separado de propósito — ver comentário em `LojaDemo`
+ * (`LojaPage.tsx`): evita React #310 na troca entre as duas variantes.
+ */
+function ProdutoDemo({ id }: { id: string | undefined }) {
   const navigate = useNavigate();
   const produto = PRODUTOS_LOJA.find(p => p.id === id) || PRODUTOS_LOJA[0];
   const desconto = calcDesconto(produto.preco, produto.precoAntigo);

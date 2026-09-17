@@ -52,7 +52,15 @@ function InputField({ label, value, onChange, placeholder, type = "text", error,
 export function CheckoutPage() {
   const { slug } = useParams();
   if (slug) return <CheckoutTenant slug={slug} />;
+  return <CheckoutDemo />;
+}
 
+/**
+ * Variante de demonstração (`/loja/checkout`), sem tenant.
+ * ⚠️ Componente separado de propósito — ver comentário em `LojaDemo`
+ * (`LojaPage.tsx`): evita React #310 na troca entre as duas variantes.
+ */
+function CheckoutDemo() {
   const navigate = useNavigate();
   const location = useLocation();
   const carrinho: ItemCarrinhoLoja[] = (location.state as any)?.carrinho || DEFAULT_CART;
