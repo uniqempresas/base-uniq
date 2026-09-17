@@ -260,6 +260,23 @@ onError: continueRegularOutput   ← uma falha da função NUNCA quebra o atendi
 
 **Respostas possíveis da função:** `success` · `ignorado` (cliente já tem foto — mas o avatar da conversa é estabilizado mesmo assim) · `Host nao permitido` (placeholder) · `Origem respondeu 403` (foto expirada) · `Cliente nao encontrado` (404).
 
+### 🐞 Bug encontrado no primeiro teste real — e corrigido na v3 (17/09/2026)
+
+O primeiro teste ponta a ponta **falhou**, e a investigação achou a causa:
+
+- **O nó do n8n rodou** (execução `4563`) e **a função foi chamada** — os logs do Supabase (`function_edge_logs`) mostram o `POST /persistir-foto-cliente` às `23:39:33` com **`status_code: 500`**.
+- Mas o `onError: continueRegularOutput` marcou o nó como `success`, e o corpo do erro aparecia como **`[object Object]`** — o erro estava **escondido**.
+
+**Causa raiz — erro meu de multi-tenancy:** o caminho `{ telefone }` buscava o cliente **sem filtrar empresa** e usava `.maybeSingle()`, que **estoura quando encontra mais de uma linha**. O telefone **não é único entre empresas**: o número `5511941484562` existe em **3 tenants** (Doceê, `61616cfa` e UNIQ Empresas).
+
+**Correções na v3:**
+
+1. **`empresa_id` passou a ser obrigatório junto do telefone** — sem ele, a função devolve **400** com o motivo explícito, em vez de tentar um palpite ambíguo.
+2. **O n8n agora manda `cliente_id`** — que é único e **já estava fluindo no item** (o `Wait4` entrega a linha completa do cliente). Deixou de reconstruir por telefone algo que já tinha em mãos.
+3. **O erro passou a ser serializado de verdade** (`message`, `code`, `details`, `hint`), porque erros do PostgREST/Storage **não são instâncias de `Error`** — era isso que virava `[object Object]`.
+
+**Lição registrada:** `onError: continueRegularOutput` é certo para não derrubar o atendimento, mas **esconde falha silenciosa**. O corpo da resposta precisa ser inspecionado — foi o que o `preview` da execução permitiu.
+
 ### ⚠️ Gap separado, não corrigido aqui
 
 O fluxo **cria o cliente mas não vincula a conversa a ele** — `crm_chat_conversas.cliente_id` fica **NULL**. Foi verificado na conversa nova do Henriq Silva (17/09). Isso é outra preocupação (o CRM não sabe de quem é a conversa), fora do escopo da foto, e precisa de decisão antes de mexer.
