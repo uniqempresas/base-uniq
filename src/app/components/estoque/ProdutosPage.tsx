@@ -31,9 +31,22 @@ import {
 } from "./estoqueMockData";
 import { useProdutos } from "../../hooks/use-produtos";
 import { useAtualizarProduto } from "../../hooks/use-atualizar-produto";
-import { useTags } from "../../hooks/use-tags";
+import { useTags, getTagPalette } from "../../hooks/use-tags";
 import { useCategorias } from "../../hooks/use-categorias";
 import { ProdutoFormModal } from "./ProdutoFormModal";
+
+/**
+ * Cor do chip de categoria de um produto.
+ *
+ * Usa a cor REAL (`me_categoria.cor`, exposta em `produto.categoriaCor`). O mapa
+ * `CATEGORIA_COLORS` é indexado por NOME e virou legado: com as categorias reais
+ * ele caía no fallback e todos os chips ficavam iguais. Ele só permanece para os
+ * produtos de demonstração, que não têm categoria no banco.
+ */
+function corCategoria(cor?: string | null, nome?: string) {
+  if (cor) return getTagPalette(cor);
+  return CATEGORIA_COLORS[nome || ""] || CATEGORIA_COLORS["Outros"];
+}
 
 type ViewMode = "grid" | "list";
 
@@ -76,7 +89,7 @@ function MargemChip({ pct }: { pct: number }) {
 function ProdutoGridCard({ produto, onClick, onDelete, onEdit }: { produto: Produto; onClick: () => void; onDelete: () => void; onEdit: () => void }) {
   const [hovered, setHovered] = useState(false);
   const [imgFalhou, setImgFalhou] = useState(false);
-  const catColors = CATEGORIA_COLORS[produto.categoria] || CATEGORIA_COLORS["Outros"];
+  const catColors = corCategoria(produto.categoriaCor, produto.categoria);
   const temFoto = Boolean(produto.foto) && !imgFalhou;
   const margem = calcMargem(produto.precoCusto, produto.precoVenda);
   const statusColor =
@@ -639,7 +652,7 @@ export function ProdutosPage() {
               </thead>
               <tbody>
                 {filteredProdutos.map((p) => {
-                  const catColors = CATEGORIA_COLORS[p.categoria] || CATEGORIA_COLORS["Outros"];
+                  const catColors = corCategoria(p.categoriaCor, p.categoria);
                   const margem = calcMargem(p.precoCusto, p.precoVenda);
                   return (
                     <tr key={p.id} className="border-b border-[#efefef] hover:bg-[#efefef]/50 transition-colors cursor-pointer" onClick={() => navigate(`/estoque/produtos/${p.id}`)} style={{ opacity: p.status === "inativo" ? 0.6 : 1 }}>

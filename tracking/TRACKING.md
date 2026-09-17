@@ -681,7 +681,8 @@ Decisão do fundador após validar na Vercel: **pedido que chega do n8n/WhatsApp
 - **Leitura corrigida** (`use-produtos`, `use-produto`): embed do PostgREST `me_categoria(nome_categoria, cor)` resolve o nome **na mesma query** (verificado em produção antes de implementar). Produto sem categoria agora é **"Sem categoria"** — nunca mais "Outros".
 - **`use-loja-categorias`** filtra `ativo`, então categoria removida sai da barra da loja.
 - **Verificação:** `tsc --noEmit` sem erros novos (segue **13**, todos de outros módulos) · `npm run build` ✅
-- **⏳ Pendência cosmética registrada:** as chips de categoria nas **listas** (`ProdutosPage`, `ProdutoDetalhePage`) ainda usam o mapa mock `CATEGORIA_COLORS` indexado por **nome**, então caem na cor de fallback. Correção: usar `categoriaCor` (já disponível no tipo `Produto`).
+- ✅ **Chips de categoria nas listas com a cor real (17/09/2026):** `ProdutosPage` e `ProdutoDetalhePage` passaram a usar um helper `corCategoria()` que prefere `getTagPalette(produto.categoriaCor)`. O mapa legado `CATEGORIA_COLORS` (indexado por **nome**) só entra quando o produto **não** tem categoria no banco — ou seja, nos dados de demonstração. Antes, com as categorias reais, todos os chips caíam na cor de fallback e ficavam idênticos.
+  - ⚠️ **Fica de fora de propósito:** as chips de **filtro** por categoria (`ProdutosPage`) continuam no mapa legado, o que as deixa neutras — um filtro neutro é melhor que um filtro colorido competindo com os chips do produto.
 - 🔒 **RLS:** `me_categoria` está com RLS **desligado** (0 políticas), então a escrita vem do cliente — mesma situação de `me_tag`. Entra na revisão do **P5** antes de produção com dados reais.
 
 ---

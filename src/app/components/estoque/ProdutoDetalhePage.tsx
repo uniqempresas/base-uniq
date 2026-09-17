@@ -39,9 +39,19 @@ import {
 } from "./estoqueMockData";
 import { useProduto } from "../../hooks/use-produto";
 import { useAtualizarProduto } from "../../hooks/use-atualizar-produto";
-import { useTags } from "../../hooks/use-tags";
+import { useTags, getTagPalette } from "../../hooks/use-tags";
 import { ProdutoFormModal } from "./ProdutoFormModal";
 import { useCategorias } from "../../hooks/use-categorias";
+
+/**
+ * Cor do chip de categoria de um produto.
+ * Usa a cor REAL (`me_categoria.cor` → `produto.categoriaCor`); o mapa
+ * `CATEGORIA_COLORS` por nome é legado e serve só aos produtos de demonstração.
+ */
+function corCategoria(cor?: string | null, nome?: string) {
+  if (cor) return getTagPalette(cor);
+  return CATEGORIA_COLORS[nome || ""] || CATEGORIA_COLORS["Outros"];
+}
 import { useAuth } from "../../contexts/AuthContext";
 import { supabase } from "../../../lib/supabase";
 
@@ -320,7 +330,7 @@ export function ProdutoDetalhePage() {
 
   const margem = calcMargem(produto.precoCusto, produto.precoVenda);
   const estoqueConfig = getEstoqueStatusConfig(produto.estoqueStatus);
-  const catColors = CATEGORIA_COLORS[produto.categoria] || CATEGORIA_COLORS["Outros"];
+  const catColors = corCategoria(produto.categoriaCor, produto.categoria);
 
   const TABS = [
     { id: "geral", label: "Geral", icon: Package },
