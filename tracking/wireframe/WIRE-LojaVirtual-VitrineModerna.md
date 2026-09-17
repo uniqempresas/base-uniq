@@ -18,8 +18,8 @@
 | 3 | Carrinho | Acesso permanente à sacola | `useCarrinhoLoja(slug)` | Sempre (badge só com ≥ 1 item) |
 | 4 | Busca | Achar produto por nome | `nome_produto` (filtro local) | Sempre |
 | 5 | Categorias | Navegar por família de produto | `me_categoria` × `me_produto.categoria_id` | Só se houver ≥ 1 categoria com produto |
-| 6 | Banner | Campanha / destaque da loja | `me_empresa.appearance.hero.banners[]` | Sempre (fallback: banner gerado) |
-| 7 | Seção horizontal | Vitrine dentro da vitrine | `me_produto` (ordem por preço/nome) | Só se houver ≥ 3 produtos |
+| 6 | Banner | Campanha / destaque da loja | `me_empresa.appearance.hero.banners[]` | Sempre (fallback: banner gerado) — **no mobile, oculto quando há categoria ativa** |
+| 7 | Seção horizontal | Vitrine dentro da vitrine | `me_produto` (ordem por preço/nome) | Só se houver ≥ 3 produtos — **no mobile, oculta quando há categoria ativa** |
 | 8 | Grade de produtos | O catálogo | `me_produto` (`ativo`, `exibir_vitrine`) | Sempre (empty/erro tratados) |
 | 9 | Barra fixa da sacola | Fechar a compra | `carrinho.quantidadeTotal`, total | Só com ≥ 1 item |
 
@@ -248,7 +248,7 @@
 |---|---|---|
 | **Busca** | digitar | filtra a grade em tempo real por `nome_produto` (sem debounce — 16 itens) |
 | **Busca** | `✕` ou `Esc` | limpa o termo e restaura a grade |
-| **Categoria** | toque | marca como ativa (`aria-pressed`), filtra a grade; `Tudo` remove o filtro |
+| **Categoria** | toque | marca como ativa (`aria-pressed`), filtra a grade; `Tudo` remove o filtro. **No mobile, banner e Destaques ficam ocultos enquanto houver categoria ativa** (reaparecem em `Tudo`); no desktop permanecem |
 | **Banner** | scroll horizontal | move entre slides com encaixe (snap); autoplay **pausa** ao interagir |
 | **Banner** | toque no botão | `link_type` `product` → navega para o produto · `external` → abre link · `category` → seleciona a categoria |
 | **Banner** | autoplay | avança a cada `interval` (default 5000ms); **desligado** se `prefers-reduced-motion` |

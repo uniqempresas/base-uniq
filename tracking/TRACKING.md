@@ -572,6 +572,7 @@ Decisão do fundador após validar na Vercel: **pedido que chega do n8n/WhatsApp
 - Categorias reais de `me_categoria`, filtradas pelas que têm produto (barra não renderiza vazia)
 - Seção horizontal "Destaques"; selo de desconto **só** com `preco_varejo > preco` (não existe na Doceê → sem selo)
 - Grid 2→3→4 colunas, container `max-w-6xl`, radius 8px (token do `DESIGN.md`)
+- **Ajuste 17/09 (fundador):** com categoria ativa, banner e Destaques somem **no mobile** (permanecem no desktop); a busca por texto ainda não dispara esse comportamento
 - Hooks novos: `use-loja-categorias`, `use-loja-appearance` · estendidos: `use-loja-tenant`, `use-loja-produtos`
 - Migration `20260917120000_docee_categorias_vitrine` **aplicada**: 5 categorias da Doceê + `categoria_id` nos 16 produtos (verificado: 16/16, 0 órfãos)
 - Verificação: `npm run build` ✅ · tipos ✅ (0 erros nos arquivos da loja) · console sem erro React (#310) · bundle de produção conferido por marcador

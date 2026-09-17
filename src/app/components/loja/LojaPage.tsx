@@ -377,16 +377,21 @@ function LojaVitrineTenant({ slug }: { slug: string }) {
       />
 
       <div className="max-w-6xl mx-auto px-4 py-5">
-        {/* Banner da loja (WIRE bloco ⑥) — fallback gerado quando não há banner configurado */}
-        <LojaBannerCarousel
-          appearance={appearance}
-          loading={loadingTenant}
-          slug={slug}
-          onSelecionarCategoria={setCategoriaAtiva}
-        />
+        {/* Banner + Destaques. Ajuste do fundador (17/09): no mobile somem quando há
+            categoria ativa, para o produto filtrado aparecer sem o usuário rolar.
+            No desktop permanecem — o espaço vertical não é o gargalo lá. */}
+        <div className={categoriaAtiva !== null ? "hidden lg:block" : undefined}>
+          {/* Banner da loja (WIRE bloco ⑥) — fallback gerado quando não há banner configurado */}
+          <LojaBannerCarousel
+            appearance={appearance}
+            loading={loadingTenant}
+            slug={slug}
+            onSelecionarCategoria={setCategoriaAtiva}
+          />
 
-        {/* Seção horizontal (WIRE bloco ⑦) */}
-        {!loading && <LojaSecaoHorizontal titulo="Destaques" slug={slug} produtos={destaques} />}
+          {/* Seção horizontal (WIRE bloco ⑦) */}
+          {!loading && <LojaSecaoHorizontal titulo="Destaques" slug={slug} produtos={destaques} />}
+        </div>
 
         {/* Aviso de catálogo demo (fallback) */}
         {isFallback && (

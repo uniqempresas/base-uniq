@@ -162,7 +162,16 @@ Recebe os produtos já carregados, deriva as categorias presentes e devolve:
 
 ### `LojaSecaoHorizontal`
 - Título + "Ver todos" + trilha com scroll lateral de cards compactos.
-- Renderiza só se houver ≥ 1 item; caso contrário não ocupa espaço.
+- Renderiza só com **≥ 3 produtos** (condição do WIRE §1); abaixo disso não ocupa espaço.
+
+### Ajuste 17/09/2026 — foco no produto filtrado (mobile)
+Com **categoria ativa**, o bloco `banner + Destaques` recebe `hidden lg:block`: some no
+mobile (o produto filtrado aparece sem o usuário rolar) e permanece no desktop. Ao voltar
+para `Tudo`, os blocos reaparecem. Implementado em `LojaPage.tsx` com **CSS puro** — sem
+detecção de breakpoint em JS, sem estado extra.
+Observação: a **busca por texto** não dispara esse comportamento (o fundador pediu
+especificamente para categoria). Estender para a busca é trocar a condição por
+`filtroAtivo`.
 
 ### `VitrineCardTenant` (evolução)
 - Mantém foto, nome, preço, ação. Ganha: **categoria** (micro-texto), **selo de desconto condicional** (V6), selo "Esgotado".
