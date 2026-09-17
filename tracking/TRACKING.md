@@ -584,6 +584,18 @@ Decisão do fundador após validar na Vercel: **pedido que chega do n8n/WhatsApp
 - Frases são placeholder ("Nossos doces" / "Escolha e peça pelo site" / "Ver o cardápio") — trocar pelas do fundador
 - ⚠️ **Provisório:** a URL vive no Vercel, não no Storage (bucket exige INSERT `authenticated`; não há `service_role` no ambiente). Migrar para o bucket = 1 UPDATE na URL. O caminho `public/` **não escala por tenant** (trocar arte = deploy)
 - **Rollback:** `UPDATE me_empresa SET appearance = '{}'::jsonb WHERE id = '52aa05bf-a9e1-43e2-a46a-ec3cbd37c12f';`
+
+**⏳ AJUSTE PENDENTE — vitrine "pesada" (feedback do fundador, 17/09/2026):**
+
+- Fundador validou o banner na Vercel: **arte aprovada** ("está ótimo").
+- Porém a **tela como um todo ficou pesada** — pedido literal: *"vamos deixar de forma mais leve"*.
+- ⚠️ O agente **não viu a tela renderizada**: o MCP do Chrome não anexa porque o navegador do fundador ocupa o mesmo perfil (`chrome-profile`). Toda a análise abaixo é inferência, não observação.
+- Suspeitas, em ordem de probabilidade:
+  1. **Massa escura do banner** — grafite `#1f2937` cobrindo 240px (desktop) / 160px (mobile) de largura total, logo no topo
+  2. **Empilhamento antes dos produtos** — banner + seção "Destaques" + barra de categorias, tudo antes do primeiro produto
+  3. **Densidade da arte** — círculos sólidos menta + confete + anel tracejado + padrão de pontos
+- Candidatos de correção: reduzir a altura do banner · remover ou enxugar "Destaques" (duplica a grade) · aliviar a arte (menos elementos, base menos escura) · mais respiro entre blocos
+- **Bloqueio:** aguardando o fundador definir o que "pesado" significa, para não gastar deploy no achismo
 - Hooks novos: `use-loja-categorias`, `use-loja-appearance` · estendidos: `use-loja-tenant`, `use-loja-produtos`
 - Migration `20260917120000_docee_categorias_vitrine` **aplicada**: 5 categorias da Doceê + `categoria_id` nos 16 produtos (verificado: 16/16, 0 órfãos)
 - Verificação: `npm run build` ✅ · tipos ✅ (0 erros nos arquivos da loja) · console sem erro React (#310) · bundle de produção conferido por marcador
