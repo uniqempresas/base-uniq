@@ -720,6 +720,23 @@ Decisão do fundador após validar na Vercel: **pedido que chega do n8n/WhatsApp
 - 🐞 **Gap separado, NÃO corrigido:** o fluxo **cria o cliente mas deixa `crm_chat_conversas.cliente_id` NULL** — verificado na conversa nova do Henriq Silva (17/09). É outra preocupação (o CRM não sabe de quem é a conversa), fora do escopo da foto, e precisa de decisão antes de mexer.
 - **Restaurar, se precisar:** `INSERT INTO me_cliente SELECT * FROM _bk_20260917_me_cliente;` (idem para as demais `_bk_20260917_*`).
 
+**🧹 Segunda limpeza da Doceê — só conversas e clientes (17/09/2026):**
+
+Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e validar a automação da foto, o fundador pediu para limpar **apenas conversas e clientes** desta vez — pedidos/financeiro ficariam de fora.
+
+| Tabela | Antes | Depois |
+|---|---|---|
+| `crm_chat_conversas` | 1 | 0 |
+| `crm_chat_mensagens` | 2 | 0 |
+| `me_cliente` | 1 | 0 |
+| `me_contas_receber` · `me_venda` | 0 | **intocados** |
+| `me_produto` · `me_categoria` | 16 · 5 | **preservados** |
+
+- **Backup com nome distinto** para não sobrescrever o anterior: `_bk_20260917b_*` (3 tabelas), contagens conferidas antes do DELETE.
+- **A armadilha de FK era inofensiva aqui:** `me_cliente` tem CASCADE para `me_contas_receber` e `me_venda_servicos`, mas ambos estavam em **0** — verificado **antes** de apagar, justamente para não derrubar financeiro sem o fundador ter pedido.
+- ⚠️ **Storage órfão:** a foto `clientes/3107627e-…jpg` (Henriq) ficou sem dono outra vez. Inofensiva.
+- **Total de backups no banco:** 11 tabelas (`_bk_20260917_*` 8 + `_bk_20260917b_*` 3). Podem ser removidas quando o fundador confirmar.
+
 ---
 
 ## ➕ PENDÊNCIAS QUE DEPENDEM DO FUNDADOR
