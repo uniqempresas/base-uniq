@@ -573,6 +573,17 @@ Decisão do fundador após validar na Vercel: **pedido que chega do n8n/WhatsApp
 - Seção horizontal "Destaques"; selo de desconto **só** com `preco_varejo > preco` (não existe na Doceê → sem selo)
 - Grid 2→3→4 colunas, container `max-w-6xl`, radius 8px (token do `DESIGN.md`)
 - **Ajuste 17/09 (fundador):** com categoria ativa, banner e Destaques somem **no mobile** (permanecem no desktop); a busca por texto ainda não dispara esse comportamento
+
+**Banner de marca ligado para testes (17/09/2026 — commit `bb9d363`):**
+- Dois SVGs de marca — abstratos e **sem texto embutido** (estratégia A) — publicados em `public/banners/` e servidos pela Vercel:
+  - `https://base-uniq.vercel.app/banners/docee-banner-desktop.svg` (2240 × 480)
+  - `https://base-uniq.vercel.app/banners/docee-banner-mobile.svg` (1080 × 480)
+- `me_empresa.appearance` da Doceê (antes `{}`) recebeu `hero.banners[0]` apontando para essas URLs + `theme` (verde menta / radius 8px / Poppins)
+- **Verificado com a anon key e a query exata do hook** (`select id, slug, nome_fantasia, logo_url, telefone, store_config, appearance`): 11/11 chaves lidas OK · ambos os arquivos com `HTTP 200` e `Content-Type: image/svg+xml`
+- Corrigido no mesmo commit: `normalizarLink` aceitava `product`/`external`/`category` mas **não `grid`** — o tipo existia em `BannerLoja` e no acionador, então um banner com `link_type: "grid"` não renderizava botão
+- Frases são placeholder ("Nossos doces" / "Escolha e peça pelo site" / "Ver o cardápio") — trocar pelas do fundador
+- ⚠️ **Provisório:** a URL vive no Vercel, não no Storage (bucket exige INSERT `authenticated`; não há `service_role` no ambiente). Migrar para o bucket = 1 UPDATE na URL. O caminho `public/` **não escala por tenant** (trocar arte = deploy)
+- **Rollback:** `UPDATE me_empresa SET appearance = '{}'::jsonb WHERE id = '52aa05bf-a9e1-43e2-a46a-ec3cbd37c12f';`
 - Hooks novos: `use-loja-categorias`, `use-loja-appearance` · estendidos: `use-loja-tenant`, `use-loja-produtos`
 - Migration `20260917120000_docee_categorias_vitrine` **aplicada**: 5 categorias da Doceê + `categoria_id` nos 16 produtos (verificado: 16/16, 0 órfãos)
 - Verificação: `npm run build` ✅ · tipos ✅ (0 erros nos arquivos da loja) · console sem erro React (#310) · bundle de produção conferido por marcador
