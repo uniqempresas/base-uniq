@@ -749,6 +749,15 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 - ⚠️ **Storage órfão:** a foto `clientes/3107627e-…jpg` (Henriq) ficou sem dono outra vez. Inofensiva.
 - **Total de backups no banco:** 11 tabelas (`_bk_20260917_*` 8 + `_bk_20260917b_*` 3). Podem ser removidas quando o fundador confirmar.
 
+**✅ Foto do cliente exibida no CRM (17/09/2026, commit `cd98994`):**
+
+- **Sintoma:** a foto **estava no banco** (`me_cliente.foto_url`, gravada pela automação do WhatsApp) mas a tela de clientes mostrava só as iniciais.
+- **Causa — furo de mapeamento, não de UI:** `mapClienteToCliente` (em `use-clientes` **e** `use-cliente`) **nunca preenchia `avatar`**, apesar de `DBCliente.foto_url` ser declarado e o tipo `Cliente` já ter o campo. O dado morria no mapper e nunca chegava à tela.
+- **Correção:** os dois mappers passaram a preencher `avatar: db.foto_url || undefined`; o `AvatarInitials` ganhou `src` e renderiza a imagem com as iniciais como fallback (usado no card e na tabela); o cabeçalho do detalhe passou a mostrar a foto. **Onde não há foto, o visual anterior é preservado exatamente.**
+- **Verificação:** `tsc --noEmit` na linha de base (**13**, zero novos) · `npm run build` ✅ · deploy conferido em produção por HTTP: o chunk `ClientesPage` contém o mapeamento (`foto_url`) e o render da imagem (`object-cover shrink-0`).
+
+**🔒 Segurança — `me_categoria` com RLS desligado (17/09/2026):** a nova tela de categorias escreve pelo cliente, como `me_tag`. Entra na revisão do **P5**.
+
 ---
 
 ## ➕ PENDÊNCIAS QUE DEPENDEM DO FUNDADOR
