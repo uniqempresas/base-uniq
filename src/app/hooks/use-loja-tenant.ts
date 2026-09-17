@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
-import type { LojaTenant } from "../types/loja";
+import type { AppearanceBrutoLoja, LojaTenant, StoreConfigLoja } from "../types/loja";
 
 interface DBEmpresa {
   id: string;
@@ -8,6 +8,8 @@ interface DBEmpresa {
   nome_fantasia: string | null;
   logo_url: string | null;
   telefone: string | null;
+  store_config: unknown;
+  appearance: unknown;
 }
 
 export interface UseLojaTenantReturn {
@@ -39,7 +41,7 @@ export function useLojaTenant(slug: string | undefined): UseLojaTenantReturn {
     try {
       const { data, error: err } = await supabase
         .from("me_empresa")
-        .select("id, slug, nome_fantasia, logo_url, telefone")
+        .select("id, slug, nome_fantasia, logo_url, telefone, store_config, appearance")
         .eq("slug", slug)
         .maybeSingle();
 
@@ -54,6 +56,9 @@ export function useLojaTenant(slug: string | undefined): UseLojaTenantReturn {
               nomeFantasia: db.nome_fantasia || "Nossa loja",
               logoUrl: db.logo_url,
               whatsapp: db.telefone,
+              // jsonb pode vir null/inesperado — a vitrine normaliza na leitura
+              storeConfig: (db.store_config as StoreConfigLoja | null) || {},
+              appearance: (db.appearance as AppearanceBrutoLoja | null) || {},
             }
           : null
       );

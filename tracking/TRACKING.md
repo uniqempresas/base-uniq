@@ -25,9 +25,10 @@ Conectar a **Base UNIQ** para que a demonstração `WhatsApp → CRM → pedido 
 
 - **Supabase OFICIAL:** `krrkfgvdwhpelxtrdtla.supabase.co` ← é este que tem os dados reais e que os agentes devem usar.
 - ✅ **Front corrigido (tarefa 1.1):** `src/lib/supabase.ts` já aponta para `krrkfgv...` e a edge function `criar-conta` em `CadastroPage.tsx` também. Sem referências ao projeto antigo (`eqyvic...`) no código.
-- ⚠️ **RLS por empresa (Bug #36):** `crm_chat_conversas` (20) e `crm_chat_mensagens` (647) têm RLS habilitado com isolamento por empresa (`me_usuario`). **Anon key retorna 0** — os dados só aparecem com usuário logado. `me_empresa`/`me_usuario` seguem sem RLS.
+- ⚠️ **RLS por empresa (Bug #36):** `crm_chat_conversas` (22) e `crm_chat_mensagens` (691) têm RLS habilitado com isolamento por empresa (`me_usuario`). **Anon key retorna 0** — os dados só aparecem com usuário logado. `me_empresa`/`me_usuario` seguem sem RLS.
+- ✅ **Grão multi-tenant das conversas (17/09/2026):** `crm_chat_conversas.id` deixou de ser o telefone (text) e virou surrogate `uuid`; o telefone agora mora em `canal_id` (NOT NULL) e o banco garante `UNIQUE (empresa_id, canal, canal_id)`. Ver seção própria abaixo.
 
-> **Teste de sanidade (para o agente):** com a anon key, `me_empresa` retorna **2** e `me_usuario` retorna **2**. `crm_chat_conversas`/`crm_chat_mensagens` retornam **0 com anon** (esperado — RLS); para ver as **20 conversas / 647 mensagens**, é preciso token de usuário autenticado de uma empresa.
+> **Teste de sanidade (para o agente):** com a anon key, `me_empresa` retorna **2** e `me_usuario` retorna **2**. `crm_chat_conversas`/`crm_chat_mensagens` retornam **0 com anon** (esperado — RLS); para ver as **22 conversas / 691 mensagens**, é preciso token de usuário autenticado de uma empresa.
 
 ---
 
@@ -39,8 +40,8 @@ Conectar a **Base UNIQ** para que a demonstração `WhatsApp → CRM → pedido 
 
 | Domínio | Tabela | Dados reais | Campos-chave |
 |---|---|---|---|
-| **Chat WhatsApp (Evolution)** | `crm_chat_conversas` | **20** (RLS por empresa) | `id`(text), `empresa_id`, `cliente_id`, `lead_id`, `status`, `modo`, `titulo`, `nome`, `canal`, `canal_id`, `canal_dados`(jsonb), `foto_contato`, `criado_em` |
-| **Mensagens** | `crm_chat_mensagens` | **647** (RLS por empresa) | `id`, `conversa_id`(text), `remetente_tipo`, `remetente_id`, `conteudo`, `tipo_conteudo`, `lido`, `metadados`(jsonb), `remetente`, `tipo`, `arquivo_url`, `canal_mensagem_id`, `status`, `criado_em` |
+| **Chat WhatsApp (Evolution)** | `crm_chat_conversas` | **22** (RLS por empresa) | `id`(**uuid** PK, surrogate), `id_legado`(text — telefone na chave antiga), `empresa_id`, `cliente_id`, `lead_id`, `status`, `modo`, `titulo`, `nome`, `canal`, `canal_id`(**NOT NULL** — telefone do contato), `canal_dados`(jsonb), `foto_contato`, `criado_em` · **UNIQUE `(empresa_id, canal, canal_id)`** |
+| **Mensagens** | `crm_chat_mensagens` | **691** (RLS por empresa) | `id`, `conversa_id`(**uuid**), `remetente_tipo`, `remetente_id`, `conteudo`, `tipo_conteudo`, `lido`, `metadados`(jsonb), `remetente`, `tipo`, `arquivo_url`, `canal_mensagem_id`, `status`, `criado_em` |
 | **Chat MEL** | `mel_chat` | **548** | histórico de conversas da MEL |
 | **Cliente** | `me_cliente` | **7** | `id`, `empresa_id`, `nome_cliente`, `telefone`, `email`, `documento`, `cidade`, `origem`, `ativo`, `tags` (text[]), `criado_em`, `atualizado_em` (trigger) |
 | **Leads** | `crm_leads` | **10** (legado — CRM do app não lê mais; dados preservados) | `id`, `empresa_id`, `nome`, `email`, `telefone`, `status`, `origem`, `cargo`, `empresa_nome`, `ltv`, `ultima_interacao`, `observacoes`, `foto_url`, `created_at` |
@@ -156,6 +157,54 @@ As tabelas e a RPC **já existem**. O trabalho é: (a) conectar o front, (b) ren
 **Escopo previsto (SPEC §9):** hook `use-loja-sessao.ts` · telas `/loja/:slug/entrar` e `/loja/:slug/conta` (guarda de sessão) · `/loja/:slug/pedidos` → redirect para `/conta` · auto-login no sucesso do checkout · header Entrar/Meus pedidos · Sair preserva carrinho.
 
 **Já valendo desde o módulo Loja Virtual:** primeira compra **salva o cliente automaticamente** em `me_cliente` (`origem='loja'`, find-or-create por telefone) — o cliente aparece no CRM da Base UNIQ.
+
+---
+
+### 🔴 CORREÇÃO — Grão multi-tenant das conversas (17/09/2026)
+
+**WHY:** um cliente que já tinha conversa gravada na empresa A não conseguia ter conversa na empresa B. O sintoma parecia "o telefone é a chave", mas a causa real era `crm_chat_conversas.id` **ser** o telefone — e sendo `PRIMARY KEY`, um telefone só podia existir **uma vez no banco inteiro**, em qualquer tenant.
+
+**Status:** ✅ CONCLUÍDO — migração aplicada em produção e verificada.
+
+**Diagnóstico (fatos verificados no banco):**
+
+| Item | Antes | Depois |
+|---|---|---|
+| `crm_chat_conversas.id` | `text` PK = telefone (ex.: `5511941484562`) | `uuid` surrogate |
+| `canal_id` (onde o telefone deveria morar) | `NULL` em 100% das linhas | `varchar(100)` NOT NULL = telefone |
+| Unicidade | PK global em `id` → 1 telefone por banco | `UNIQUE (empresa_id, canal, canal_id)` |
+| `crm_chat_mensagens.conversa_id` | `text` | `uuid` (FK `ON DELETE CASCADE`) |
+| RLS por empresa | ✅ já correta | ✅ recriada idêntica (dependência de coluna) |
+
+**Migração:** `supabase/migrations/20260917220000_conversa_multi_tenant_por_empresa.sql`
+
+Detalhe não óbvio que a migração trata: as políticas de RLS de `crm_chat_mensagens` referenciam `crm_chat_conversas.id` num subselect — sem derrubá-las antes, o Postgres recusa o `DROP COLUMN`. Elas são recriadas ao final, idênticas.
+
+**Contrato novo para o n8n:** o workflow **não deve mais gravar `id = telefone`**. Passa a chamar:
+
+```sql
+select public.fn_ingest_whatsapp(p_empresa_id, p_telefone, p_nome);
+```
+
+- Upsert idempotente por `(empresa_id, 'whatsapp', telefone)` — chamar a cada mensagem não duplica conversa.
+- O tenant vem da **instância/número que recebeu** a mensagem (1 número dedicado por empresa — confirmado com o fundador).
+- `vw_conversas_por_telefone` existe como compatibilidade **somente leitura** durante o rollout.
+- `id_legado` preserva o telefone original (rastreabilidade/rollback).
+
+**Verificação executada (produção):**
+
+| Check | Resultado |
+|---|---|
+| Conversas / mensagens preservadas | 22 / 691 (idêntico à baseline) |
+| Mensagens órfãs | 0 |
+| `canal_id` divergente do telefone original | 0 |
+| Mesmo telefone em 2 tenants → 2 conversas distintas | ✅ comprovado |
+| Idempotência (2ª chamada do RPC) | ✅ mesmo id retornado |
+| Políticas de RLS em `crm_chat_mensagens` | 3 (restauradas) |
+
+**⚠️ Pendências:**
+- **n8n (lado do fundador):** trocar o upsert por `fn_ingest_whatsapp`. É uma dependência **externa a este repo** — a correção do banco não basta sozinha enquanto o workflow gravar `id = telefone`.
+- **Bug 2 (frontend, não corrigido):** `src/app/components/crm/ClienteConversaResumo.tsx:40-63` consulta `crm_chat_conversas` **sem filtro de `empresa_id`**, casando por nome/telefone. Só não vaza entre tenants porque a RLS barra, mas pode anexar a conversa errada ao cliente. Correção: filtrar por `empresa_id` (ou reusar `useConversasReais`). Aguarda aval do fundador — `AGENTS.md` exige WIRE aprovado antes de código de tela.
 
 ---
 
@@ -487,6 +536,39 @@ Decisão do fundador após validar na Vercel: **pedido que chega do n8n/WhatsApp
 - `src/app/components/estoque/ProdutosPage.tsx` — `ProdutoGridCard` exibe `produto.foto` (fallback placeholder)
 - `src/app/components/estoque/ProdutoDetalhePage.tsx` — header com foto (fallback ícone)
 - `src/app/components/estoque/estoqueMockData.ts` — `foto` em 2–3 mocks
+
+---
+
+## 🛍️ VITRINE MODERNA DA LOJA — visão do cliente (17/09/2026)
+
+**WHY:** a vitrine do tenant (`/loja/:slug`) é hoje a versão pobre da loja: sem categorias, sem banner, sem área do cliente no topo, busca abaixo da dobra, carrinho só acessível pela barra do rodapé. A vitrine **demo** (`/loja`) já tem estrutura melhor (busca inline, categorias, hero, seção horizontal) — mas 100% mock ("Studio da Maria"). O fundador pediu estrutura de marketplace (referência: Mercado Livre) — **estrutura, não cores**.
+
+**Status:** 🔶 SDD pronto (PRD/SPEC/WIRE) — **aguardando aprovação do WIRE pelo fundador**.
+
+**Documentos:**
+- PRD: `tracking/plans/PRD-LojaVirtual-VitrineModerna.md`
+- SPEC: `tracking/specs/SPEC-LojaVirtual-VitrineModerna.md`
+- WIRE: `tracking/wireframe/WIRE-LojaVirtual-VitrineModerna.md`
+
+**Decisões do fundador (17/09/2026):**
+
+| # | Decisão | Resolução |
+|---|---|---|
+| V1 | Categorias | Criar famílias próprias da Doceê (Cone Trufado · Trufa · Tortinha · Surpresa · Especial) e atribuir aos 16 produtos |
+| V3 | Banner | Consumir `me_empresa.appearance.hero.banners[]` + **banner gerado** como fallback |
+| V4 | Editor de banners | **Fora da v1** (editor entra depois, em `/configuracoes/empresa`) |
+| V5 | Escopo | **Só a vitrine** `/loja/:slug` + bloco de área do cliente no header |
+
+**Diagnóstico-chave (Research no Supabase oficial):**
+- `me_empresa.appearance.hero.banners[]` + `appearance.theme` **já é contrato de dados pronto e populado** (Gráfica HQ e UNIQ) — a Doceê tem `appearance = {}`. **Nenhuma tela lê `appearance` nem `store_config`** (grep em `src/app` = 0) → o consumidor não existe.
+- `me_categoria` é real (global + por empresa); "Pães e Doces" (global, id 4) já existe.
+- Os 16 produtos da Doceê: `categoria_id = null`, `tipo = 'Outros'`, `preco_varejo` null em todos → **sem selo de desconto real**; todos com `foto_url` e `exibir_vitrine = true`.
+- **Buraco no cadastro:** `ProdutoFormModal.tsx:10` monta categorias a partir do **mock** e `use-criar-produto.ts:49` grava em **`tipo`** (texto), não em `categoria_id` — origem do "Outros" em massa. Ponto V2 do PRD.
+- `use-loja-produtos.ts:59` não traz `categoria_id`/`preco_varejo`; `use-loja-tenant.ts:42` não traz `store_config`/`appearance`.
+
+**Pendências antes de implementar:**
+1. Aprovação do WIRE pelo fundador.
+2. Aplicar a migration de categorias da Doceê — arquivo **preparado e NÃO aplicado**: `supabase/migrations/20260917120000_docee_categorias_vitrine.sql`.
 
 ---
 

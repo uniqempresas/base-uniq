@@ -7,9 +7,11 @@ interface DBProdutoVitrine {
   id: number;
   nome_produto: string | null;
   preco: number | null;
+  preco_varejo: number | null;
   foto_url: string | null;
   descricao: string | null;
   estoque_atual: number | null;
+  categoria_id: number | null;
 }
 
 export interface UseLojaProdutosReturn {
@@ -22,14 +24,21 @@ export interface UseLojaProdutosReturn {
 
 function mapProdutoVitrine(db: DBProdutoVitrine): ProdutoLoja {
   const estoque = Number(db.estoque_atual) || 0;
+  const preco = Number(db.preco) || 0;
+  const precoVarejo =
+    db.preco_varejo === null || db.preco_varejo === undefined ? null : Number(db.preco_varejo);
+
   return {
     id: Number(db.id),
     nome: db.nome_produto || "Sem nome",
-    preco: Number(db.preco) || 0,
+    preco,
+    // Selo de desconto SÓ com preço "de" real (PRD V6) — nunca inventar desconto.
+    precoDe: precoVarejo !== null && precoVarejo > preco ? precoVarejo : null,
     fotoUrl: db.foto_url,
     descricao: db.descricao,
     estoque,
     esgotado: estoque <= 0,
+    categoriaId: db.categoria_id ?? null,
   };
 }
 
@@ -58,7 +67,7 @@ export function useLojaProdutos(empresaId: string | undefined): UseLojaProdutosR
     try {
       const { data, error: err } = await supabase
         .from("me_produto")
-        .select("id, nome_produto, preco, foto_url, descricao, estoque_atual")
+        .select("id, nome_produto, preco, preco_varejo, foto_url, descricao, estoque_atual, categoria_id")
         .eq("empresa_id", empresaId)
         .eq("ativo", true)
         .eq("exibir_vitrine", true)

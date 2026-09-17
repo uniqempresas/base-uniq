@@ -1,10 +1,10 @@
-import { useState, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
   Search, ShoppingCart, Star, Filter, X, ChevronDown,
   Heart, Share2, Truck, Tag, Zap, SlidersHorizontal,
   ArrowUpDown, ChevronRight, Package, MessageCircle, ImageOff,
-  AlertTriangle, User, ClipboardList,
+  AlertTriangle,
 } from "lucide-react";
 import {
   PRODUTOS_LOJA, CATEGORIAS_LOJA, formatCurrencyLoja, calcDesconto,
@@ -14,8 +14,13 @@ import {
 import { useCarrinhoLoja } from "../../hooks/use-carrinho-loja";
 import { useLojaTenant } from "../../hooks/use-loja-tenant";
 import { useLojaProdutos } from "../../hooks/use-loja-produtos";
+import { useLojaCategorias } from "../../hooks/use-loja-categorias";
+import { useLojaAppearance } from "../../hooks/use-loja-appearance";
 import { useLojaSessao } from "../../hooks/use-loja-sessao";
 import { LojaNaoEncontrada } from "./LojaNaoEncontrada";
+import { LojaHeaderTenant } from "./LojaHeaderTenant";
+import { LojaBannerCarousel } from "./LojaBannerCarousel";
+import { LojaSecaoHorizontal } from "./LojaSecaoHorizontal";
 import type { ProdutoLoja as ProdutoVitrine } from "../../types/loja";
 
 /* ─── Estrelas ─── */
@@ -210,50 +215,93 @@ function CartDrawer({ itens, onClose, onCheckout, onUpdateQty, onRemove }: {
 
 /* ─────────── [T1] Vitrine do tenant (/loja/:slug) ─────────── */
 
-function VitrineCardTenant({ produto, slug, naSacola, estoqueMax, onAdd }: {
+function VitrineCardTenant({ produto, slug, estoqueMax, onAdd }: {
   produto: ProdutoVitrine; slug: string; naSacola: boolean; estoqueMax: boolean; onAdd: () => void;
 }) {
   const navigate = useNavigate();
+  const [adicionado, setAdicionado] = useState(false);
+
+  // Selo de desconto SÓ com preço "de" real (PRD V6) — o banco da Doceê não tem.
+  const desconto =
+    produto.precoDe && produto.precoDe > produto.preco
+      ? Math.round(((produto.precoDe - produto.preco) / produto.precoDe) * 100)
+      : 0;
+
+  const handleAdd = () => {
+    if (produto.esgotado || estoqueMax) return;
+    onAdd();
+    setAdicionado(true);
+    window.setTimeout(() => setAdicionado(false), 1500);
+  };
+
+  const inativo = produto.esgotado || estoqueMax;
 
   return (
-    <div className="bg-white rounded-2xl overflow-hidden border border-border flex flex-col transition-shadow hover:shadow-md"
-      style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
-      {/* Foto + badge */}
-      <button onClick={() => navigate(`/loja/${slug}/produto/${produto.id}`)} className="block relative aspect-square bg-muted w-full">
+    <div className="flex flex-col overflow-hidden rounded-lg border bg-white transition-shadow hover:shadow-md"
+      style={{ borderColor: "#efefef" }}>
+      {/* Foto + selos */}
+      <button type="button" onClick={() => navigate(`/loja/${slug}/produto/${produto.id}`)}
+        className="relative block aspect-square w-full" style={{ background: "#efefef" }}>
         {produto.fotoUrl ? (
-          <img src={produto.fotoUrl} alt={produto.nome}
-            className="w-full h-full object-cover" style={{ opacity: produto.esgotado ? 0.5 : 1 }} />
+          <img src={produto.fotoUrl} alt={produto.nome} loading="lazy"
+            className="h-full w-full object-cover" style={{ opacity: produto.esgotado ? 0.5 : 1 }} />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <ImageOff size={26} className="text-muted-foreground/50" />
+          <div className="flex h-full w-full items-center justify-center">
+            <ImageOff size={26} style={{ color: "#627271", opacity: 0.5 }} />
           </div>
         )}
-        {produto.esgotado && (
-          <span className="absolute top-2 left-2 px-2 py-0.5 rounded-lg bg-foreground text-white text-[10px]"
-            style={{ fontWeight: 700 }}>
-            Esgotado
-          </span>
-        )}
+
+        <div className="absolute left-2 top-2 flex flex-col items-start gap-1">
+          {desconto > 0 && !produto.esgotado && (
+            <span className="rounded-md px-1.5 py-0.5 text-[10px] text-white"
+              style={{ background: "#EF4444", fontWeight: 700 }}>
+              -{desconto}%
+            </span>
+          )}
+          {produto.esgotado && (
+            <span className="rounded-md px-1.5 py-0.5 text-[10px] text-white"
+              style={{ background: "#1f2937", fontWeight: 700 }}>
+              Esgotado
+            </span>
+          )}
+        </div>
       </button>
 
       {/* Info */}
-      <div className="p-3 flex flex-col flex-1 text-left">
-        <p className="text-foreground text-sm leading-tight mb-1 line-clamp-2" style={{ fontWeight: 600 }}>
+      <div className="flex flex-1 flex-col p-3 text-left">
+        {produto.categoriaNome && (
+          <p className="mb-1 text-[10px] uppercase tracking-wide" style={{ color: "#627271" }}>
+            {produto.categoriaNome}
+          </p>
+        )}
+        <p className="mb-1 line-clamp-2 text-sm leading-tight" style={{ fontWeight: 600, color: "#1f2937" }}>
           {produto.nome}
         </p>
-        <p className="text-foreground text-base mb-3" style={{ fontWeight: 800, color: produto.esgotado ? "#627271" : "#1f2937" }}>
-          {formatCurrencyLoja(produto.preco)}
-        </p>
+
+        <div className="mt-auto">
+          {desconto > 0 && produto.precoDe && !produto.esgotado && (
+            <p className="text-[11px] line-through" style={{ color: "#627271" }}>
+              {formatCurrencyLoja(produto.precoDe)}
+            </p>
+          )}
+          <p className="text-base" style={{ fontWeight: 800, color: produto.esgotado ? "#627271" : "#1f2937" }}>
+            {formatCurrencyLoja(produto.preco)}
+          </p>
+        </div>
+
         <button
-          onClick={onAdd}
-          disabled={produto.esgotado || estoqueMax}
-          className="mt-auto w-full py-2.5 rounded-xl text-xs font-bold transition-all active:scale-[0.97]"
+          type="button"
+          onClick={handleAdd}
+          disabled={inativo}
+          className="mt-3 w-full rounded-lg py-2.5 text-xs transition-colors active:scale-[0.98]"
           style={{
-            background: estoqueMax ? "#efefef" : "#86cb92",
-            color: estoqueMax ? "#627271" : "#1f2937",
+            background: produto.esgotado ? "#efefef" : adicionado ? "#1f2937" : inativo ? "#efefef" : "#86cb92",
+            color: produto.esgotado || inativo ? "#627271" : adicionado ? "#ffffff" : "#1f2937",
+            fontWeight: 700,
+            minHeight: "44px",
           }}
         >
-          {produto.esgotado ? "Indisponível" : estoqueMax ? "✓ No Carrinho" : "Adicionar"}
+          {produto.esgotado ? "Indisponível" : adicionado ? "✓ Adicionado!" : estoqueMax ? "✓ No carrinho" : "Adicionar"}
         </button>
       </div>
     </div>
@@ -264,73 +312,82 @@ function LojaVitrineTenant({ slug }: { slug: string }) {
   const navigate = useNavigate();
   const { tenant, loading: loadingTenant, error: errorTenant } = useLojaTenant(slug);
   const { produtos, loading, error, isFallback, refetch } = useLojaProdutos(tenant?.empresaId);
+  const { categorias, nomePorId } = useLojaCategorias(tenant?.empresaId, produtos);
+  const appearance = useLojaAppearance(tenant);
   const sessao = useLojaSessao(slug);
   const carrinho = useCarrinhoLoja(slug);
   const [busca, setBusca] = useState("");
+  const [categoriaAtiva, setCategoriaAtiva] = useState<number | null>(null);
+
+  // ⚠️ TODOS os hooks rodam incondicionalmente acima. O early return de tenant
+  // inválido fica DEPOIS deles — colocá-lo antes reintroduz o erro React #310
+  // ("Rendered more hooks than during the previous render").
+
+  // Rótulo real da categoria, resolvido via `me_categoria`
+  const produtosComCategoria = useMemo(
+    () =>
+      produtos.map(p => ({
+        ...p,
+        categoriaNome: p.categoriaId != null ? nomePorId.get(p.categoriaId) ?? null : null,
+      })),
+    [produtos, nomePorId]
+  );
+
+  const visiveis = useMemo(
+    () =>
+      produtosComCategoria.filter(p => {
+        if (busca.trim() && !p.nome.toLowerCase().includes(busca.trim().toLowerCase())) return false;
+        if (categoriaAtiva !== null && p.categoriaId !== categoriaAtiva) return false;
+        return true;
+      }),
+    [produtosComCategoria, busca, categoriaAtiva]
+  );
+
+  // Sem campo de curadoria no banco: a seção horizontal prioriza os mais acessíveis
+  const destaques = useMemo(
+    () =>
+      [...produtosComCategoria]
+        .filter(p => !p.esgotado)
+        .sort((a, b) => a.preco - b.preco)
+        .slice(0, 8),
+    [produtosComCategoria]
+  );
+
+  const filtroAtivo = busca.trim().length > 0 || categoriaAtiva !== null;
+  const waLink = whatsappLinkLoja(tenant?.whatsapp);
 
   // Tenant encerrado: erro real (sem fallback mock)
   if (!loadingTenant && (!tenant || errorTenant)) return <LojaNaoEncontrada />;
 
-  const waLink = whatsappLinkLoja(tenant?.whatsapp);
-  const visiveis = produtos.filter(p => !busca || p.nome.toLowerCase().includes(busca.toLowerCase()));
-
   return (
     <div className="min-h-screen bg-muted pb-24">
-      {/* ── Header tenant ── */}
-      <header className="bg-white border-b border-border">
-        <div className="max-w-3xl mx-auto px-4 pt-5 pb-4 flex items-center gap-3">
-          {tenant?.logoUrl ? (
-            <img src={tenant.logoUrl} alt={tenant.nomeFantasia}
-              className="w-11 h-11 rounded-2xl object-cover border border-border bg-muted" />
-          ) : (
-            <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ background: "#86cb92" }}>
-              <span className="text-sm" style={{ fontWeight: 900, color: "#1f2937" }}>
-                {(tenant?.nomeFantasia || "L").charAt(0).toUpperCase()}
-              </span>
-            </div>
-          )}
-          <div className="min-w-0 flex-1">
-            <h1 className="text-foreground text-lg leading-tight truncate" style={{ fontWeight: 800 }}>
-              {tenant?.nomeFantasia || "..."}
-            </h1>
-            <p className="text-muted-foreground text-xs">Peça online · Entrega combinada pelo WhatsApp</p>
-          </div>
+      {/* ── Header: identidade · área do cliente · carrinho · busca · categorias ── */}
+      <LojaHeaderTenant
+        tenant={tenant}
+        slug={slug}
+        logado={sessao.logado}
+        sessaoCarregada={sessao.carregado}
+        busca={busca}
+        onBusca={setBusca}
+        categorias={categorias}
+        categoriaAtiva={categoriaAtiva}
+        onCategoria={setCategoriaAtiva}
+        quantidadeItens={carrinho.quantidadeTotal}
+        onAbrirSacola={() => navigate(`/loja/${slug}/checkout`)}
+      />
 
-          {/* Área do cliente (L3): sessão ativa → "Meus pedidos"; senão → "Entrar" sempre visível */}
-          {sessao.carregado && sessao.logado ? (
-            <button onClick={() => navigate(`/loja/${slug}/conta`)}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs shrink-0"
-              style={{ background: "#1f2937", color: "white", fontWeight: 700 }}>
-              <ClipboardList size={14} />
-              Meus pedidos
-            </button>
-          ) : (
-            <button onClick={() => navigate(`/loja/${slug}/entrar`)}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs shrink-0 border border-border bg-white"
-              style={{ color: "#1f2937", fontWeight: 700, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-              <User size={14} />
-              Entrar
-            </button>
-          )}
-        </div>
+      <div className="max-w-6xl mx-auto px-4 py-5">
+        {/* Banner da loja (WIRE bloco ⑥) — fallback gerado quando não há banner configurado */}
+        <LojaBannerCarousel
+          appearance={appearance}
+          loading={loadingTenant}
+          slug={slug}
+          onSelecionarCategoria={setCategoriaAtiva}
+        />
 
-        {/* Busca */}
-        <div className="max-w-3xl mx-auto px-4 pb-4">
-          <div className="relative">
-            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input value={busca} onChange={e => setBusca(e.target.value)}
-              placeholder="Buscar no cardápio..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border text-foreground text-sm outline-none focus:border-primary bg-muted" />
-            {busca && (
-              <button onClick={() => setBusca("")} className="absolute right-3 top-1/2 -translate-y-1/2">
-                <X size={14} className="text-muted-foreground" />
-              </button>
-            )}
-          </div>
-        </div>
-      </header>
+        {/* Seção horizontal (WIRE bloco ⑦) */}
+        {!loading && <LojaSecaoHorizontal titulo="Destaques" slug={slug} produtos={destaques} />}
 
-      <div className="max-w-3xl mx-auto px-4 py-5">
         {/* Aviso de catálogo demo (fallback) */}
         {isFallback && (
           <div className="mb-4 p-3 rounded-xl text-xs flex items-center gap-2"
@@ -368,17 +425,23 @@ function LojaVitrineTenant({ slug }: { slug: string }) {
 
         {/* Empty */}
         {!loading && visiveis.length === 0 && (
-          <div className="bg-white rounded-2xl border border-border p-10 text-center">
-            <Package size={40} className="text-muted mx-auto mb-3" />
-            <p className="text-foreground mb-1" style={{ fontWeight: 600 }}>
-              {busca ? "Nenhum produto encontrado" : "Nenhum produto disponível no momento"}
+          <div className="rounded-lg border bg-white p-10 text-center" style={{ borderColor: "#efefef" }}>
+            <Package size={40} className="mx-auto mb-3" style={{ color: "#efefef" }} />
+            <p className="mb-1" style={{ fontWeight: 600, color: "#1f2937" }}>
+              {filtroAtivo ? "Nenhum produto encontrado" : "Nenhum produto disponível no momento"}
             </p>
-            <p className="text-muted-foreground text-sm mb-5">
-              {busca ? "Tente outro termo" : "Faça seu pedido pelo WhatsApp"}
+            <p className="mb-5 text-sm" style={{ color: "#627271" }}>
+              {filtroAtivo ? "Tente outro termo ou outra categoria" : "Faça seu pedido pelo WhatsApp"}
             </p>
-            {!busca && (
+            {filtroAtivo ? (
+              <button onClick={() => { setBusca(""); setCategoriaAtiva(null); }}
+                className="rounded-lg px-5 py-2.5 text-sm"
+                style={{ background: "#86cb92", color: "#1f2937", fontWeight: 700 }}>
+                Ver todos os produtos
+              </button>
+            ) : (
               <a href={waLink} target="_blank" rel="noreferrer"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm"
+                className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm"
                 style={{ background: "#25D366", color: "white", fontWeight: 600 }}>
                 <MessageCircle size={15} />Falar no WhatsApp
               </a>
@@ -386,17 +449,23 @@ function LojaVitrineTenant({ slug }: { slug: string }) {
           </div>
         )}
 
-        {/* Grid */}
+        {/* Grid (WIRE bloco ⑧) */}
         {!loading && visiveis.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {visiveis.map(p => (
-              <VitrineCardTenant
-                key={p.id} produto={p} slug={slug}
-                naSacola={carrinho.temItem(p.id)}
-                estoqueMax={carrinho.itens.find(i => i.produtoId === p.id)?.quantidade === p.estoque}
-                onAdd={() => carrinho.adicionar(p)}
-              />
-            ))}
+          <div id="loja-catalogo" className="scroll-mt-44">
+            <p className="mb-3 text-xs" style={{ color: "#627271" }}>
+              {visiveis.length} {visiveis.length === 1 ? "produto" : "produtos"}
+              {categoriaAtiva !== null && " nesta categoria"}
+            </p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {visiveis.map(p => (
+                <VitrineCardTenant
+                  key={p.id} produto={p} slug={slug}
+                  naSacola={carrinho.temItem(p.id)}
+                  estoqueMax={carrinho.itens.find(i => i.produtoId === p.id)?.quantidade === p.estoque}
+                  onAdd={() => carrinho.adicionar(p)}
+                />
+              ))}
+            </div>
           </div>
         )}
       </div>
