@@ -714,7 +714,10 @@ Decisão do fundador após validar na Vercel: **pedido que chega do n8n/WhatsApp
 - **⚠️ Órfãos no Storage:** as 4 fotos em `uniq_me_produtos/clientes/*.jpg` eram dos clientes apagados (~185 KB). Inofensivas — e continuam válidas se o backup for restaurado.
 - **Function `persistir-foto-cliente` → v2:** além de gravar em `me_cliente.foto_url`, passa a gravar a **mesma URL estável** em `crm_chat_conversas.foto_contato`. Sem esse segundo passo o avatar do CRM seguiria apontando para a URL do WhatsApp e quebraria em ~10 dias. A v2 também estabiliza o avatar quando o cliente **já tinha** foto.
 - **Verificado em produção:** a v2 responde `404 Cliente nao encontrado` para id inexistente (prova que roda sem erro de sintaxe) e `401` sem o segredo (auth intacta).
-- **⏳ Pendente com o fundador:** ligar a function no fluxo `atendente_Docee` **depois** do passo que cria/encontra o cliente, com `{ "telefone": "{{ canal_id }}" }` + header `x-uniq-secret` — instruções na §7 do SPEC.
+- ✅ **Automação ligada no n8n (17/09/2026):** nó `Persistir Foto Cliente` (HTTP Request 4.2) inserido no `atendente_Docee` entre **`Wait4` e `Consulta Conversas1`** — `Wait4` é onde os dois caminhos (cliente novo e já cadastrado) convergem, já com o cliente existindo, então **uma inserção cobre os dois casos**. `onError: continueRegularOutput` garante que uma falha da função **nunca** quebra o atendimento. A inserção é segura porque `Consulta Conversas1` usa `$('DADOS_MSG5')` (nó nomeado), não o item imediato.
+  - **Validado:** `n8n_validate_workflow` → `valid: true`, 65 nós, 68 conexões válidas, **0 inválidas**, 0 erros, 0 warnings. Topologia confirma cadeia limpa (`Wait4 → Persistir Foto Cliente → Consulta Conversas1`), sem bifurcação. Rollback via snapshot do n8n-mcp / `n8n_workflow_versions`.
+  - Config espelha o `FotoContato2`, que já funciona no mesmo workflow (em vez de inventar forma nova).
+- 🐞 **Gap separado, NÃO corrigido:** o fluxo **cria o cliente mas deixa `crm_chat_conversas.cliente_id` NULL** — verificado na conversa nova do Henriq Silva (17/09). É outra preocupação (o CRM não sabe de quem é a conversa), fora do escopo da foto, e precisa de decisão antes de mexer.
 - **Restaurar, se precisar:** `INSERT INTO me_cliente SELECT * FROM _bk_20260917_me_cliente;` (idem para as demais `_bk_20260917_*`).
 
 ---

@@ -228,29 +228,41 @@ Deno.serve(async (req) => {
 
 ---
 
-## 7. Futuro — automação no n8n (escolha do fundador)
+## 7. Automação no n8n — ✅ IMPLEMENTADA (17/09/2026)
 
-**Onde ligar:** no fluxo `atendente_Docee`, **depois** do passo que cria/encontra o cliente (`Consulta Cliente` → `Cliente Ja Cadastrado` / `Cria_Cliente`). A função exige que o cliente já exista.
+**Workflow:** `atendente_Docee` (id `3IVutqEXVq8MtXkZ`, ativo) · **nó novo:** `Persistir Foto Cliente` (HTTP Request 4.2)
+
+**Onde foi inserido:** entre `Wait4` e `Consulta Conversas1`.
+
+```
+Cliente Ja Cadastrado
+   ├── (já cadastrado) ─────────────────────→ Wait4 ─┐
+   └── (novo) → Cria_Cliente ────────────────→ Wait4 ─┴→ Persistir Foto Cliente → Consulta Conversas1
+```
+
+`Wait4` foi escolhido porque é **o ponto onde os dois caminhos convergem, já com o cliente existindo** — uma inserção cobre os dois casos, em vez de duplicar o nó.
+
+**Por que a inserção é segura:** `Consulta Conversas1` monta os filtros com `$('DADOS_MSG5').item.json.*` (referência a nó nomeado), **não** com o item imediato. Então um nó novo no meio não quebra o encadeamento de dados.
+
+**Configuração do nó** (espelha o `FotoContato2`, que já funciona neste mesmo workflow, em vez de inventar forma nova):
 
 ```
 Método: POST
 URL:    https://krrkfgvdwhpelxtrdtla.supabase.co/functions/v1/persistir-foto-cliente
-Headers:
-        x-uniq-secret: <valor de UNIQ_FOTO_SECRET no .env>
-        content-type: application/json
-Body:   { "telefone": "{{ $json.canal_id }}" }
+Headers: x-uniq-secret: <UNIQ_FOTO_SECRET>   Content-Type: Application/json
+Body:    telefone = {{ $('DADOS_MSG5').item.json.n_telefone }}
+onError: continueRegularOutput   ← uma falha da função NUNCA quebra o atendimento
 ```
 
-**O que a função faz nesse ponto:**
-1. Normaliza o telefone (`fn_normalizar_telefone`) e acha o cliente
-2. Pega a foto da conversa mais recente daquele telefone
-3. Copia a imagem para o Storage
-4. Grava a URL estável em **`me_cliente.foto_url`** (a foto chega ao cliente ✅)
-5. Grava a **mesma** URL estável em **`crm_chat_conversas.foto_contato`** (o avatar do CRM deixa de quebrar)
+**Verificação:** `n8n_validate_workflow` → `valid: true`, 65 nós, 68 conexões válidas, **0 inválidas**, 93 expressões verificadas, 0 erros, 0 warnings. E a topologia confirma cadeia limpa (a conexão antiga foi substituída, não duplicada): `Wait4 → Persistir Foto Cliente → Consulta Conversas1`.
 
-> Sem o passo 5, o avatar do CRM continuaria apontando para a URL do WhatsApp, que expira em ~10 dias.
+**Rollback:** o n8n-mcp tira snapshot antes de alterar; `n8n_workflow_versions` (mode `rollback`) restaura. O workflow é ativo — a mudança vale para as próximas execuções.
 
-**Respostas possíveis:** `success` · `ignorado` (cliente já tem foto — mas o avatar da conversa é estabilizado mesmo assim) · `Host nao permitido` (placeholder) · `Origem respondeu 403` (foto expirada) · `Cliente nao encontrado` (404).
+**Respostas possíveis da função:** `success` · `ignorado` (cliente já tem foto — mas o avatar da conversa é estabilizado mesmo assim) · `Host nao permitido` (placeholder) · `Origem respondeu 403` (foto expirada) · `Cliente nao encontrado` (404).
+
+### ⚠️ Gap separado, não corrigido aqui
+
+O fluxo **cria o cliente mas não vincula a conversa a ele** — `crm_chat_conversas.cliente_id` fica **NULL**. Foi verificado na conversa nova do Henriq Silva (17/09). Isso é outra preocupação (o CRM não sabe de quem é a conversa), fora do escopo da foto, e precisa de decisão antes de mexer.
 
 ---
 
