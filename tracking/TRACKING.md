@@ -543,7 +543,7 @@ Decisão do fundador após validar na Vercel: **pedido que chega do n8n/WhatsApp
 
 **WHY:** a vitrine do tenant (`/loja/:slug`) é hoje a versão pobre da loja: sem categorias, sem banner, sem área do cliente no topo, busca abaixo da dobra, carrinho só acessível pela barra do rodapé. A vitrine **demo** (`/loja`) já tem estrutura melhor (busca inline, categorias, hero, seção horizontal) — mas 100% mock ("Studio da Maria"). O fundador pediu estrutura de marketplace (referência: Mercado Livre) — **estrutura, não cores**.
 
-**Status:** 🔶 SDD pronto (PRD/SPEC/WIRE) — **aguardando aprovação do WIRE pelo fundador**.
+**Status:** ✅ CONCLUÍDO e no ar (commit `df92dd4`, deploy Vercel validado em 17/09/2026) — vitrine nova em `/loja/docee`.
 
 **Documentos:**
 - PRD: `tracking/plans/PRD-LojaVirtual-VitrineModerna.md`
@@ -566,9 +566,17 @@ Decisão do fundador após validar na Vercel: **pedido que chega do n8n/WhatsApp
 - **Buraco no cadastro:** `ProdutoFormModal.tsx:10` monta categorias a partir do **mock** e `use-criar-produto.ts:49` grava em **`tipo`** (texto), não em `categoria_id` — origem do "Outros" em massa. Ponto V2 do PRD.
 - `use-loja-produtos.ts:59` não traz `categoria_id`/`preco_varejo`; `use-loja-tenant.ts:42` não traz `store_config`/`appearance`.
 
-**Pendências antes de implementar:**
-1. Aprovação do WIRE pelo fundador.
-2. Aplicar a migration de categorias da Doceê — arquivo **preparado e NÃO aplicado**: `supabase/migrations/20260917120000_docee_categorias_vitrine.sql`.
+**Entregue (17/09/2026 — commit `df92dd4`):**
+- Header com identidade, área do cliente (`Entrar` ↔ `Meus pedidos`), carrinho com contador, busca e categorias
+- Banner rotativo lido de `me_empresa.appearance.hero` + **fallback gerado do próprio tenant** (nunca de outra loja)
+- Categorias reais de `me_categoria`, filtradas pelas que têm produto (barra não renderiza vazia)
+- Seção horizontal "Destaques"; selo de desconto **só** com `preco_varejo > preco` (não existe na Doceê → sem selo)
+- Grid 2→3→4 colunas, container `max-w-6xl`, radius 8px (token do `DESIGN.md`)
+- Hooks novos: `use-loja-categorias`, `use-loja-appearance` · estendidos: `use-loja-tenant`, `use-loja-produtos`
+- Migration `20260917120000_docee_categorias_vitrine` **aplicada**: 5 categorias da Doceê + `categoria_id` nos 16 produtos (verificado: 16/16, 0 órfãos)
+- Verificação: `npm run build` ✅ · tipos ✅ (0 erros nos arquivos da loja) · console sem erro React (#310) · bundle de produção conferido por marcador
+
+**⏳ Pendente — V2 (categoria real no cadastro de produto):** diagnosticado e especificado em `SPEC-LojaVirtual-VitrineModerna.md` §11. `me_produto.tipo` é **tipo de produto** (`simples`/`variavel`/`Outros`), mas `use-produtos`/`use-produto` (linha 50) o leem como categoria e o formulário grava nome de categoria nele — origem do "Outros em massa". **Bug latente:** salvar hoje com uma categoria do mock corromperia `tipo` (verificado: ainda não ocorreu). Aguarda decisão **D-V2.1** (recomendação: preservar `tipo`, usar só `categoria_id` para categoria).
 
 ---
 

@@ -231,3 +231,58 @@ Hierarquia de toque: alvos ≥ 44px no mobile; trilhas com `scroll-snap` e inér
 ## 10. Fora de escopo (v1)
 
 Editor de banner/tema no admin (V4) · gateway de pagamento · frete calculado · cupons · wishlist funcional · avaliações reais (o mock tem estrelas, o banco não) · avaliações/comentários · busca com ranking/fuzzy.
+
+---
+
+## 11. V2 — Categoria real no cadastro de produto (diagnóstico fechado, não implementado)
+
+> Levantado em 17/09/2026 com dados reais do Supabase oficial. **Aguarda a decisão D-V2.1.**
+
+### 11.1 O achado: `tipo` não é categoria
+
+`me_produto.tipo` guarda **tipo de produto**, não categoria:
+
+| `tipo` | produtos | leitura |
+|---|---|---|
+| `Outros` | 19 | default do formulário (`params.categoria \|\| "Outros"`) |
+| `variavel` | 5 | produto com variações (`opcoes_config`) |
+| `simples` | 2 | produto simples |
+
+Mas a leitura trata como categoria:
+
+```ts
+// use-produtos.ts:50  e  use-produto.ts:50
+categoria: db.tipo || "Outros",        // lê TIPO DE PRODUTO como CATEGORIA
+```
+
+E a gravação faz o inverso:
+
+```ts
+// use-criar-produto.ts:49  e  use-atualizar-produto.ts:51
+tipo: params.categoria || "Outros",    // grava NOME DE CATEGORIA dentro de `tipo`
+```
+
+**Consequência:** a tela de estoque nunca exibiu categoria — exibia o tipo de produto, e "Outros" para a maioria. **É a origem do "Outros em massa".**
+
+**Bug latente (ainda não corrompeu):** `ProdutoFormModal.tsx:10` monta a lista de categorias a partir do **mock** (`Roupas`, `Calçados`, `Cosméticos`…). Salvar um produto com uma delas grava esse texto em `tipo`. Verificado em 17/09/2026: o banco contém **apenas** `Outros`/`simples`/`variavel` — ou seja, **ninguém salvou ainda com categoria do mock**. O risco é imediato e vale mais que a v1.
+
+### 11.2 Por que não é um commit pequeno
+
+Corrigir só a gravação quebra a leitura, e vice-versa. A fatia exige, em conjunto:
+
+1. **`ProdutoFormModal`** — select de categoria real (`me_categoria`: globais + da empresa) + opção de **criar categoria na hora** (senão o fundador não consegue adicionar novas).
+2. **`use-criar-produto` / `use-atualizar-produto`** — gravar `categoria_id` e **parar de escrever em `tipo`**.
+3. **`use-produtos` / `use-produto`** — resolver `categoria` a partir de `categoria_id` (via `me_categoria`), não de `tipo`.
+4. **`ProdutosPage` / `ProdutoDetalhePage`** — passam a exibir a categoria real (sem mudança de UI esperada: `categoria: string` já é o contrato).
+5. **`me_categoria`** — as globais hoje sem produto (`Geral`, `Pães e Doces`, `Bebidas`, `Produtos`, `Serviços`) passam a aparecer para seleção.
+
+### 11.3 Decisão necessária (D-V2.1)
+
+O que fazer com `me_produto.tipo`, agora que se sabe o que ele é?
+
+| Opção | Efeito |
+|---|---|
+| **A — Preservar `tipo`, usar `categoria_id` para categoria (recomendada)** | Zero perda: `simples`/`variavel` continuam significando o que significam; categoria passa a viver só em `categoria_id` |
+| B — Abandonar `tipo` (parar de ler e escrever) | O campo fica órfão e `simples`/`variavel` deixam de ser acessíveis |
+
+**Recomendação: A.** `tipo` é informação legítima de produto — não deve ser sobrescrita nem ignorada.
