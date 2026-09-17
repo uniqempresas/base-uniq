@@ -703,6 +703,22 @@ Decisão do fundador após validar na Vercel: **pedido que chega do n8n/WhatsApp
 
 ---
 
+**🧹 Limpeza dos dados de teste da Doceê + foto das conversas (17/09/2026):**
+
+- **Pedido:** limpar conversas, pedidos e clientes da Doceê (ainda em testes) e **garantir que as imagens das conversas passem a ir para os clientes**.
+- **Backup ANTES de apagar:** 8 tabelas copiadas dentro do próprio banco (`CREATE TABLE AS SELECT`) → `_bk_20260917_*`. Contagens conferidas **antes** do DELETE, para a rede de segurança não ser decorativa.
+- **Apagado em transação única**, filho → pai, sempre com filtro `empresa_id`: `crm_chat_mensagens` 122→0 · `crm_chat_conversas` 5→0 · `me_cliente` 5→0 · `me_venda` 5→0 · `me_itens_venda` 19→0 · `me_venda_historico` 2→0 · `me_contas_receber` 5→0.
+- **Preservado:** `me_produto` (16) e `me_categoria` (5) — não faziam parte do pedido.
+- **Cuidados que o contrato de FK exigiu:** `crm_chat_conversas.cliente_id → me_cliente` é **ON DELETE CASCADE** (apagar cliente derrubaria as conversas dele), então as conversas saíram **antes** e de forma explícita; e `me_venda.cliente_id` **não tem FK**, então apagar cliente primeiro deixaria vendas órfãs — as vendas saíram antes dos clientes.
+- **Não tocado (deliberado):** `mel_chat` (548 linhas, **sem `empresa_id`** — não é dado de tenant e não são as conversas do WhatsApp), `crm_leads` (0 linhas na Doceê) e as migrations.
+- **⚠️ Órfãos no Storage:** as 4 fotos em `uniq_me_produtos/clientes/*.jpg` eram dos clientes apagados (~185 KB). Inofensivas — e continuam válidas se o backup for restaurado.
+- **Function `persistir-foto-cliente` → v2:** além de gravar em `me_cliente.foto_url`, passa a gravar a **mesma URL estável** em `crm_chat_conversas.foto_contato`. Sem esse segundo passo o avatar do CRM seguiria apontando para a URL do WhatsApp e quebraria em ~10 dias. A v2 também estabiliza o avatar quando o cliente **já tinha** foto.
+- **Verificado em produção:** a v2 responde `404 Cliente nao encontrado` para id inexistente (prova que roda sem erro de sintaxe) e `401` sem o segredo (auth intacta).
+- **⏳ Pendente com o fundador:** ligar a function no fluxo `atendente_Docee` **depois** do passo que cria/encontra o cliente, com `{ "telefone": "{{ canal_id }}" }` + header `x-uniq-secret` — instruções na §7 do SPEC.
+- **Restaurar, se precisar:** `INSERT INTO me_cliente SELECT * FROM _bk_20260917_me_cliente;` (idem para as demais `_bk_20260917_*`).
+
+---
+
 ## ➕ PENDÊNCIAS QUE DEPENDEM DO FUNDADOR
 
 | # | Item | Necessário antes de | Observação |

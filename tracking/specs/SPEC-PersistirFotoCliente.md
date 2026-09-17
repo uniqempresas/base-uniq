@@ -88,6 +88,12 @@ Opcional: { "forcar": true }            // sobrescreve foto existente
 
 ## 5. Código de referência (segredo redigido)
 
+> **⚠️ O que está em produção é a v2.** O código abaixo é a **v1**. A v2 acrescenta dois passos, descritos na §7:
+> 1. o `select` da conversa passa a trazer também o **`id`**;
+> 2. depois de subir a imagem, a **mesma** URL estável é gravada em **`crm_chat_conversas.foto_contato`** — sem isso o avatar do CRM continuaria apontando para a URL do WhatsApp, que expira.
+>
+> A v2 também estabiliza o avatar quando o cliente **já tinha** foto (retorna `ignorado: true` sem deixar a conversa com link expirável).
+
 ```ts
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -224,11 +230,72 @@ Deno.serve(async (req) => {
 
 ## 7. Futuro — automação no n8n (escolha do fundador)
 
-No fluxo `atendente_Docee`, após gravar a conversa, chamar a function com o telefone do contato. Passa a valer para toda conversa nova, sem intervenção manual e sem foto quebrada.
+**Onde ligar:** no fluxo `atendente_Docee`, **depois** do passo que cria/encontra o cliente (`Consulta Cliente` → `Cliente Ja Cadastrado` / `Cria_Cliente`). A função exige que o cliente já exista.
+
+```
+Método: POST
+URL:    https://krrkfgvdwhpelxtrdtla.supabase.co/functions/v1/persistir-foto-cliente
+Headers:
+        x-uniq-secret: <valor de UNIQ_FOTO_SECRET no .env>
+        content-type: application/json
+Body:   { "telefone": "{{ $json.canal_id }}" }
+```
+
+**O que a função faz nesse ponto:**
+1. Normaliza o telefone (`fn_normalizar_telefone`) e acha o cliente
+2. Pega a foto da conversa mais recente daquele telefone
+3. Copia a imagem para o Storage
+4. Grava a URL estável em **`me_cliente.foto_url`** (a foto chega ao cliente ✅)
+5. Grava a **mesma** URL estável em **`crm_chat_conversas.foto_contato`** (o avatar do CRM deixa de quebrar)
+
+> Sem o passo 5, o avatar do CRM continuaria apontando para a URL do WhatsApp, que expira em ~10 dias.
+
+**Respostas possíveis:** `success` · `ignorado` (cliente já tem foto — mas o avatar da conversa é estabilizado mesmo assim) · `Host nao permitido` (placeholder) · `Origem respondeu 403` (foto expirada) · `Cliente nao encontrado` (404).
 
 ---
 
-## 8. Fora de escopo
+## 8. Limpeza dos dados de teste da Doceê (17/09/2026)
+
+O fundador pediu para limpar conversas, pedidos e clientes da Doceê (ainda em testes).
+
+**Backup antes de apagar** — 8 tabelas copiadas dentro do próprio banco (`CREATE TABLE AS SELECT`), restaurável:
+
+`_bk_20260917_crm_chat_conversas` (5) · `_bk_20260917_crm_chat_mensagens` (122) · `_bk_20260917_me_cliente` (5) · `_bk_20260917_me_venda` (5) · `_bk_20260917_me_itens_venda` (19) · `_bk_20260917_me_venda_servicos` (0) · `_bk_20260917_me_venda_historico` (2) · `_bk_20260917_me_contas_receber` (5)
+
+O backup foi **conferido antes** do DELETE (as contagens batiam com a origem).
+
+**Apagado em transação única**, filho → pai, sempre com filtro `empresa_id`:
+
+| Tabela | Antes | Depois |
+|---|---|---|
+| `crm_chat_conversas` | 5 | 0 |
+| `crm_chat_mensagens` | 122 | 0 |
+| `me_cliente` | 5 | 0 |
+| `me_venda` | 5 | 0 |
+| `me_itens_venda` | 19 | 0 |
+| `me_venda_historico` | 2 | 0 |
+| `me_contas_receber` | 5 | 0 |
+| **`me_produto`** | 16 | **16 (preservado)** |
+| **`me_categoria`** | 5 | **5 (preservado)** |
+
+**Cuidados que o contrato de FK exigiu:**
+- `crm_chat_conversas.cliente_id → me_cliente` é **ON DELETE CASCADE** — apagar cliente derrubaria as conversas dele. Por isso as conversas foram apagadas **antes**, de forma explícita.
+- `me_venda.cliente_id` **não tem FK** — se eu apagasse o cliente primeiro, sobrariam vendas órfãs. As vendas foram apagadas antes dos clientes.
+- `crm_chat_mensagens.conversa_id` é **uuid** (o TRACKING antigo dizia text — corrigido).
+
+**Não mexi (deliberadamente):** `mel_chat` (548 linhas, **sem `empresa_id`** — não é escopo de tenant, e não são as conversas do WhatsApp), `crm_leads` (0 linhas na Doceê, preservado como legado), e as migrations de produto/categoria.
+
+**⚠️ Órfãos no Storage:** as 4 fotos em `uniq_me_produtos/clientes/*.jpg` pertenciam aos clientes apagados. São inofensivas (~185 KB) e ficam disponíveis caso o backup seja restaurado; podem ser removidas depois.
+
+**Restaurar, se precisar:**
+```sql
+INSERT INTO me_cliente SELECT * FROM _bk_20260917_me_cliente;
+-- idem para as demais _bk_20260917_*
+```
+
+---
+
+## 9. Fora de escopo
 
 - Exibir a foto na UI do CRM (lista/detalhe de clientes) — é mudança de tela, pede o pipeline completo
 - Subcategorias / outras mídias da conversa
