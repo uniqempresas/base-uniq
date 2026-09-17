@@ -26,6 +26,8 @@ interface DBProduto {
   foto_url: string | null;
   opcoes_config: unknown;
   exibir_vitrine: boolean | null;
+  /** Embed do PostgREST: me_produto.categoria_id → me_categoria */
+  me_categoria: { id_categoria: number; nome_categoria: string | null; cor: string | null } | null;
 }
 
 function calcEstoqueStatus(estoque: number, estoqueMinimo: number): EstoqueStatus {
@@ -47,7 +49,10 @@ function mapProduto(db: DBProduto): Produto {
     nome: db.nome_produto || "Sem nome",
     sku: db.sku || "",
     codigoBarras: db.codigo_barras || undefined,
-    categoria: db.tipo || "Outros",
+    // Categoria REAL, resolvida pelo embed (antes lia `tipo`, que é tipo de produto)
+    categoria: db.me_categoria?.nome_categoria || "Sem categoria",
+    categoriaId: db.categoria_id ?? null,
+    categoriaCor: db.me_categoria?.cor ?? null,
     unidade: "un", // padrão
     precoVenda: Number(db.preco) || 0,
     precoCusto: Number(db.preco_custo) || 0,
@@ -112,7 +117,7 @@ export function useProduto(id: string | undefined): UseProdutoReturn {
     try {
       const { data: dbProduto, error: produtoError } = await supabase
         .from("me_produto")
-        .select("*")
+        .select("*, me_categoria(id_categoria, nome_categoria, cor)")
         .eq("id", id)
         .eq("empresa_id", empresaId)
         .maybeSingle();

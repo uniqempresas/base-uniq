@@ -7,7 +7,8 @@ export interface AtualizarProdutoParams {
   nome?: string;
   sku?: string;
   codigoBarras?: string;
-  categoria?: string;
+  /** `me_produto.categoria_id` — não confundir com `tipo` (tipo de produto) */
+  categoriaId?: number | null;
   precoVenda?: number;
   precoCusto?: number;
   estoque?: number;
@@ -48,7 +49,7 @@ export function useAtualizarProduto() {
         if (campos.nome !== undefined) updateData.nome_produto = campos.nome;
         if (campos.sku !== undefined) updateData.sku = campos.sku;
         if (campos.codigoBarras !== undefined) updateData.codigo_barras = campos.codigoBarras;
-        if (campos.categoria !== undefined) updateData.tipo = campos.categoria;
+        if (campos.categoriaId !== undefined) updateData.categoria_id = campos.categoriaId;
         if (campos.precoVenda !== undefined) updateData.preco = campos.precoVenda;
         if (campos.precoCusto !== undefined) updateData.preco_custo = campos.precoCusto;
         if (campos.estoque !== undefined) updateData.estoque_atual = campos.estoque;

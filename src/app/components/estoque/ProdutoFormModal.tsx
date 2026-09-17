@@ -1,13 +1,13 @@
 import { useState } from "react";
-import { X, CheckCircle2, Loader2, Barcode, Camera, Trash2, Package } from "lucide-react";
-import { PRODUTOS, CATEGORIA_COLORS, formatCurrency, calcMargem, type Produto } from "./estoqueMockData";
+import { useNavigate } from "react-router";
+import { X, CheckCircle2, Loader2, Barcode, Camera, Trash2, Package, Settings } from "lucide-react";
+import { formatCurrency, calcMargem, type Produto } from "./estoqueMockData";
 import { useCriarProduto } from "../../hooks/use-criar-produto";
 import { useAtualizarProduto } from "../../hooks/use-atualizar-produto";
 import { getTagPalette, type Tag } from "../../hooks/use-tags";
+import type { CategoriaProduto } from "../../hooks/use-categorias";
 import { useAuth } from "../../contexts/AuthContext";
 import { useUploadProdutoFoto } from "../../hooks/use-upload-produto";
-
-const CATEGORIAS = [...new Set(PRODUTOS.map((p) => p.categoria))];
 
 const STEPS = ["Informações", "Preços", "Estoque"];
 
@@ -15,11 +15,12 @@ interface ProdutoFormModalProps {
   produto?: Produto | null; // null/undefined = modo criar; Produto = modo editar
   produtoBase?: Produto | null; // null/undefined = modo criar normal; Produto = modo duplicar
   tags: Tag[];              // catálogo via useTags (mesmo de clientes)
+  categorias: CategoriaProduto[]; // catálogo via useCategorias (o CRUD fica em /estoque/configuracoes)
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export function ProdutoFormModal({ produto, produtoBase, tags, onClose, onSuccess }: ProdutoFormModalProps) {
+export function ProdutoFormModal({ produto, produtoBase, tags, categorias, onClose, onSuccess }: ProdutoFormModalProps) {
   const ehEdicao = Boolean(produto);
   const ehDuplicacao = Boolean(produtoBase);
   const { empresa } = useAuth();
@@ -35,7 +36,9 @@ export function ProdutoFormModal({ produto, produtoBase, tags, onClose, onSucces
     return {
       nome: produtoBase ? `${produtoBase.nome} (cópia)` : base?.nome || "",
       sku: produtoBase ? (produtoBase.sku ? `${produtoBase.sku}-COPIA` : "") : base?.sku || "",
-      categoria: base?.categoria || "",
+      // Categoria vive em `categoria_id`. Antes era um nome vindo de lista mock,
+      // gravado por engano em `me_produto.tipo`.
+      categoriaId: (base?.categoriaId ?? null) as number | null,
       unidade: base?.unidade || "Peça",
       precoCusto: base ? String(base.precoCusto ?? 0) : "",
       precoVenda: base ? String(base.precoVenda ?? 0) : "",
@@ -56,8 +59,11 @@ export function ProdutoFormModal({ produto, produtoBase, tags, onClose, onSucces
   );
 
   const base = produtoBase || produto || null;
-  const catColorsForPhoto =
-    CATEGORIA_COLORS[form.categoria] || CATEGORIA_COLORS["Outros"];
+  const navigate = useNavigate();
+  const categoriaSelecionada = categorias.find((c) => c.id === form.categoriaId) || null;
+  // Cor real da categoria (me_categoria.cor). Antes vinha de um mapa mock indexado
+  // por nome, então toda categoria real caía na cor de "Outros".
+  const catColorsForPhoto = getTagPalette(categoriaSelecionada?.cor);
 
   const margem =
     form.precoCusto && form.precoVenda
@@ -87,7 +93,7 @@ export function ProdutoFormModal({ produto, produtoBase, tags, onClose, onSucces
         id: Number(produto.id),
         nome: form.nome,
         sku: form.sku || undefined,
-        categoria: form.categoria || undefined,
+        categoriaId: form.categoriaId,
         precoVenda: parseFloat(form.precoVenda) || 0,
         precoCusto: parseFloat(form.precoCusto) || 0,
         estoque: parseInt(form.estoque) || 0,
@@ -108,7 +114,7 @@ export function ProdutoFormModal({ produto, produtoBase, tags, onClose, onSucces
     const resultado = await criarProduto({
       nome: form.nome,
       sku: form.sku || undefined,
-      categoria: form.categoria || undefined,
+      categoriaId: form.categoriaId,
       precoVenda: parseFloat(form.precoVenda) || 0,
       precoCusto: parseFloat(form.precoCusto) || 0,
       estoque: parseInt(form.estoque) || 0,
@@ -315,30 +321,51 @@ export function ProdutoFormModal({ produto, produtoBase, tags, onClose, onSucces
               </div>
               <div>
                 <label className="block text-[#1f2937] text-xs mb-1.5" style={{ fontWeight: 500 }}>
-                  Categoria *
+                  Categoria
                 </label>
-                <div className="flex flex-wrap gap-2">
-                  {CATEGORIAS.map((cat) => {
-                    const colors = CATEGORIA_COLORS[cat] || CATEGORIA_COLORS["Outros"];
-                    const selected = form.categoria === cat;
-                    return (
-                      <button
-                        key={cat}
-                        type="button"
-                        onClick={() => setForm((f) => ({ ...f, categoria: cat }))}
-                        className="px-3 py-1.5 rounded-xl text-xs transition-all"
-                        style={{
-                          background: selected ? colors.bg : "#efefef",
-                          color: selected ? colors.text : "#627271",
-                          border: selected ? `2px solid ${colors.text}40` : "2px solid transparent",
-                          fontWeight: selected ? 600 : 400,
-                        }}
-                      >
-                        {cat}
-                      </button>
-                    );
-                  })}
-                </div>
+                {categorias.length === 0 ? (
+                  <div className="flex items-center justify-between gap-3 px-3.5 py-3 rounded-xl border border-[#efefef] bg-[#FAFAFA]">
+                    <p className="text-[#627271] text-xs">Nenhuma categoria cadastrada ainda.</p>
+                    <button
+                      type="button"
+                      onClick={() => navigate("/estoque/configuracoes")}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#efefef] bg-white text-[#1f2937] text-xs hover:bg-[#efefef] transition-colors shrink-0"
+                      style={{ fontWeight: 500 }}
+                    >
+                      <Settings size={13} />
+                      Configurar
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {categorias.map((cat) => {
+                      const colors = getTagPalette(cat.cor);
+                      const selected = form.categoriaId === cat.id;
+                      return (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() =>
+                            setForm((f) => ({ ...f, categoriaId: selected ? null : cat.id }))
+                          }
+                          aria-pressed={selected}
+                          className="px-3 py-1.5 rounded-xl text-xs transition-all"
+                          style={{
+                            background: selected ? colors.bg : "#efefef",
+                            color: selected ? colors.text : "#627271",
+                            border: selected ? `2px solid ${colors.text}40` : "2px solid transparent",
+                            fontWeight: selected ? 600 : 400,
+                          }}
+                        >
+                          {cat.nome}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                <p className="text-[#627271] text-[11px] mt-2">
+                  Sem categoria, o produto aparece como “Sem categoria”.
+                </p>
               </div>
               <div>
                 <label className="block text-[#1f2937] text-xs mb-1.5" style={{ fontWeight: 500 }}>

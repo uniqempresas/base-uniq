@@ -19,6 +19,7 @@ import {
   Tag,
   ChevronDown,
   Loader2,
+  Settings,
 } from "lucide-react";
 import {
   PRODUTOS,
@@ -31,6 +32,7 @@ import {
 import { useProdutos } from "../../hooks/use-produtos";
 import { useAtualizarProduto } from "../../hooks/use-atualizar-produto";
 import { useTags } from "../../hooks/use-tags";
+import { useCategorias } from "../../hooks/use-categorias";
 import { ProdutoFormModal } from "./ProdutoFormModal";
 
 type ViewMode = "grid" | "list";
@@ -253,6 +255,7 @@ export function ProdutosPage() {
   const { produtos, loading, isFallback, recarregar } = useProdutos();
   const { atualizarProduto, loading: atualizandoProduto } = useAtualizarProduto();
   const { tags: tagsConfig } = useTags();
+  const { categorias: categoriasConfig } = useCategorias();
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [busca, setBusca] = useState("");
   const [catFiltro, setCatFiltro] = useState("Todas");
@@ -396,6 +399,7 @@ export function ProdutosPage() {
           {showNovoProduto && (
             <ProdutoFormModal
               tags={tagsConfig}
+              categorias={categoriasConfig}
               onClose={() => setShowNovoProduto(false)}
               onSuccess={() => {
                 setShowNovoProduto(false);
@@ -408,6 +412,7 @@ export function ProdutosPage() {
             <ProdutoFormModal
               produto={produtoParaEditar}
               tags={tagsConfig}
+              categorias={categoriasConfig}
               onClose={() => setProdutoParaEditar(null)}
               onSuccess={() => {
                 setProdutoParaEditar(null);
@@ -428,6 +433,15 @@ export function ProdutosPage() {
               </p>
             </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate("/estoque/configuracoes")}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#efefef] bg-white text-[#1f2937] text-xs hover:bg-[#efefef] transition-colors"
+            style={{ fontWeight: 500 }}
+            aria-label="Configurações de categorias"
+          >
+            <Settings size={13} />
+            <span className="hidden sm:inline">Categorias</span>
+          </button>
           <button className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#efefef] bg-white text-[#1f2937] text-xs hover:bg-[#efefef] transition-colors" style={{ fontWeight: 500 }}>
             <Upload size={13} />Importar
           </button>

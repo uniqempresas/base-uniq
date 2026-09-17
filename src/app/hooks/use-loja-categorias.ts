@@ -49,6 +49,7 @@ export function useLojaCategorias(
         .from("me_categoria")
         .select("id_categoria, empresa_id, nome_categoria")
         .or(`empresa_id.is.null,empresa_id.eq.${empresaId}`)
+        .eq("ativo", true)
         .order("nome_categoria");
 
       if (err) throw err;

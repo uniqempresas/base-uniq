@@ -41,6 +41,7 @@ import { useProduto } from "../../hooks/use-produto";
 import { useAtualizarProduto } from "../../hooks/use-atualizar-produto";
 import { useTags } from "../../hooks/use-tags";
 import { ProdutoFormModal } from "./ProdutoFormModal";
+import { useCategorias } from "../../hooks/use-categorias";
 import { useAuth } from "../../contexts/AuthContext";
 import { supabase } from "../../../lib/supabase";
 
@@ -254,6 +255,7 @@ export function ProdutoDetalhePage() {
 
   const { produto, loading, error, isFallback, recarregar } = useProduto(id);
   const { tags: tagsConfig } = useTags();
+  const { categorias: categoriasConfig } = useCategorias();
 
   // Movimentações: só em modo demo (mock-first); com sessão ativa vêm da base (empty state real)
   const movimentacoes =
@@ -349,6 +351,7 @@ export function ProdutoDetalhePage() {
         <ProdutoFormModal
           produto={produtoParaEditar}
           tags={tagsConfig}
+          categorias={categoriasConfig}
           onClose={() => setProdutoParaEditar(null)}
           onSuccess={() => {
             setProdutoParaEditar(null);
@@ -362,6 +365,7 @@ export function ProdutoDetalhePage() {
         <ProdutoFormModal
           produtoBase={produtoParaDuplicar}
           tags={tagsConfig}
+          categorias={categoriasConfig}
           onClose={() => setProdutoParaDuplicar(null)}
           onSuccess={() => {
             setProdutoParaDuplicar(null);

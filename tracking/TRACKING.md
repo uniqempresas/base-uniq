@@ -625,6 +625,67 @@ Decisão do fundador após validar na Vercel: **pedido que chega do n8n/WhatsApp
 
 ---
 
+**✅ Crash React #310 em rotas públicas da loja (17/09/2026):**
+
+- **Como foi achado:** varredura automatizada procurando hooks depois de `return` condicional no mesmo componente. Encontrou **6 componentes** com o defeito — **todos na loja pública**.
+- **Por que é grave:** o React exige ordem fixa de hooks entre renders; quando a contagem muda, ele lança o **erro #310** — a mesma classe que derrubou o app em 11/09.
+- **Duas causas distintas:**
+  1. **URL inválida** — `EntrarClientePage` e `CheckoutTenant` tinham a guarda de tenant **no meio** do componente: no 1º render `loadingTenant` é `true` e a guarda não dispara; no 2º, com slug errado, ela dispara e a contagem de hooks **cai**. Qualquer URL pública com slug errado derrubava a tela.
+  2. **Troca de variante** — `LojaPage`, `ProdutoLojaPage`, `MeusPedidosPage` e `CheckoutPage` faziam `if (slug) return <XTenant/>` e só **depois** declaravam os hooks da demo. Demo e tenant são o **mesmo componente** na árvore, então alternar `/loja` ↔ `/loja/:slug` mudava a contagem de hooks.
+- **Correção:** a variante demo virou **componente separado** (`LojaDemo`, `ProdutoDemo`, `MeusPedidosDemo`, `CheckoutDemo`) e a guarda de tenant foi movida para **depois de todos os hooks**.
+- **Verificação:** `tsc --noEmit` sem erros novos · `npm run build` ✅ · **não verificado em runtime** (sem browser) — testar no celular uma URL com slug errado (`/loja/xxx/entrar` deve mostrar "Loja não encontrada", não tela branca).
+- **Observação de processo:** o projeto **não tem ESLint**, então `react-hooks/rules-of-hooks` não é verificado. Esta classe de bug já se manifestou **3 vezes** (AppLayout em 11/09, `LojaVitrineTenant`/`ProdutoTenant`, e agora estes 4). Vale considerar um linter.
+
+---
+
+**✅ Categorias de produto — CRUD + uso no cadastro (17/09/2026):**
+
+- **Problema:** não era possível classificar produto. O modal oferecia categorias do **mock** (`Roupas`, `Calçados`…) e gravava a escolha em **`me_produto.tipo`** — que é **tipo de produto** (`simples`/`variavel`), não categoria; e a leitura fazia o inverso (`categoria: db.tipo`). Ciclo fechado de erro: daí todo produto aparecer como "Outros".
+- **Decisão D-V2.1:** `tipo` **preservado** como tipo de produto; categoria passa a viver **só** em `categoria_id`. `tipo` deixa de ser lido e escrito pelo fluxo de categoria.
+- **Banco — migration `20260917230000_me_categoria_cor_ativo` (aplicada e verificada):**
+  - `cor text` — sem ela todas as chips do formulário caíam na cor de fallback "Outros"
+  - `ativo boolean NOT NULL DEFAULT true` — soft delete, igual às tags
+  - índice único **parcial** `ux_me_categoria_empresa_nome` em (empresa, `lower(nome)`) `WHERE ativo = true` — impede "Trufa" duplicada e permite recriar um nome já removido. **Zero duplicatas** antes de criar o índice (verificado)
+- **Hook novo `use-categorias.ts`** (espelha `use-tags`): listar, criar, atualizar, desativar (soft delete) e `contarProdutos` para o aviso de remoção. Escopo restrito às categorias **da empresa** — as **globais** (`empresa_id IS NULL`, como "Pães e Doces") são compartilhadas entre tenants e ficam fora do CRUD (D6).
+- **Tela nova `/estoque/configuracoes`** (`ConfiguracoesProdutosPage`, rota **lazy**): espelho da tela de tags do CRM + **editar inline** (as tags não têm edição), paleta de cor e aviso com a contagem de produtos antes de remover.
+- **Botão de acesso** no header de `/estoque/produtos` (ícone `Settings`), mesmo formato do botão que leva a `/crm/configuracoes`.
+- **Modal de produto:** chips **reais** com a **cor real** da categoria, grava `categoriaId`, pré-seleciona ao editar e, sem categorias, aponta para a tela de configurações.
+- **Leitura corrigida** (`use-produtos`, `use-produto`): embed do PostgREST `me_categoria(nome_categoria, cor)` resolve o nome **na mesma query** (verificado em produção antes de implementar). Produto sem categoria aparece como **"Sem categoria"** — nunca mais "Outros".
+- **`use-loja-categorias`** passa a filtrar `ativo`, então categoria removida sai da barra da loja.
+- **Verificação:** `tsc --noEmit` sem erros novos (segue **13 pré-existentes**, todos de outros módulos) · `npm run build` ✅
+- **⏳ Pendência cosmética registrada:** as chips de categoria nas **listas** (`ProdutosPage`, `ProdutoDetalhePage`) ainda usam o mapa mock `CATEGORIA_COLORS` indexado por **nome** — com as categorias reais, todas caem na cor de fallback "Outros". Basta passar a usar `categoriaCor` (já disponível no tipo `Produto`).
+- 🔒 **Segurança:** `me_categoria` está com **RLS desligado** (0 políticas), então a escrita vem do cliente — mesma situação de `me_tag` e demais tabelas (ver **P5**). Não bloqueia agora, mas entra na revisão de RLS antes de produção com dados reais.
+
+---
+
+**🔎 Varredura do bug #310 — mais 5 ocorrências (17/09/2026, commit `4dfeeb4`):**
+
+- Varredura automatizada do app procurando **hooks depois de `return` condicional** encontrou **6 componentes** com a falha, **todos em rotas públicas**.
+- **Causa 1 — troca de variante:** `LojaPage`, `ProdutoLojaPage`, `MeusPedidosPage` e `CheckoutPage` tinham o corpo da demo no **mesmo componente** do `if (slug) return <XTenant/>`. Demo e tenant são o mesmo componente na árvore, então alternar `/loja` ↔ `/loja/:slug` mudava a **contagem de hooks** → erro #310. Correção: cada variante virou componente próprio (`LojaDemo`, `ProdutoDemo`, `MeusPedidosDemo`, `CheckoutDemo`).
+- **Causa 2 — URL inválida:** em `EntrarClientePage` a guarda de tenant ficava **no meio** do componente, com `useEffect` depois. Com slug errado (`/loja/xxx/entrar`), o 1º render passava pela guarda sem disparar e o 2º disparava, reduzindo os hooks. Correção: guarda movida para **depois de todos os hooks**.
+- **Causa de fundo:** o projeto **não tem ESLint**, então `react-hooks/rules-of-hooks` não é verificado — por isso a mesma classe reapareceu **3 vezes** (AppLayout em 11/09, `LojaVitrineTenant`/`ProdutoTenant`, e agora estes 5).
+- **Verificação:** `tsc --noEmit` com **13 erros, a linha de base pré-existente inalterada** · `npm run build` ✅ · comportamento **não testado em runtime** — testar no celular `/loja/xxx/entrar` (deve mostrar "Loja não encontrada", não tela branca).
+
+**✅ Categorias de Produto — CRUD + uso no cadastro (17/09/2026):**
+
+- **Problema:** não dava para classificar produto. O modal listava categorias do **mock** (`Roupas`, `Calçados`) e gravava em **`me_produto.tipo`** — que é **tipo de produto** (`simples`/`variavel`) — enquanto a leitura fazia `categoria: db.tipo`. Ciclo fechado de erro: tudo aparecia como "Outros".
+- **Decisão D-V2.1:** `tipo` **preservado** como tipo de produto; categoria passa a viver **só** em `categoria_id`, e `tipo` deixa de ser escrito pelo fluxo de categoria.
+- **Banco — migration `20260917230000_me_categoria_cor_ativo` (aplicada e verificada):**
+  - `cor text` — sem ela todas as chips do formulário caíam na cor de fallback
+  - `ativo boolean NOT NULL DEFAULT true` — soft delete, igual às tags
+  - índice único **parcial** `ux_me_categoria_empresa_nome` em (empresa, `lower(nome)`) `WHERE ativo = true`, com `COALESCE` para as globais — impede nome duplicado e permite recriar um nome removido. **Zero duplicatas** antes de criar (verificado)
+- **Hook novo `use-categorias.ts`** (espelha `use-tags`): listar, criar, **atualizar**, desativar e `contarProdutos`. Escopo restrito às categorias **da empresa** — as **globais** (`empresa_id IS NULL`, ex.: "Pães e Doces") são compartilhadas entre tenants e ficam **fora** do CRUD (D6).
+- **Tela nova `/estoque/configuracoes`** (`ConfiguracoesProdutosPage`, rota **lazy**): espelho da tela de tags do CRM, com **edição inline** (as tags não têm), paleta de cor e **aviso com a contagem de produtos** antes de remover.
+- **Botão de acesso** no header de `/estoque/produtos` (ícone `Settings`), mesmo formato do botão que leva a `/crm/configuracoes`.
+- **Modal de produto:** chips **reais** com a **cor real**; grava `categoriaId`; pré-seleciona ao editar; sem categorias, aponta para a tela de configurações.
+- **Leitura corrigida** (`use-produtos`, `use-produto`): embed do PostgREST `me_categoria(nome_categoria, cor)` resolve o nome **na mesma query** (verificado em produção antes de implementar). Produto sem categoria agora é **"Sem categoria"** — nunca mais "Outros".
+- **`use-loja-categorias`** filtra `ativo`, então categoria removida sai da barra da loja.
+- **Verificação:** `tsc --noEmit` sem erros novos (segue **13**, todos de outros módulos) · `npm run build` ✅
+- **⏳ Pendência cosmética registrada:** as chips de categoria nas **listas** (`ProdutosPage`, `ProdutoDetalhePage`) ainda usam o mapa mock `CATEGORIA_COLORS` indexado por **nome**, então caem na cor de fallback. Correção: usar `categoriaCor` (já disponível no tipo `Produto`).
+- 🔒 **RLS:** `me_categoria` está com RLS **desligado** (0 políticas), então a escrita vem do cliente — mesma situação de `me_tag`. Entra na revisão do **P5** antes de produção com dados reais.
+
+---
+
 ## ➕ PENDÊNCIAS QUE DEPENDEM DO FUNDADOR
 
 | # | Item | Necessário antes de | Observação |

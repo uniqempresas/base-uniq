@@ -27,6 +27,10 @@ export interface Produto {
   sku: string;
   codigoBarras?: string;
   categoria: string;
+  /** `me_produto.categoria_id` — usado para pré-selecionar no formulário */
+  categoriaId?: number | null;
+  /** `me_categoria.cor` — cor real da categoria (antes vinha de um mapa mock) */
+  categoriaCor?: string | null;
   marca?: string;
   unidade: string;
   precoVenda: number;

@@ -26,6 +26,8 @@ interface DBProduto {
   foto_url: string | null;
   opcoes_config: unknown;
   exibir_vitrine: boolean | null;
+  /** Embed do PostgREST: me_produto.categoria_id → me_categoria */
+  me_categoria: { id_categoria: number; nome_categoria: string | null; cor: string | null } | null;
 }
 
 function calcEstoqueStatus(estoque: number, estoqueMinimo: number): EstoqueStatus {
@@ -47,7 +49,11 @@ function mapProduto(db: DBProduto): Produto {
     nome: db.nome_produto || "Sem nome",
     sku: db.sku || "",
     codigoBarras: db.codigo_barras || undefined,
-    categoria: db.tipo || "Outros",
+    // Categoria REAL, resolvida pelo embed. Antes lia `db.tipo`, que é TIPO DE
+    // PRODUTO (simples/variavel/Outros) — daí todo produto aparecer como "Outros".
+    categoria: db.me_categoria?.nome_categoria || "Sem categoria",
+    categoriaId: db.categoria_id ?? null,
+    categoriaCor: db.me_categoria?.cor ?? null,
     unidade: "un", // padrão
     precoVenda: Number(db.preco) || 0,
     precoCusto: Number(db.preco_custo) || 0,
@@ -108,7 +114,7 @@ export function useProdutos(): UseProdutosReturn {
     try {
       const { data: dbProdutos, error: produtosError } = await supabase
         .from("me_produto")
-        .select("*")
+        .select("*, me_categoria(id_categoria, nome_categoria, cor)")
         .eq("ativo", true)
         .eq("empresa_id", empresaId)
         .order("nome_produto");

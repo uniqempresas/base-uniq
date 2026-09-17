@@ -92,6 +92,7 @@ export const router = createBrowserRouter([
       { path: "/estoque/produtos", lazy: pagina(() => import("./components/estoque/ProdutosPage"), "ProdutosPage") },
       { path: "/estoque/produtos/:id", lazy: pagina(() => import("./components/estoque/ProdutoDetalhePage"), "ProdutoDetalhePage") },
       { path: "/estoque/movimentacoes", lazy: pagina(() => import("./components/estoque/MovimentacoesPage"), "MovimentacoesPage") },
+      { path: "/estoque/configuracoes", lazy: pagina(() => import("./components/estoque/ConfiguracoesProdutosPage"), "ConfiguracoesProdutosPage") },
       // Fornecedores
       { path: "/fornecedores", lazy: pagina(() => import("./components/fornecedores/FornecedoresPage"), "FornecedoresPage") },
       { path: "/fornecedores/novo", lazy: pagina(() => import("./components/fornecedores/FornecedorNovoPage"), "FornecedorNovoPage") },

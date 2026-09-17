@@ -6,7 +6,8 @@ export interface CriarProdutoParams {
   nome: string;
   sku?: string;
   codigoBarras?: string;
-  categoria?: string;
+  /** `me_produto.categoria_id` — a categoria vive aqui, NÃO em `tipo` */
+  categoriaId?: number | null;
   precoVenda: number;
   precoCusto?: number;
   estoque?: number;
@@ -46,7 +47,10 @@ export function useCriarProduto() {
             nome_produto: params.nome,
             sku: params.sku || null,
             codigo_barras: params.codigoBarras || null,
-            tipo: params.categoria || "Outros",
+            // `tipo` é TIPO DE PRODUTO (simples/variavel/Outros) — nunca gravar
+            // nome de categoria aqui. Categoria vai em `categoria_id`.
+            categoria_id: params.categoriaId ?? null,
+            tipo: "Outros",
             preco: params.precoVenda,
             preco_custo: params.precoCusto || 0,
             estoque_atual: params.estoque || 0,
