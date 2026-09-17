@@ -26,6 +26,26 @@ function usePrefereReduzirMovimento(): boolean {
 }
 
 /**
+ * Véu do banner.
+ *
+ * - Banner **gerado** (sem imagem): superfície grafite própria, sem imagem.
+ * - Banner **com imagem e texto sobreposto**: escurece da esquerda para a direita
+ *   para o título/subtítulo ficarem legíveis.
+ * - Banner **com imagem e SEM texto** (arte pronta, texto já embutido no arquivo):
+ *   **não** escurece — o véu só borraria a arte.
+ */
+function VeuBanner({ temImagem, temTexto }: { temImagem: boolean; temTexto: boolean }) {
+  const fundo = !temImagem
+    ? "linear-gradient(135deg, #1f2937 0%, #34434f 100%)"
+    : temTexto
+      ? "linear-gradient(90deg, rgba(31,41,55,0.78) 0%, rgba(31,41,55,0.20) 75%)"
+      : null;
+
+  if (!fundo) return null;
+  return <div className="absolute inset-0" style={{ background: fundo }} />;
+}
+
+/**
  * Carrossel do banner da loja (WIRE bloco ⑥).
  *
  * Um slide visível por vez com scroll-snap nativo. Autoplay só com 2+ slides,
@@ -159,15 +179,9 @@ export function LojaBannerCarousel({
               </picture>
             ) : null}
 
-            {/* Véu para legibilidade do texto sobre a imagem */}
-            <div
-              className="absolute inset-0"
-              style={{
-                background:
-                  b.mobileUrl || b.desktopUrl
-                    ? "linear-gradient(90deg, rgba(31,41,55,0.78) 0%, rgba(31,41,55,0.20) 75%)"
-                    : "linear-gradient(135deg, #1f2937 0%, #34434f 100%)",
-              }}
+            <VeuBanner
+              temImagem={!!(b.mobileUrl || b.desktopUrl)}
+              temTexto={!!(b.titulo || b.subtitulo)}
             />
 
             <div className="relative flex h-full flex-col justify-between p-5 sm:p-7">

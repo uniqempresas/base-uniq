@@ -173,6 +173,32 @@ Observação: a **busca por texto** não dispara esse comportamento (o fundador 
 especificamente para categoria). Estender para a busca é trocar a condição por
 `filtroAtivo`.
 
+### Especificação de assets do banner (17/09/2026)
+
+O banner tem **altura fixa e largura variável**, com `object-cover` (preenche e corta).
+
+| Slot | Faixa | Largura exibida | Altura | Imagem recomendada |
+|---|---|---|---|---|
+| Desktop | ≥ 1024px | até 1120px (`max-w-6xl` − `px-4`) | 240px (`h-60`) | **1600 × 340** (retina: 2240 × 480) |
+| Tablet | 640–1023px | até ~991px | 192px (`h-48`) | **1500 × 290** |
+| Mobile | < 640px | até ~607px | 160px (`h-40`) | **1080 × 480** |
+
+- **Formato:** JPG (foto) ou WebP · **alvo ≤ 300 KB** · PNG só se precisar de transparência.
+- **Campos:** `appearance.hero.banners[].desktop_url` e `mobile_url`. Preencher só um é válido — o outro usa o mesmo arquivo.
+- **Aspect ratio varia** com a largura do aparelho (2,24:1 num phone de 390px; 3,79:1 num de 600px). Por isso: manter o assunto essencial no **centro vertical** da arte.
+- **Área segura:** título, subtítulo e botão ficam à **esquerda**, sobre o véu escuro. Assunto principal à **direita**.
+
+**Duas estratégias de arte (ambas suportadas desde 17/09/2026):**
+
+| | Arte | Texto | Véu |
+|---|---|---|---|
+| **A (recomendada)** | imagem limpa | escrito pelo dado do banner (título/subtítulo/botão) | aplicado à esquerda para legibilidade |
+| **B** | flyer pronto, com texto embutido | deixar `title`/`subtitle` vazios | **não** aplicado — a arte fica intacta |
+
+O componente `VeuBanner` decide pelo conteúdo: sem imagem → superfície grafite; com imagem e texto → véu; com imagem e sem texto → sem véu.
+
+**Não existe tela para editar banners** (V4 fora da v1). Para publicar: subir o arquivo no bucket público `uniq_me_produtos` e escrever o JSON em `me_empresa.appearance.hero.banners[]`.
+
 ### `VitrineCardTenant` (evolução)
 - Mantém foto, nome, preço, ação. Ganha: **categoria** (micro-texto), **selo de desconto condicional** (V6), selo "Esgotado".
 - Estados do botão: `Adicionar` → `✓ Adicionado!` (1,5s) → `✓ No Carrinho`; `Indisponível` com estoque 0 e `estoqueMax`.
