@@ -601,7 +601,8 @@ Decisão do fundador após validar na Vercel: **pedido que chega do n8n/WhatsApp
 - **−64% no JS do primeiro acesso.** O `recharts` (375 KB) sai do caminho da loja.
 - **Prova estrutural:** o entry tem **zero imports estáticos** (closure = 1 chunk) e as telas do ERP existem como arquivos separados (`PDVPage-*.js`, `PipelinePage-*.js`, `generateCategoricalChart-*.js`).
 - **Verificação:** `tsc --noEmit` sem erros novos (total segue **13**, todos pré-existentes) · `npm run build` ✅
-- ⚠️ **Não verificado em runtime:** o MCP do Chrome não anexa (o navegador do fundador ocupa o perfil). As rotas do ERP mudaram de mecânica de carregamento — **clicar por algumas telas no celular para confirmar**.
+- ✅ **Chunks verificados em produção (17/09/2026):** os **167 chunks** referenciados pelo entry respondem **HTTP 200** — **nenhum 404**. Elimina o modo de falha mais provável de code splitting (chunk que não subiu) sem precisar de browser.
+- ⚠️ **Ainda não verificado em runtime:** as telas autenticadas do ERP exigem login (o agente não tem credenciais) e o MCP do Chrome não anexa. As rotas da **loja** não mudaram de comportamento; as do **ERP** mudaram a mecânica de carregamento — **clicar por algumas telas no celular para confirmar**.
 - **Risco:** `routes.tsx` virou arquivo crítico de ~68 rotas. Caminho de import errado quebra a rota (o build pega esse caso).
 - **Próximo ganho possível:** os 224 KB gzip do entry ainda contêm React, react-router, supabase-js, zod, react-hook-form e o código da loja/auth. Reduzir mais exigiria revisar o que a loja realmente importa.
 
