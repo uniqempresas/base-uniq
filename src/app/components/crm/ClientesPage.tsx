@@ -45,7 +45,19 @@ function TagChip({ tag, small = false, cor }: { tag: string; small?: boolean; co
   );
 }
 
-function AvatarInitials({ initials, color, size = 36 }: { initials: string; color: string; size?: number }) {
+function AvatarInitials({ initials, color, size = 36, src }: { initials: string; color: string; size?: number; src?: string | null }) {
+  // Foto real do cliente (me_cliente.foto_url) quando existe; senão, as iniciais.
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt=""
+        loading="lazy"
+        className="rounded-xl object-cover shrink-0"
+        style={{ width: size, height: size, background: color }}
+      />
+    );
+  }
   return (
     <div
       className="rounded-xl flex items-center justify-center text-white shrink-0"
@@ -70,7 +82,7 @@ function ClienteCard({ cliente, onClick, onEdit }: { cliente: Cliente; onClick: 
       <div className="p-4">
         <div className="flex items-start gap-3">
           <div className="relative">
-            <AvatarInitials initials={cliente.initials} color={cliente.avatarColor} size={44} />
+            <AvatarInitials initials={cliente.initials} color={cliente.avatarColor} size={44} src={cliente.avatar} />
             <div
               className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white flex items-center justify-center"
               style={{ background: cliente.status === "ativo" ? "#86cb92" : "#627271" }}
@@ -509,7 +521,7 @@ export function ClientesPage() {
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <AvatarInitials initials={c.initials} color={c.avatarColor} size={32} />
+                        <AvatarInitials initials={c.initials} color={c.avatarColor} size={32} src={c.avatar} />
                         <div>
                           <p className="text-[#1f2937] text-sm whitespace-nowrap" style={{ fontWeight: 600 }}>{c.nome}</p>
                           <p className="text-[#627271] text-xs">{c.email}</p>

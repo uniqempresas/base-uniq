@@ -77,6 +77,9 @@ function mapClienteToCliente(db: DBCliente): Cliente {
     tipo: "PF",
     initials: getInitials(nome),
     avatarColor: getAvatarColor(db.id),
+    // Foto do contato — gravada pela automação do WhatsApp em me_cliente.foto_url.
+    // Antes o mapper simplesmente ignorava esse campo e a tela mostrava só iniciais.
+    avatar: db.foto_url || undefined,
     email: db.email || "",
     telefone: formatTelefone(db.telefone),
     whatsapp: formatTelefone(db.telefone),

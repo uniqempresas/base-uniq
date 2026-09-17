@@ -77,6 +77,8 @@ function mapClienteToCliente(db: DBCliente): Cliente {
     tipo: "PF",
     initials: getInitials(nome),
     avatarColor: getAvatarColor(db.id),
+    // Foto do contato (me_cliente.foto_url). Sem ela, o avatar cai nas iniciais.
+    avatar: db.foto_url || undefined,
     email: db.email || "",
     telefone: formatTelefone(db.telefone),
     whatsapp: formatTelefone(db.telefone),
