@@ -835,7 +835,18 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 
 > ⚠️ **Anomalia observada (não é bug do código):** neste push o **webhook da Vercel demorou ~vários minutos** para disparar o deployment. No intervalo, a produção continuou servindo o build anterior (Wave 2) e o `state` da API ficou defasado (`INITIALIZING` mesmo com o deploy já servindo). **Lição:** após um push, **não confiar só no estado da API** — confirmar por **conteúdo servido** (hash do entry + marcador do chunk) e, se o deployment não aparecer, verificar em `vercel.com/.../base-uniq/deployments` antes de concluir que falhou.
 
-**Demais erros da linha de base (agora 8) — ruído de tipo, sem bug de runtime identificado:** `agenda/CompromissosPage:227`, `employees/ModuleCheckbox:13` (falta a chave `servicos`), `estoque/MovimentacoesPage:31` (`"Doação"`), `estoque/ProdutoDetalhePage:490` (`tab.badge`, = B7), `marketplace/CheckoutPage:171` (comparação sem overlap) e **3 mocks órfãos** importando `../types/*` inexistentes (prováveis arquivos mortos).
+**Os 8 erros restantes da linha de base — TRIADOS em 18/09 (nenhum é bug ativo):**
+
+| Arquivo | Veredito após inspeção |
+|---|---|
+| `marketplace/CheckoutPage:171` | ✅ **Não é bug** — o `etapa !== 'sucesso'` é **código morto**: já existe um `return` antecipado que trata o sucesso, então o TS estreita o tipo e a condição fica sempre verdadeira. A tela de sucesso funciona |
+| `employees/ModuleCheckbox:13` | 🟡 **Cosmético** — `moduleConfig` não tem a chave `servicos`, e o render cai no fallback `config?.label \|\| module` → exibe **`servicos`** (chave técnica) em vez de **"Serviços"**. Correção: 1 linha |
+| `agenda/CompromissosPage:227` | 🟡 **Latente** — `kpi.value > 0` com `value: string \| number`. O **único** KPI com `warn` (`Pendentes`) tem valor **numérico**, então funciona hoje; quebraria se alguém pusesse `warn` num KPI formatado em texto |
+| `estoque/ProdutoDetalhePage:490` | 🟡 `tab.badge` possivelmente `undefined` — é o **B7** do backlog (shapes inconsistentes no array `TABS`) |
+| `estoque/MovimentacoesPage:31` | 🟡 `"Doação"` não é membro de `MovMotivo` — tipo desatualizado em relação ao que a tela usa |
+| `lib/mocks/{chatbot,employees,marketplace}.ts` | 🟡 **3 mocks órfãos** importando `../types/*` que não existem — prováveis arquivos mortos (o build não quebra, então não são alcançados) |
+
+> **Conclusão do triagem:** na linha de base **antiga**, 2 dos 13 erros eram **bugs reais** (F1/F2). Agora que o gate funciona, os 8 são **ruído de tipo de verdade** — com **1 nit cosmético** (`servicos` → "Serviços") e **1 risco latente** documentado. **Ganho real:** a partir de agora, qualquer erro NOVO é regressão de verdade.
 
 ---
 
