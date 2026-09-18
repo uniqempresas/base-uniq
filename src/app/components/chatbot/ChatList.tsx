@@ -7,7 +7,6 @@
 import React from 'react';
 import { Avatar } from '../ui/avatar';
 import { Badge } from '../ui/badge';
-import { ScrollArea } from '../ui/scroll-area';
 import { Conversa } from '../../types/chatbot';
 
 interface ChatListProps {
@@ -45,14 +44,17 @@ function getInitials(nome: string): string {
 export function ChatList({ conversas, conversaAtiva, onSelectConversa }: ChatListProps) {
   return (
     <div className="w-full h-full bg-white flex flex-col">
-      {/* Header */}
-      <div className="p-4 border-b border-border">
+      {/* Header — fixo (shrink-0); só a lista rola */}
+      <div className="p-4 border-b border-border shrink-0">
         <h2 className="text-lg font-semibold text-foreground">Conversas</h2>
         <p className="text-sm text-muted-foreground">{conversas.length} conversas</p>
       </div>
 
-      {/* Lista de conversas */}
-      <ScrollArea className="flex-1">
+      {/* Lista de conversas — rolagem vertical própria (mesma abordagem do ChatWindow).
+          min-h-0 impede o flexbox de esticar além da altura disponível; a ScrollArea
+          do Radix crescia até a altura do conteúdo e o excedente era cortado pelo
+          overflow-hidden do ChatbotPage, sem scrollbar. */}
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
         <div className="divide-y divide-border">
           {conversas.map((conversa) => (
             <button
@@ -98,7 +100,7 @@ export function ChatList({ conversas, conversaAtiva, onSelectConversa }: ChatLis
             </button>
           ))}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }
