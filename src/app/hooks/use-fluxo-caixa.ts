@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { movimentacoesMock, calcularStatus } from "../components/financeiro/mockData";
+import type { StatusMovimentacao } from "../components/financeiro/mockData";
 
 export interface MovimentacaoFluxo {
   id: string;
@@ -10,7 +11,7 @@ export interface MovimentacaoFluxo {
   valor: number;
   data: string; // ISO date
   categoria: string;
-  status: "pago" | "pendente" | "vencido";
+  status: StatusMovimentacao;
   pessoa?: string;
   origem: "conta_receber" | "conta_pagar" | "venda";
   origemId: string;

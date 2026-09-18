@@ -14,7 +14,7 @@ export type Categoria =
   | "Outras Receitas"
   | "Outras Despesas";
 
-export type StatusMovimentacao = "pago" | "pendente" | "vencido";
+export type StatusMovimentacao = "pago" | "pendente" | "vencido" | "cancelado";
 export type TipoMovimentacao = "entrada" | "saida";
 export type FormaPagamento = "Dinheiro" | "PIX" | "Boleto" | "Transferência" | "Cartão";
 
@@ -367,7 +367,8 @@ export function formatarMoeda(valor: number): string {
 
 // Helper para calcular status baseado na data
 export function calcularStatus(dataVencimento: string, statusAtual: StatusMovimentacao): StatusMovimentacao {
-  if (statusAtual === "pago") return "pago";
+  // pago e cancelado são terminais: nunca podem ser sobrescritos por vencido/pendente
+  if (statusAtual === "pago" || statusAtual === "cancelado") return statusAtual;
   const dias = calcularDiasVencimento(dataVencimento);
   if (dias < 0) return "vencido";
   return "pendente";

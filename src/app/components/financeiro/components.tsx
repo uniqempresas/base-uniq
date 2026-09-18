@@ -27,6 +27,12 @@ export function BadgeStatus({ status }: BadgeStatusProps) {
       border: "border-red-200",
       label: "Vencido",
     },
+    cancelado: {
+      bg: "bg-[#efefef]",
+      text: "text-[#627271]",
+      border: "border-[#627271]",
+      label: "Cancelado",
+    },
   };
 
   const style = styles[status];
@@ -99,7 +105,7 @@ interface IndicadorVencimentoProps {
 }
 
 export function IndicadorVencimento({ dataVencimento, status }: IndicadorVencimentoProps) {
-  if (status === "pago") {
+  if (status === "pago" || status === "cancelado") {
     return <span className="text-xs text-[#627271]">-</span>;
   }
 

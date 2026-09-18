@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import type { StatusMovimentacao } from "../components/financeiro/mockData";
 
 export interface AtualizarContaReceberParams {
   id: string;
@@ -10,6 +11,7 @@ export interface AtualizarContaReceberParams {
   data_vencimento?: string;
   forma_pagamento?: string;
   observacoes?: string;
+  status?: StatusMovimentacao;
 }
 
 export interface ReceberContaParams {
@@ -51,6 +53,7 @@ export function useAtualizarContaReceber() {
         if (params.data_vencimento !== undefined) updateData.data_vencimento = params.data_vencimento;
         if (params.forma_pagamento !== undefined) updateData.forma_pagamento = params.forma_pagamento;
         if (params.observacoes !== undefined) updateData.observacoes = params.observacoes;
+        if (params.status !== undefined) updateData.status = params.status;
 
         const { error: updateError } = await supabase
           .from("me_contas_receber")

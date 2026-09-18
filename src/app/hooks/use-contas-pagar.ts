@@ -28,6 +28,7 @@ interface DBFornecedor {
 
 function mapStatus(status: string | null): StatusMovimentacao {
   if (status === "pago") return "pago";
+  if (status === "cancelado") return "cancelado";
   return "pendente";
 }
 

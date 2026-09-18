@@ -7,16 +7,17 @@ import { useCriarContaPagar } from "../../hooks/use-criar-conta-pagar";
 import { useAtualizarContaPagar } from "../../hooks/use-atualizar-conta-pagar";
 
 const hoje = () => new Date().toISOString().slice(0, 10);
-const statusLabel: Record<StatusMovimentacao, string> = { pago: "Pago", pendente: "Pendente", vencido: "Vencido" };
+const statusLabel: Record<StatusMovimentacao, string> = { pago: "Pago", pendente: "Pendente", vencido: "Vencido", cancelado: "Cancelado" };
 
 function StatusBadge({ status }: { status: StatusMovimentacao }) {
-  return <span className="inline-flex items-center gap-1 rounded-full border border-[#627271] px-2 py-1 text-xs font-medium text-[#1f2937]"><span className="h-1.5 w-1.5 rounded-full bg-[#86cb92]" />{statusLabel[status]}</span>;
+  const dotColor = status === "cancelado" ? "bg-[#b0b6b6]" : "bg-[#86cb92]";
+  return <span className="inline-flex items-center gap-1 rounded-full border border-[#627271] px-2 py-1 text-xs font-medium text-[#1f2937]"><span className={`h-1.5 w-1.5 rounded-full ${dotColor}`} />{statusLabel[status]}</span>;
 }
 
 export function ContasPagarPage() {
   const { contas, loading, isFallback, recarregar } = useContasPagar();
   const { criarConta, loading: criando } = useCriarContaPagar();
-  const { atualizarContaPagar, loading: atualizando } = useAtualizarContaPagar();
+  const { atualizarConta, pagarConta, loading: atualizando } = useAtualizarContaPagar();
 
   const [filtroStatus, setFiltroStatus] = useState<StatusMovimentacao | "todos">("todos");
   const [busca, setBusca] = useState("");
@@ -44,7 +45,7 @@ export function ContasPagarPage() {
     };
 
     if (editando) {
-      const result = await atualizarContaPagar({ id: editando.id, ...params });
+      const result = await atualizarConta({ id: editando.id, ...params });
       if (result.success) {
         avisar("Conta atualizada.");
         recarregar();
@@ -67,9 +68,8 @@ export function ContasPagarPage() {
   const registrarPagamento = async () => {
     if (!pagando) return;
 
-    const result = await atualizarContaPagar({
+    const result = await pagarConta({
       id: pagando.id,
-      status: "pago",
       data_pagamento: hoje(),
       valor_pago: pagando.valor,
     });
@@ -87,7 +87,7 @@ export function ContasPagarPage() {
   const excluir = async (conta: ContaPagar) => {
     if (!window.confirm(`Excluir a conta "${conta.descricao}"?`)) return;
 
-    const result = await atualizarContaPagar({
+    const result = await atualizarConta({
       id: conta.id,
       status: "cancelado",
     });
@@ -190,13 +190,13 @@ export function ContasPagarPage() {
                   <td className="px-3 py-3">{conta.fornecedor}</td>
                   <td className="px-3 py-3">
                     <span className="flex items-center gap-1"><Calendar size={14} />{new Date(conta.dataVencimento).toLocaleDateString("pt-BR")}</span>
-                    <span className="text-xs text-[#627271]">{calcularDiasVencimento(conta.dataVencimento) < 0 && conta.status !== "pago" ? "Em atraso" : "No prazo"}</span>
+                    <span className="text-xs text-[#627271]">{calcularDiasVencimento(conta.dataVencimento) < 0 && conta.status !== "pago" && conta.status !== "cancelado" ? "Em atraso" : "No prazo"}</span>
                   </td>
                   <td className="px-3 py-3 text-right font-semibold">{formatarMoeda(conta.valor)}</td>
                   <td className="px-3 py-3 text-center"><StatusBadge status={conta.status} /></td>
                   <td className="px-3 py-3">
                     <div className="flex justify-center gap-1">
-                      {conta.status !== "pago" && (
+                      {conta.status !== "pago" && conta.status !== "cancelado" && (
                         <button onClick={() => { setPagando(conta); }} className="rounded p-1 text-[#86cb92] hover:bg-[#efefef]" title="Pagar"><Check size={16} /></button>
                       )}
                       <button onClick={() => { setEditando(conta); setModalAberto(true); }} className="rounded p-1 text-[#627271] hover:bg-[#efefef]" title="Editar"><Edit size={16} /></button>

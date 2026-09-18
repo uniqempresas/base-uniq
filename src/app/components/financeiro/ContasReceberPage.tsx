@@ -7,12 +7,13 @@ import { useCriarContaReceber } from "../../hooks/use-criar-conta-receber";
 import { useAtualizarContaReceber } from "../../hooks/use-atualizar-conta-receber";
 
 const hoje = () => new Date().toISOString().slice(0, 10);
-const labels: Record<StatusMovimentacao, string> = { pago: "Recebido", pendente: "A receber", vencido: "Atrasado" };
+const labels: Record<StatusMovimentacao, string> = { pago: "Recebido", pendente: "A receber", vencido: "Atrasado", cancelado: "Cancelado" };
 
 function StatusBadge({ status }: { status: StatusMovimentacao }) {
+  const dotColor = status === "cancelado" ? "bg-[#b0b6b6]" : "bg-[#86cb92]";
   return (
     <span className="inline-flex items-center gap-1 rounded-full border border-[#627271] px-2 py-1 text-xs font-medium">
-      <span className="h-1.5 w-1.5 rounded-full bg-[#86cb92]" />
+      <span className={`h-1.5 w-1.5 rounded-full ${dotColor}`} />
       {labels[status]}
     </span>
   );
@@ -269,9 +270,9 @@ export function ContasReceberPage() {
                         <Calendar size={14} />
                         {new Date(conta.dataPrevista).toLocaleDateString("pt-BR")}
                       </span>
-                      <span className="text-xs text-[#627271]">
-                        {calcularDiasVencimento(conta.dataPrevista) < 0 && conta.status !== "pago" ? "Em atraso" : "No prazo"}
-                      </span>
+<span className="text-xs text-[#627271]">
+  {calcularDiasVencimento(conta.dataPrevista) < 0 && conta.status !== "pago" && conta.status !== "cancelado" ? "Em atraso" : "No prazo"}
+</span>
                     </td>
                     <td className="px-3 py-3 text-right font-semibold">{formatarMoeda(conta.valor)}</td>
                     <td className="px-3 py-3 text-center">
@@ -279,7 +280,7 @@ export function ContasReceberPage() {
                     </td>
                     <td className="px-2 py-3">
                       <div className="flex items-center justify-center gap-1">
-                        {conta.status !== "pago" && (
+                        {conta.status !== "pago" && conta.status !== "cancelado" && (
                           <>
                             <button
                               onClick={() => { setSelecionada(conta); setModal("receber"); }}

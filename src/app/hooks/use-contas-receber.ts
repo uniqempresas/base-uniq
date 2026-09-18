@@ -29,7 +29,7 @@ interface DBCliente {
 
 function mapStatus(status: string | null): StatusMovimentacao {
   if (status === "pago" || status === "recebido") return "pago";
-  if (status === "cancelado") return "pago"; // tratamento temporário
+  if (status === "cancelado") return "cancelado";
   return "pendente";
 }
 
