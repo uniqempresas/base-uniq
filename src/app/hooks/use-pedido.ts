@@ -217,6 +217,12 @@ export interface UsePedidoReturn {
   loading: boolean;
   error: string | null;
   isFallback: boolean;
+  /**
+   * true → existe conta a receber vinculada à venda (a RPC devolverá o estoque
+   * ao excluir). false → sem conta vinculada (estoque não foi baixado).
+   * undefined → não avaliado (modo demo/fallback).
+   */
+  contaReceberVinculada?: boolean;
 }
 
 export function usePedido(id: string | undefined): UsePedidoReturn {
@@ -225,6 +231,7 @@ export function usePedido(id: string | undefined): UsePedidoReturn {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFallback, setIsFallback] = useState(false);
+  const [contaReceberVinculada, setContaReceberVinculada] = useState<boolean | undefined>(undefined);
 
   const carregarPedido = useCallback(async () => {
     if (!id) {
@@ -241,6 +248,7 @@ export function usePedido(id: string | undefined): UsePedidoReturn {
       const mockPedido = PEDIDOS.find((p) => p.id === id);
       setPedido(mockPedido || PEDIDOS[0]);
       setIsFallback(true);
+      setContaReceberVinculada(undefined);
       setLoading(false);
       return;
     }
@@ -249,6 +257,7 @@ export function usePedido(id: string | undefined): UsePedidoReturn {
     const empresaId = empresa?.id;
     if (!empresaId) {
       setPedido(undefined);
+      setContaReceberVinculada(undefined);
       setError("Empresa não identificada para este usuário. Recarregue a página ou faça login novamente.");
       setIsFallback(false);
       setLoading(false);
@@ -262,6 +271,7 @@ export function usePedido(id: string | undefined): UsePedidoReturn {
         .select("id, cliente_id, valor_total, valor_desconto, observacoes, status_venda, forma_pagamento, canal_venda, tipo_venda, npedido, codigo_rastreio, motivo_cancelamento, frete, criado_em")
         .eq("id", id)
         .eq("empresa_id", empresaId)
+        .is("deletado_em", null)
         .maybeSingle();
 
       if (vendaError) throw vendaError;
@@ -288,6 +298,10 @@ export function usePedido(id: string | undefined): UsePedidoReturn {
           .eq("venda_id", dbVenda.id)
           .eq("empresa_id", empresaId)
           .limit(1);
+
+        // Existência de conta vinculada = prova de que a RPC registrar_venda rodou
+        // e o estoque foi debitado → ao excluir, o estoque será devolvido (PRD §5).
+        setContaReceberVinculada((contas?.length ?? 0) > 0);
 
         if (contas && contas.length > 0 && contas[0].status === "pago") {
           statusPagamento = "confirmado";
@@ -347,6 +361,7 @@ export function usePedido(id: string | undefined): UsePedidoReturn {
 
       // Com sessão ativa, pedido inexistente = empty state real (nunca mock)
       setPedido(undefined);
+      setContaReceberVinculada(undefined);
       setError(null);
     } catch (err) {
       console.error("[usePedido] Erro ao buscar pedido:", err);
@@ -354,8 +369,10 @@ export function usePedido(id: string | undefined): UsePedidoReturn {
         const mockPedido = PEDIDOS.find((p) => p.id === id);
         setPedido(mockPedido || PEDIDOS[0]);
         setIsFallback(true);
+        setContaReceberVinculada(undefined);
       } else {
         setPedido(undefined);
+        setContaReceberVinculada(undefined);
         setError(err instanceof Error ? err.message : "Erro ao carregar pedido");
         setIsFallback(false);
       }
@@ -373,5 +390,6 @@ export function usePedido(id: string | undefined): UsePedidoReturn {
     loading,
     error,
     isFallback,
+    contaReceberVinculada,
   };
 }

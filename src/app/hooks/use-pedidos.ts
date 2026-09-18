@@ -161,6 +161,7 @@ export function usePedidos(): UsePedidosReturn {
         .from("me_venda")
         .select("*")
         .eq("empresa_id", empresaId)
+        .is("deletado_em", null)
         .order("criado_em", { ascending: false });
 
       if (vendasError) throw vendasError;

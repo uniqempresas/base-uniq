@@ -101,6 +101,7 @@ export function useDRE(periodo: string) {
           .from("me_venda")
           .select("id, valor_total")
           .eq("empresa_id", empresaId)
+          .is("deletado_em", null)
           .gte("criado_em", inicio)
           .lte("criado_em", fim + "T23:59:59"),
         supabase

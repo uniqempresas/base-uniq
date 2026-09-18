@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Copy,
   ExternalLink,
+  Trash2,
   Truck,
   Package,
   User,
@@ -39,6 +40,7 @@ import { usePedido } from "../../hooks/use-pedido";
 import { useAtualizarStatusPedido } from "../../hooks/use-atualizar-status-pedido";
 import { useConfirmarPagamento } from "../../hooks/use-confirmar-pagamento";
 import { useAuth } from "../../contexts/AuthContext";
+import { ExcluirPedidoModal } from "./ExcluirPedidoModal";
 
 function StatusBadge({ status, large }: { status: StatusPedido; large?: boolean }) {
   const cfg = STATUS_CONFIG[status];
@@ -88,7 +90,7 @@ function Section({
 export function PedidoDetalhePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { pedido: pedidoReal, loading, isFallback } = usePedido(id);
+  const { pedido: pedidoReal, loading, isFallback, contaReceberVinculada } = usePedido(id);
   const { perfil, empresa } = useAuth();
   const [pedidoLocal, setPedidoLocal] = useState<Pedido | undefined>(undefined);
   const pedido = pedidoLocal || pedidoReal;
@@ -99,6 +101,7 @@ export function PedidoDetalhePage() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showTrackingModal, setShowTrackingModal] = useState(false);
   const [showContabilizarModal, setShowContabilizarModal] = useState(false);
+  const [showExcluirModal, setShowExcluirModal] = useState(false);
   const [cancelMotivo, setCancelMotivo] = useState("");
   const [trackingCode, setTrackingCode] = useState(pedido?.codigoRastreio || "");
   const [newStatus, setNewStatus] = useState<StatusPedido | null>(null);
@@ -375,6 +378,16 @@ export function PedidoDetalhePage() {
           <Check size={13} />
           Venda contabilizada
         </span>
+      )}
+      {isCanceled && (
+        <button
+          className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded-xl bg-red-50 text-red-500 border border-red-200 hover:bg-red-100 transition-colors"
+          aria-label={`Excluir pedido ${pedido.numero}`}
+          onClick={() => setShowExcluirModal(true)}
+        >
+          <Trash2 size={13} />
+          Excluir pedido
+        </button>
       )}
     </>
   );
@@ -1093,6 +1106,20 @@ export function PedidoDetalhePage() {
           </div>
         </div>
       )}
+
+      {/* Excluir pedido (só aparece em pedido cancelado) */}
+      <ExcluirPedidoModal
+        open={showExcluirModal}
+        vendaId={pedido.id}
+        numeroPedido={pedido.numero}
+        nomeCliente={pedido.cliente.nome}
+        estoqueSeraDevolvido={contaReceberVinculada}
+        onClose={() => setShowExcluirModal(false)}
+        onSuccess={() => {
+          toast.success("Pedido excluído com sucesso!");
+          navigate("/vendas/pedidos");
+        }}
+      />
     </div>
   );
 }

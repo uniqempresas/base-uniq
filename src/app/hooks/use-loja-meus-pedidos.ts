@@ -105,6 +105,7 @@ export function useLojaMeusPedidos(empresaId: string | undefined, telefone: stri
           .select("id, valor_total, status_venda, forma_pagamento, canal_venda, criado_em")
           .eq("empresa_id", empresaId)
           .eq("cliente_id", clienteData.id)
+          .is("deletado_em", null)
           .order("criado_em", { ascending: false });
 
         if (cancelado) return;
