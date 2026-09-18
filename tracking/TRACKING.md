@@ -760,6 +760,72 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 
 ---
 
+## 🆕 LOTE DE AJUSTES — 17/09/2026 (fonte única do estado)
+
+> 📄 **Diagnósticos completos, com causa raiz (arquivo:linha e banco): `tracking/AJUSTES_17-09-2026.md`**
+>
+> ✅ **Todas as decisões de produto JÁ FORAM TOMADAS pelo fundador** (17/09/2026) — ver tabela abaixo. O que falta é execução.
+
+### ✅ Decisões do fundador (FECHADAS) + estado de execução
+
+| # | Item | Decisão tomada | Estado |
+|---|---|---|---|
+| 1 | Retirar "Tags / Etiquetas" do modal de produto | Retirar | ✅ **feito** (lane `fix-4`) — sem commit |
+| 2 | Botão "Duplicar" morto na lista de produtos | Consertar | ✅ **feito** (lane `fix-4`) — incluiu também a view de tabela, que tinha o mesmo botão morto |
+| 3 | Estoque mínimo sempre 5 | **Ter o campo em `me_produto`** · default **5** · tratar como **hotfix** (sem SDD) | 🔄 **em execução** (lane `fix-7`) — coluna `estoque_minimo` já criada no banco |
+| 4 | Deletar pedido cancelado | **Soft delete** · **bloqueia** se a conta a receber estiver **paga** · **devolve estoque** · botão em **detalhe + lista** · **qualquer usuário** · **como PROCEDURE/RPC** (para ser chamada tanto pelo cliente quanto pela Base UNIQ) | ⏸️ **precisa de PRD/SPEC/WIRE + aprovação do WIRE** |
+| 5b | Filtro de período com data congelada | Corrigir (`new Date()`) | ✅ **feito** (lane `des-1`) — sem commit |
+| 5c | "Novo Pedido" grava canal chumbado `whatsapp` | Canal correto = **`manual`** | ✅ **feito** (lane `des-1`) — sem commit |
+| 5d | Canais colapsados (`interna→pdv`, `manual→outros`) | `interna` e `manual` são o mesmo → ambos viram **`manual`** · **NÃO mexer no histórico** (são pedidos de teste) | ✅ **feito** (lane `des-1`) — sem commit |
+| 5e | "Status parecem errados" | **Confirmado pelo fundador:** "Pago" **não é status do pedido** — é status de **pagamento**. Remover do filtro de status do pedido e **criar um filtro separado de status de pagamento** | ✅ **feito** (lane `des-1`) — sem commit |
+| 5a | Filtros multi-seleção | **Chips** clicáveis para status do pedido, status de pagamento e canal | ✅ **feito** (lane `des-1`) — sem commit |
+| 6 | Persistir filtros de pedidos | Por **empresa** (`uniq:pedidos:filtros:<empresaId>`) · persistir `periodo`/`status`/`pagamento`/`canal`/`viewMode` · **não** persistir a busca digitada · "Limpar filtros" também apaga o storage | ✅ **feito** (lane `des-1`) — sem commit |
+| 7 | WhatsApp/n8n sempre "Cartão de Crédito" | Corrigir os mapas — **o banco estava certo: era Pix**, o erro era só de exibição | ✅ **feito** (lane `fix-5`) — sem commit |
+| A | `ClienteConversaResumo` sem filtro `empresa_id` | WIRE aprovado pelo fundador | ✅ **feito** (lane `fix-6`) — sem commit |
+
+### 📍 Estado das waves
+
+| Wave | Conteúdo | Estado |
+|---|---|---|
+| **A** | itens **1, 2, 7** + pendência **A** (3 lanes em paralelo) | ✅ **concluída e verificada** — `tsc` **13** (linha de base exata, zero novos) · `npm run build` OK |
+| **B** | itens **5b/5c/5d/5e + 5a + 6** (lane `des-1`, @designer) | ✅ **concluída e verificada** — `tsc` **13** (zero novos) · `npm run build` OK · artefato de teste removido |
+| **C** | item **3** (lane `fix-7`, @fixer) | 🔄 **em execução** |
+| **D** | item **4** — deletar pedido cancelado | ⏸️ **precisa de SDD + WIRE aprovado**. ⚠️ Colide nos mesmos arquivos da Wave B (`use-pedidos.ts`, `use-pedido.ts`, `PedidosListaPage.tsx`) → **só depois que a Wave B fechar** |
+| **E** | pendência **D'**, `tsconfig`, migrations untracked, ESLint | ⏸️ aguarda decisão |
+
+### 🎯 Próximos passos acordados (ordem)
+
+1. Fechar as lanes **`des-1`** (itens 5+6) e **`fix-7`** (item 3) → reconciliar + `tsc`/`build`.
+2. Montar o **SDD do item 4** (PRD + SPEC + WIRE) e submeter o WIRE ao fundador.
+3. **Commit + push de tudo** (Wave A + itens 3, 5, 6) → a Vercel dispara o deploy automático.
+4. **Guia de teste na Vercel** montado pelo orchestrator, item por item, para o fundador validar no celular.
+5. Só depois: **item 4** (com a procedure) e as pendências da **Wave E**.
+
+### 🔎 Reconciliação das pendências A–I (17/09/2026)
+
+| # | Pendência | Resultado |
+|---|---|---|
+| **A** | `ClienteConversaResumo` sem filtro `empresa_id` | ✅ WIRE aprovado → **implementado** (lane `fix-6`). Correção: filtro por `empresa_id` + casamento de telefone normalizado em `canal_id` |
+| **B** | n8n: trocar upsert por `fn_ingest_whatsapp` | ✅ feito pelo fundador |
+| **C** | n8n Doceê: ativar `docee_criarpedido` + salvar `atendente_Docee` | ✅ testado e funcionando. A ressalva do "cartão de crédito" **não era gravação** — era o **item 7** (exibição) |
+| **D** | `crm_chat_conversas.cliente_id` NULL | 🔴 **AINDA ATIVO** — verificado no banco: **21 de 21 conversas sem `cliente_id`** (Doceê 1 · tenant `6257ebef` 20). O fundador achava que não acontecia mais. ❓ Precisa decidir: corrigir no **n8n** ou com **trigger** no banco |
+| **E** | Página do produto (fallback `useLojaProduto` + mock) | ⏸️ parkeado — "ainda não precisa" |
+| **F** | P5 — RLS desligado | ⏸️ **permanece desligado durante o desenvolvimento** (decisão do fundador) |
+| **G** | WIRE T3.3 Landing Page | ✅ **está no GitHub** — `tracking/wireframe/WIRE-Semana3-T3.3-LandingPage.md` (commit `e7344de`) |
+| **H** | Ajuste visual da vitrine | ✅ fechado — "está ótimo, não precisa de ajustes" |
+| **I** | ESLint | ❓ não entendido pelo fundador → explicação em linguagem simples no documento do lote (não é erro; é a rede de segurança que pegaria a classe de bug que já derrubou o app 3×) |
+
+### ⚠️ Achados de infraestrutura (NÃO resolvidos)
+
+- 🔴 **O gate de tipos está QUEBRADO.** TypeScript **6.0.2** + `"baseUrl"` em `tsconfig.json:22` = erro `TS5101`, que **aborta a checagem antes de olhar os arquivos**. Resultado: `npx tsc --noEmit` reporta **1 erro** em vez dos **13 reais**. Comprovação: silenciando a depreciação (`"ignoreDeprecations": "6.0"`) os 13 aparecem — foi assim que a Wave A foi validada de verdade.
+  - ❓ **Opções:** (A) adicionar `"ignoreDeprecations": "6.0"` · (B) **remover `baseUrl`** — *recomendado*, porque um grep provou que **nenhum arquivo importa via `@/`**, então `baseUrl` **e** o bloco `paths` são configuração morta.
+  - **Consequência de não corrigir:** nenhuma lane consegue verificar tipos de verdade, e o `npm run build` (esbuild) **também não checa tipos** — então nada protege o código.
+- 🔴 **`tsconfig.json` NÃO está no repositório** (untracked, e não está no `.gitignore`) — o `origin/master` não tem nenhum `tsconfig*.json`. O gate de tipos não é reproduzível a partir de um clone limpo.
+- 🔴 **2 migrations aplicadas em produção estão untracked:** `supabase/migrations/20260917220000_conversa_multi_tenant_por_empresa.sql` (grão multi-tenant das conversas — **já está em produção**) e `20260916212702_limpa_dados_teste.sql`.
+- 🟡 **RPC `registrar_venda`:** resolve forma de pagamento com `WHERE nome ILIKE ... LIMIT 1` **sem filtrar empresa** e **sem `ORDER BY`** — e agora existem linhas globais (1–5) **e** do tenant `6257ebef` (20–22) com os mesmos nomes. Além disso o fallback é incoerente: o texto cai para `'PIX'` mas o id cai para `1` (**Dinheiro**).
+
+---
+
 ## ➕ PENDÊNCIAS QUE DEPENDEM DO FUNDADOR
 
 | # | Item | Necessário antes de | Observação |

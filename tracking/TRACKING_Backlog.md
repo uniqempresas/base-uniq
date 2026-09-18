@@ -56,7 +56,7 @@
 | Criar tela de Integrações (`/configuracoes/integracoes`) | — |
 | Criar tela de Notificações (`/configuracoes/notificacoes`) | — |
 | Persistir Marketplace em `localStorage` (`useMarketplace`, `useVendedor`) | Módulos não persistem após reload |
-| Criar `tsconfig.json` + `tsc --noEmit` na validação contínua | — |
+| Criar `tsconfig.json` + `tsc --noEmit` na validação contínua | ⚠️ **Atualização 17/09/2026:** o arquivo **já existe localmente mas NÃO está commitado** (untracked, e **não** está no `.gitignore`). O `origin/master` não tem nenhum `tsconfig*.json` — então o gate de `tsc --noEmit` (linha de base: 13 erros) **não é reproduzível a partir de um clone limpo**. Falta **commitar**, não criar. Ver `AJUSTES_17-09-2026.md`. |
 | Remover `src/app/components/mel/MelConversaPage.tsx` se seguir sem uso | Arquivo morto |
 | Avaliar code-splitting (bundle inicial > 500 kB) | — |
 | Conectar dados demonstrativos da MEL aos módulos operacionais | — |
