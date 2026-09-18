@@ -831,6 +831,10 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 
 **Verificação da rodada (18/09):** `tsc` **13 → 8 erros** (caíram os 2 do Financeiro **e** os 3 do dashboard — todos eram bugs reais ou mock disfarçado) · `npm run build` OK · **prova no banco:** uma conta a receber com `status='cancelado'` (R$ 9.999 de teste) **não entrou** nem em "pagas" nem em "em aberto" — a decisão *"conta cancelada não conta no financeiro"* está garantida na consulta. Dado de teste removido.
 
+**Deploy em produção (18/09):** ✅ **NO AR** — commit `9960ac2`, deployment `dpl_JBVxPoaCWHoXHunkPPkqyPpdst4M` (READY). Verificado por **conteúdo servido**, não pelo estado da API: o entry mudou (`index-C8s4vNAj.js` → `index-Dfzyv3q2.js`) e o chunk do dashboard passou a conter o marcador do F3 (`EstoqueDashboardPage-gRsQWqlB.js`).
+
+> ⚠️ **Anomalia observada (não é bug do código):** neste push o **webhook da Vercel demorou ~vários minutos** para disparar o deployment. No intervalo, a produção continuou servindo o build anterior (Wave 2) e o `state` da API ficou defasado (`INITIALIZING` mesmo com o deploy já servindo). **Lição:** após um push, **não confiar só no estado da API** — confirmar por **conteúdo servido** (hash do entry + marcador do chunk) e, se o deployment não aparecer, verificar em `vercel.com/.../base-uniq/deployments` antes de concluir que falhou.
+
 **Demais erros da linha de base (agora 8) — ruído de tipo, sem bug de runtime identificado:** `agenda/CompromissosPage:227`, `employees/ModuleCheckbox:13` (falta a chave `servicos`), `estoque/MovimentacoesPage:31` (`"Doação"`), `estoque/ProdutoDetalhePage:490` (`tab.badge`, = B7), `marketplace/CheckoutPage:171` (comparação sem overlap) e **3 mocks órfãos** importando `../types/*` inexistentes (prováveis arquivos mortos).
 
 ---
