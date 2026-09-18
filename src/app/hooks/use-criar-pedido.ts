@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import { normalizarTelefoneLoja } from "../components/loja/lojaMockData";
 
 export interface PedidoItemInput {
   produto_id: number; // me_produto.id (integer)
@@ -10,6 +11,8 @@ export interface PedidoItemInput {
 }
 
 export interface CriarPedidoParams {
+  /** Cliente real selecionado na busca — quando vier, usa direto (sem find-or-create). */
+  clienteId?: string;
   clienteNome: string;
   clienteTelefone?: string;
   descricao: string;
@@ -51,32 +54,75 @@ export function useCriarPedido() {
           throw new Error("Empresa não identificada para este usuário. Recarregue a página ou faça login novamente.");
         }
 
-        // Busca ou cria cliente
-        let clienteId: string | null = null;
+        // Resolve o cliente: id real já selecionado (busca) OU find-or-create.
+        // Find-or-create: telefone normalizado primeiro, depois nome
+        // case-insensitive — nunca mais casamento por nome exato (item 8).
+        let clienteId: string | null = params.clienteId || null;
 
-        if (params.clienteNome.trim()) {
-          const { data: clienteExistente } = await supabase
-            .from("me_cliente")
-            .select("id")
-            .eq("nome_cliente", params.clienteNome.trim())
-            .eq("empresa_id", empresaId)
-            .maybeSingle();
+        if (!clienteId && params.clienteNome.trim()) {
+          const nome = params.clienteNome.trim();
+          const telefoneNormalizado = params.clienteTelefone
+            ? normalizarTelefoneLoja(params.clienteTelefone)
+            : "";
 
-          if (clienteExistente) {
-            clienteId = clienteExistente.id;
-          } else {
+          if (telefoneNormalizado) {
+            const { data: porTelefone } = await supabase
+              .from("me_cliente")
+              .select("id")
+              .eq("empresa_id", empresaId)
+              .eq("telefone", telefoneNormalizado)
+              .maybeSingle();
+
+            if (porTelefone) clienteId = porTelefone.id;
+          }
+
+          if (!clienteId) {
+            const { data: porNome } = await supabase
+              .from("me_cliente")
+              .select("id")
+              .eq("empresa_id", empresaId)
+              .ilike("nome_cliente", nome)
+              .maybeSingle();
+
+            if (porNome) clienteId = porNome.id;
+          }
+
+          if (!clienteId) {
             const { data: novoCliente, error: clienteError } = await supabase
               .from("me_cliente")
               .insert({
                 empresa_id: empresaId,
-                nome_cliente: params.clienteNome.trim(),
-                telefone: params.clienteTelefone || null,
+                nome_cliente: nome,
+                telefone: telefoneNormalizado || null,
+                origem: "manual",
+                tags: [],
               })
               .select("id")
               .single();
 
             if (clienteError) {
-              console.error("[useCriarPedido] Erro ao criar cliente:", clienteError);
+              // 23505 = ux_me_cliente_empresa_telefone (empresa_id, telefone)
+              // já existente — corrida/duplicidade. Reusa o cadastro existente
+              // pelo telefone normalizado em vez de mostrar erro ao usuário.
+              if (clienteError.code === "23505" && telefoneNormalizado) {
+                const { data: existente } = await supabase
+                  .from("me_cliente")
+                  .select("id")
+                  .eq("empresa_id", empresaId)
+                  .eq("telefone", telefoneNormalizado)
+                  .maybeSingle();
+
+                if (existente) {
+                  clienteId = existente.id;
+                } else {
+                  console.error(
+                    "[useCriarPedido] 23505 sem cliente recuperável pelo telefone:",
+                    clienteError
+                  );
+                }
+              } else {
+                console.error("[useCriarPedido] Erro ao criar cliente:", clienteError);
+              }
             } else {
               clienteId = novoCliente?.id || null;
             }
