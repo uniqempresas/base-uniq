@@ -816,6 +816,23 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 8. ⏭️ **AGORA (fundador):** testar a Wave 2 no celular pelo **`tracking/GUIA_TESTE_VERCEL_WAVE2.md`**.
 9. ⏭️ **Pendências da Wave E** (aguardam decisão): `tsconfig`/gate de tipos e ESLint. **Opcionais mapeados:** `ChatList.tsx` (mesmo padrão de rolagem do item 9) e a RPC `registrar_venda` (forma de pagamento sem filtro de empresa + fallback incoerente).
 
+### 🔴 Correções pendentes mapeadas (18/09/2026)
+
+> Levantadas ao responder *"o que ainda temos para corrigir"*. **NENHUMA corrigida ainda** — aguardam OK do fundador.
+> ⚠️ **Lição de processo:** a "linha de base de 13 erros de tipo" estava sendo tratada como ruído pré-existente — e **escondia 2 bugs de runtime** (F1 e F2). Não tratar mais como ruído sem checar.
+
+| # | Onde | Diagnóstico (verificado no código) | Fix |
+|---|---|---|---|
+| **F1** | `financeiro/ContasPagarPage.tsx` | O hook `useAtualizarContaPagar` devolve `{ atualizarConta, pagarConta, loading, error }` (`use-atualizar-conta-pagar.ts:129`), mas a página desestrutura **`atualizarContaPagar`** (`:19`) e chama em `:47`, `:70` e `:90` → **`undefined` chamado como função** (`TypeError`). **Sintoma:** salvar a edição de uma conta a pagar não faz nada. | Renomear o uso na página (3 call sites) ou o retorno do hook |
+| **F2** | `financeiro/ContasReceberPage.tsx` | A página passa `status: "cancelado"` (`:123`), mas `AtualizarContaReceberParams` (`use-atualizar-conta-receber.ts:5`) **não tem o campo** → o cancelamento **não persiste**. *(Marcar como recebido funciona: `receberConta` grava `status: 'pago'` em `:107`.)* | ❓ **Depende de decisão:** cancelar conta a receber deve gravar `status='cancelado'` no banco? |
+| **F3** | `estoque/EstoqueDashboardPage.tsx` | **O dashboard inteiro é MOCK** — importa `PRODUTOS` e `MOVIMENTACOES` de mock (linhas 28-30) e **não usa nenhum hook do banco**. Total de produtos, valor total do estoque, baixo/crítico/sem estoque e movimentações recentes: **todos fake**. Os 3 erros de tipo do arquivo (`preco`, `codigo`, `produto`) vêm de ter sido escrito contra o formato do mock e nunca adaptado. | Passar a ler do banco (`useProdutos` + movimentações reais), como `ProdutosPage` e `MovimentacoesPage` já fazem |
+| **F4** | `chatbot/ChatList.tsx` | Mesmo padrão de layout do item 9: flex item sem `min-h-0` → a lista de conversas pode **cortar no mobile** com muitas conversas | Mesmo fix do item 9 (uma linha) |
+| **F5** | RPC `registrar_venda` | Forma de pagamento: `WHERE nome ILIKE … LIMIT 1` **sem filtro de empresa** e **sem `ORDER BY`** — com linhas globais (1–5) **e** do tenant (20–22) de mesmo nome, o id retornado é **não-determinístico**. Fallback incoerente: texto → `'PIX'`, id → `1` (**Dinheiro**) | Filtrar por empresa + `ORDER BY` determinístico + alinhar o fallback |
+
+**Demais erros da linha de base (13) — ruído de tipo, sem bug de runtime identificado:** `agenda/CompromissosPage:227`, `employees/ModuleCheckbox:13` (falta a chave `servicos`), `estoque/MovimentacoesPage:31` (`"Doação"`), `marketplace/CheckoutPage:171` (comparação sem overlap) e **3 mocks órfãos** importando `../types/*` inexistentes (prováveis arquivos mortos).
+
+---
+
 ### 🔎 Reconciliação das pendências A–I (17/09/2026)
 
 | # | Pendência | Resultado |
