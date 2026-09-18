@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { ArrowRight, MessageSquare } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
+import { useAuth } from "../../contexts/AuthContext";
+import { normalizarTelefoneLoja } from "../loja/lojaMockData";
 import type { ClienteConversaMensagem } from "../../types/clientes";
 
 interface ClienteConversaResumoProps {
@@ -25,6 +27,7 @@ interface DBMensagem {
 
 export function ClienteConversaResumo({ clienteNome, clienteTelefone }: ClienteConversaResumoProps) {
   const navigate = useNavigate();
+  const { empresa, loading: authLoading } = useAuth();
   const [mensagens, setMensagens] = useState<ClienteConversaMensagem[]>([]);
   const [conversaId, setConversaId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,10 +39,27 @@ export function ClienteConversaResumo({ clienteNome, clienteTelefone }: ClienteC
       setError(null);
 
       try {
-        // Buscar conversa pelo nome do cliente ou telefone
+        // Enquanto a sessão/empresa ainda não foi resolvida pelo AuthContext,
+        // mantém o skeleton (loading) em vez de mostrar empty state errado.
+        if (authLoading) return;
+
+        // Sem sessão (modo demo) ou empresa não resolvida: não consultar
+        // dados reais de outro tenant (regra de isolamento — 07/09/2026).
+        const empresaId = empresa?.id;
+        if (!empresaId) {
+          setMensagens([]);
+          setConversaId(null);
+          setLoading(false);
+          return;
+        }
+
+        // Buscar conversas apenas da EMPRESA do usuário logado
+        // (escopo obrigatório por tenant — o grão da conversa é
+        // (empresa_id, canal, canal_id), migration 20260917220000).
         let query = supabase
           .from("crm_chat_conversas")
           .select("id, nome, canal_id")
+          .eq("empresa_id", empresaId)
           .order("criado_em", { ascending: false })
           .limit(50);
 
@@ -54,12 +74,18 @@ export function ClienteConversaResumo({ clienteNome, clienteTelefone }: ClienteC
           (c) => c.nome?.toLowerCase().includes(clienteNome.toLowerCase().split(" ")[0].toLowerCase())
         );
 
-        // Se não encontrar pelo nome e tiver telefone, tentar buscar por telefone
+        // Se não encontrar pelo nome e tiver telefone, tentar casar pelo
+        // canal_id (coluna que passou a guardar o telefone a partir da
+        // migration 20260917220000). Ambos os lados normalizados com o
+        // normalizador canônico do front (normalizarTelefoneLoja), que
+        // espelha fn_normalizar_telefone no banco.
         if (!conversaEncontrada && clienteTelefone) {
-          const telefoneLimpo = clienteTelefone.replace(/\D/g, "");
-          conversaEncontrada = conversasValidas.find(
-            (c) => c.canal_id?.includes(telefoneLimpo)
-          );
+          const telefoneNormalizado = normalizarTelefoneLoja(clienteTelefone);
+          if (telefoneNormalizado) {
+            conversaEncontrada = conversasValidas.find(
+              (c) => c.canal_id && normalizarTelefoneLoja(c.canal_id) === telefoneNormalizado
+            );
+          }
         }
 
         if (!conversaEncontrada) {
@@ -102,7 +128,7 @@ export function ClienteConversaResumo({ clienteNome, clienteTelefone }: ClienteC
     }
 
     carregarConversa();
-  }, [clienteNome, clienteTelefone]);
+  }, [clienteNome, clienteTelefone, authLoading, empresa?.id]);
 
   if (loading) {
     return (
