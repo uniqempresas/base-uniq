@@ -789,6 +789,9 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 | 6 | Persistir filtros de pedidos | Por **empresa** (`uniq:pedidos:filtros:<empresaId>`) · persistir `periodo`/`status`/`pagamento`/`canal`/`viewMode` · **não** persistir a busca digitada · "Limpar filtros" também apaga o storage | ✅ **feito** (lane `des-1`) — commitado e em produção |
 | 7 | WhatsApp/n8n sempre "Cartão de Crédito" | Corrigir os mapas — **o banco estava certo: era Pix**, o erro era só de exibição | ✅ **feito** (lane `fix-5`) — commitado e em produção |
 | A | `ClienteConversaResumo` sem filtro `empresa_id` | WIRE aprovado pelo fundador | ✅ **feito** (lane `fix-6`) — commitado e em produção |
+| 8 | Modal "Novo Pedido" com rolagem horizontal + cliente não era o real | Corrigir o layout responsivo · **trazer o cliente real** (busca em `me_cliente`) · **criar o cliente na hora** se não existir | ✅ **feito** (lane `des-2`, 18/09) — modal sem barra horizontal; busca com dropdown (nome + telefone) + chip de cliente selecionado; find-or-create reescrito (**telefone normalizado → nome `ilike`**, nunca mais nome exato); `23505` reusa o cadastro existente em vez de dar erro |
+| 9 | Conversas sem barra de rolagem (chatbot + detalhe do cliente) | Corrigir a rolagem | ✅ **feito** (lane `des-3`, 18/09) — causa: a `ScrollArea` era um flex item **sem `min-h-0`**, crescia até a altura do conteúdo (não havia overflow para rolar) e o `overflow-hidden` do `ChatbotPage` cortava o resto. Agora é container nativo `overflow-y-auto` + `min-h-0`, cabeçalho/input fixos e auto-scroll no container certo. No CRM, `max-h-[60vh]` no mobile |
+| emenda | Clique na linha da **tabela** não abria o detalhe | Corrigir | ✅ **feito** (lane `fix-9`, 18/09) — a `<tr>` ganhou `onClick` + `cursor-pointer`; `stopPropagation` garantido nos controles internos (inclui o **checkbox da tabela**, que não tinha) |
 
 ### 📍 Estado das waves
 
@@ -797,7 +800,8 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 | **A** | itens **1, 2, 7** + pendência **A** (3 lanes em paralelo) | ✅ **concluída, verificada e EM PRODUÇÃO** — `tsc` **13** (linha de base exata, zero novos) · `npm run build` OK |
 | **B** | itens **5b/5c/5d/5e + 5a + 6** (lane `des-1`, @designer) | ✅ **concluída, verificada e EM PRODUÇÃO** — `tsc` **13** (zero novos) · `npm run build` OK · artefato de teste removido |
 | **C** | item **3** (lane `fix-7`, @fixer) | ✅ **concluída, verificada e EM PRODUÇÃO** — coluna criada no banco + 5 arquivos de código |
-| **D** | item **4** — deletar pedido cancelado | 📝 **SDD ESCRITO** — `tracking/plans/PRD-DeletarPedidoCancelado.md` · `tracking/specs/SPEC-DeletarPedidoCancelado.md` · `tracking/wireframe/WIRE-DeletarPedidoCancelado.md`. **⏸️ Aguardando aprovação do WIRE** pelo fundador para implementar (regra de ouro do `AGENTS.md`) |
+| **D** | item **4** — deletar pedido cancelado | ✅ **CONCLUÍDA** (18/09) — banco (3 colunas + índice parcial + RPC `fn_excluir_pedido_cancelado`, verificada em produção) + hook `use-excluir-pedido.ts` + modal `ExcluirPedidoModal.tsx` + botão no **detalhe** e na **lista** + **4 filtros de leitura** (`use-pedidos` · `use-pedido` · `use-loja-meus-pedidos` · **`use-dre`**) |
+| **F** | itens **8** e **9** + emenda do clique na linha (18/09) | ✅ **CONCLUÍDA** — `tsc` **13** (zero novos) · `build` OK · artefatos de teste removidos |
 | **E** | pendência **D'**, `tsconfig`, migrations untracked, ESLint | ⏸️ aguarda decisão do fundador |
 
 ### 🎯 Próximos passos acordados (ordem)
@@ -806,8 +810,11 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 2. ✅ ~~Commit + push de tudo~~ **feito** — push `4a434bf` + `876683d`; **deploy verificado em produção**.
 3. ✅ ~~Guia de teste na Vercel~~ **feito** — `tracking/GUIA_TESTE_VERCEL_17-09-2026.md`.
 4. ✅ ~~Montar o SDD do item 4~~ **feito** — PRD/SPEC/WIRE escritos (`…DeletarPedidoCancelado.md`).
-5. ⏭️ **AGORA (fundador):** testar o lote no celular pelo guia e **aprovar o WIRE do item 4** (6 pontos no WIRE §8).
-6. ⏭️ **Depois:** implementar o **item 4** (migration + RPC + 4 filtros de leitura + UI) e resolver as pendências da **Wave E**.
+5. ✅ ~~Aprovar o WIRE do item 4~~ **feito** — aprovado pelo fundador em 18/09.
+6. ✅ ~~Implementar o item 4~~ **feito** — banco + front-end (detalhe e lista). Ver Wave D.
+7. ✅ ~~Corrigir o modal de criar pedido, a rolagem das conversas e o clique na linha~~ **feito** — itens 8, 9 e emenda (Wave F).
+8. ⏭️ **AGORA (fundador):** testar a Wave 2 no celular pelo **`tracking/GUIA_TESTE_VERCEL_WAVE2.md`**.
+9. ⏭️ **Pendências da Wave E** (aguardam decisão): `tsconfig`/gate de tipos e ESLint. **Opcionais mapeados:** `ChatList.tsx` (mesmo padrão de rolagem do item 9) e a RPC `registrar_venda` (forma de pagamento sem filtro de empresa + fallback incoerente).
 
 ### 🔎 Reconciliação das pendências A–I (17/09/2026)
 
@@ -816,7 +823,7 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 | **A** | `ClienteConversaResumo` sem filtro `empresa_id` | ✅ WIRE aprovado → **implementado** (lane `fix-6`). Correção: filtro por `empresa_id` + casamento de telefone normalizado em `canal_id` |
 | **B** | n8n: trocar upsert por `fn_ingest_whatsapp` | ✅ feito pelo fundador |
 | **C** | n8n Doceê: ativar `docee_criarpedido` + salvar `atendente_Docee` | ✅ testado e funcionando. A ressalva do "cartão de crédito" **não era gravação** — era o **item 7** (exibição) |
-| **D** | `crm_chat_conversas.cliente_id` NULL | 🔴 **AINDA ATIVO** — verificado no banco: **21 de 21 conversas sem `cliente_id`** (Doceê 1 · tenant `6257ebef` 20). O fundador achava que não acontecia mais. ❓ Precisa decidir: corrigir no **n8n** ou com **trigger** no banco |
+| **D** | `crm_chat_conversas.cliente_id` NULL | ✅ **RESOLVIDO (18/09/2026)** — opção **B (correção no banco)**, escolhida pelo fundador. **Causa raiz:** nenhum nó do `atendente_Docee` escrevia `cliente_id` (`Criar_Conversa1`, `Criar_Conversa2` e `Atualiza_FotoContato` não incluem o campo) — o cliente **era** criado certo em `me_cliente`. **Correção:** `fn_resolver_cliente_id` + 2 triggers (`trg_conversa_vincula_cliente` em `crm_chat_conversas` e `trg_cliente_vincula_conversas` em `me_cliente`, este último cobre a 1ª mensagem, em que a conversa nasce antes do cliente). Verificado nos **dois sentidos** com dados de teste (limpos depois). **Sem backfill** (decisão do fundador: registros antigos são de teste → as 21 conversas seguem com `cliente_id` NULL). Migration: `supabase/migrations/20260918130000_vinculo_conversa_cliente.sql` |
 | **E** | Página do produto (fallback `useLojaProduto` + mock) | ⏸️ parkeado — "ainda não precisa" |
 | **F** | P5 — RLS desligado | ⏸️ **permanece desligado durante o desenvolvimento** (decisão do fundador) |
 | **G** | WIRE T3.3 Landing Page | ✅ **está no GitHub** — `tracking/wireframe/WIRE-Semana3-T3.3-LandingPage.md` (commit `e7344de`) |
@@ -831,6 +838,7 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 - 🔴 **`tsconfig.json` NÃO está no repositório** (untracked, e não está no `.gitignore`) — o `origin/master` não tem nenhum `tsconfig*.json`. O gate de tipos não é reproduzível a partir de um clone limpo.
 - 🔴 **2 migrations aplicadas em produção estão untracked:** `supabase/migrations/20260917220000_conversa_multi_tenant_por_empresa.sql` (grão multi-tenant das conversas — **já está em produção**) e `20260916212702_limpa_dados_teste.sql`.
 - 🟡 **RPC `registrar_venda`:** resolve forma de pagamento com `WHERE nome ILIKE ... LIMIT 1` **sem filtrar empresa** e **sem `ORDER BY`** — e agora existem linhas globais (1–5) **e** do tenant `6257ebef` (20–22) com os mesmos nomes. Além disso o fallback é incoerente: o texto cai para `'PIX'` mas o id cai para `1` (**Dinheiro**).
+- ✅ **RESOLVIDO (18/09/2026) — n8n `Cria_Cliente` não gravava `origem`:** o nó inseria o cliente com `empresa_id`, `nome_cliente` e `telefone`, **sem `origem`**. Como `use-clientes.ts:68` / `use-cliente.ts:68` fazem `db.origem === "whatsapp" ? "whatsapp" : "manual"`, **todo cliente vindo do WhatsApp era exibido como "Manual"** no CRM (não só "sem badge"). Corrigido no workflow `atendente_Docee` (id `3IVutqEXVq8MtXkZ`) adicionando `origem = whatsapp` ao nó. Verificado: nó com 4 campos, workflow válido (65 nós · 68 conexões · 95 expressões · **0 erros, 0 warnings**). É uma dependência **externa ao repo** (workflow do fundador).
 
 ---
 
