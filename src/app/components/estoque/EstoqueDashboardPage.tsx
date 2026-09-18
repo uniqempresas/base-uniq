@@ -25,13 +25,8 @@ import {
   BarChart,
   Bar,
 } from "recharts";
-import {
-  PRODUTOS,
-  MOVIMENTACOES,
-  formatCurrency,
-  getEstoqueStatusConfig,
-  CATEGORIA_COLORS,
-} from "./estoqueMockData";
+import { MOVIMENTACOES, formatCurrency } from "./estoqueMockData";
+import { useProdutos } from "../../hooks/use-produtos";
 
 // Usar placeholder até ter a imagem real
 const melPortrait = "https://api.dicebear.com/7.x/avataaars/svg?seed=MEL";
@@ -58,13 +53,15 @@ const VALOR_ESTOQUE_DATA = [
 export function EstoqueDashboardPage() {
   const navigate = useNavigate();
 
-  const totalProdutos = PRODUTOS.length;
-  const valorTotalEstoque = PRODUTOS.reduce((acc, p) => acc + (p.preco * p.estoque), 0);
-  const produtosBaixoEstoque = PRODUTOS.filter(p => p.estoque <= p.estoqueMinimo).length;
-  const produtosSemEstoque = PRODUTOS.filter(p => p.estoque === 0).length;
+  const { produtos, loading, isFallback, error, recarregar } = useProdutos();
+
+  const totalProdutos = produtos.length;
+  const valorTotalEstoque = produtos.reduce((acc, p) => acc + (p.precoVenda * p.estoque), 0);
+  const produtosBaixoEstoque = produtos.filter(p => p.estoque <= p.estoqueMinimo).length;
+  const produtosSemEstoque = produtos.filter(p => p.estoque === 0).length;
 
   const movimentacoesRecentes = MOVIMENTACOES.slice(0, 5);
-  const produtosCriticos = PRODUTOS.filter(p => p.estoque <= p.estoqueMinimo).slice(0, 5);
+  const produtosCriticos = produtos.filter(p => p.estoque <= p.estoqueMinimo).slice(0, 5);
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -112,6 +109,70 @@ export function EstoqueDashboardPage() {
           </button>
         </div>
       </div>
+
+      {loading ? (
+        /* ── Loading: skeleton do layout ── */
+        <div className="space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-white p-6 rounded-xl border border-[#efefef] shadow-sm">
+                <div className="w-12 h-12 bg-[#efefef] rounded-xl animate-pulse mb-4" />
+                <div className="h-8 bg-[#efefef] rounded animate-pulse w-1/2 mb-2" />
+                <div className="h-4 bg-[#efefef] rounded animate-pulse w-2/3" />
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-[#efefef] shadow-sm">
+              <div className="h-6 bg-[#efefef] rounded animate-pulse w-1/3 mb-6" />
+              <div className="h-80 bg-[#efefef] rounded animate-pulse" />
+            </div>
+            <div className="space-y-6">
+              <div className="bg-white p-5 rounded-xl border border-[#efefef] shadow-sm h-44 animate-pulse" />
+              <div className="bg-white p-5 rounded-xl border border-[#efefef] shadow-sm h-52 animate-pulse" />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white p-6 rounded-xl border border-[#efefef] shadow-sm h-72 animate-pulse" />
+            <div className="bg-white p-6 rounded-xl border border-[#efefef] shadow-sm h-72 animate-pulse" />
+          </div>
+        </div>
+      ) : error ? (
+        /* ── Error: falha ao carregar os dados reais ── */
+        <div className="bg-white rounded-2xl border border-red-200 shadow-sm p-12 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle size={28} className="text-red-500" />
+          </div>
+          <h3 className="text-[#1f2937] mb-2" style={{ fontWeight: 600 }}>
+            Não foi possível carregar o estoque
+          </h3>
+          <p className="text-[#627271] text-sm mb-5 max-w-md mx-auto">{error}</p>
+          <button
+            onClick={recarregar}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[#1f2937] text-sm transition-colors hover:bg-[#1f2937] hover:text-white"
+            style={{ background: "#86cb92", fontWeight: 600 }}
+          >
+            <RefreshCw size={15} />
+            Tentar novamente
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* Fallback: dados de exemplo (demo sem login / erro em modo demo) */}
+          {isFallback && (
+            <div className="mb-6 flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs">
+              <AlertTriangle size={14} />
+              Mostrando dados de exemplo. Cadastre produtos para ver dados reais.
+            </div>
+          )}
+
+          {/* Empty: empresa real sem produtos cadastrados */}
+          {produtos.length === 0 && (
+            <div className="mb-6 flex items-center gap-2 px-3 py-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 text-sm">
+              <Package size={16} />
+              Nenhum produto cadastrado ainda. Os valores abaixo ficam zerados até o primeiro cadastro.
+            </div>
+          )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -253,12 +314,16 @@ export function EstoqueDashboardPage() {
                   key={produto.id} 
                   className="flex items-center gap-3 p-3 rounded-lg bg-red-50 border border-red-100"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center">
-                    <Package size={18} className="text-red-500" />
+                  <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center overflow-hidden shrink-0">
+                    {produto.foto ? (
+                      <img src={produto.foto} alt={produto.nome} className="w-full h-full object-cover" loading="lazy" />
+                    ) : (
+                      <Package size={18} className="text-red-500" />
+                    )}
                   </div>
                   <div className="flex-1">
                     <p className="font-medium text-[#1f2937] text-sm">{produto.nome}</p>
-                    <p className="text-[#627271] text-xs">Código: {produto.codigo}</p>
+                    <p className="text-[#627271] text-xs">Código: {produto.sku}</p>
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-red-600">{produto.estoque} un</p>
@@ -294,7 +359,7 @@ export function EstoqueDashboardPage() {
                   )}
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium text-[#1f2937] text-sm">{mov.produto}</p>
+                  <p className="font-medium text-[#1f2937] text-sm">{mov.produtoNome}</p>
                   <p className="text-[#627271] text-xs">{mov.tipo === "entrada" ? "Entrada" : "Saída"} · {mov.data}</p>
                 </div>
                 <div className="text-right">
@@ -308,6 +373,8 @@ export function EstoqueDashboardPage() {
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }
