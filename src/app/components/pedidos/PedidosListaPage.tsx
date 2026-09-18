@@ -24,8 +24,10 @@ import {
   ChevronRight,
   Plus,
   Minus,
+  Check,
   LayoutGrid,
   Table2,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -42,9 +44,15 @@ import {
 } from "./pedidosMockData";
 import { usePedidos } from "../../hooks/use-pedidos";
 import { useCriarPedido, type PedidoItemInput } from "../../hooks/use-criar-pedido";
+import {
+  useBuscarClientes,
+  formatTelefoneSugestao,
+  type ClienteSugestao,
+} from "../../hooks/use-buscar-clientes";
 import { useProdutos } from "../../hooks/use-produtos";
 import { useAtualizarStatusPedido } from "../../hooks/use-atualizar-status-pedido";
 import { useAuth } from "../../contexts/AuthContext";
+import { ExcluirPedidoModal } from "./ExcluirPedidoModal";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -242,6 +250,8 @@ export function PedidosListaPage() {
   const [cancelMotivo, setCancelMotivo] = useState("");
   const [statusUpdateModal, setStatusUpdateModal] = useState<{ pedidos: Pedido[] } | null>(null);
   const [showNovoPedidoModal, setShowNovoPedidoModal] = useState(searchParams.get("novo") === "1");
+  // Exclusão de pedido cancelado (item 4) — só na lista; o modal é autocontido.
+  const [pedidoParaExcluir, setPedidoParaExcluir] = useState<{ id: string; numero: string; cliente: string } | null>(null);
 
   // ---- Persistência de filtros (item 6) — por EMPRESA, nunca global ----
   // Chave `uniq:pedidos:filtros:<empresaId>`: a Base UNIQ é multi-tenant e um
@@ -343,6 +353,21 @@ export function PedidosListaPage() {
   const [pedidoItens, setPedidoItens] = useState<PedidoItemInput[]>([]);
   const [produtoId, setProdutoId] = useState("");
   const [quantidade, setQuantidade] = useState(1);
+  // Cliente real encontrado na busca (item 8) — quando selecionado, o pedido
+  // grava o id dele direto (sem find-or-create e sem duplicar cadastro).
+  const [clienteSelecionado, setClienteSelecionado] = useState<ClienteSugestao | null>(null);
+  const { sugestoes: sugestoesClientes, loading: buscandoClientes } = useBuscarClientes(
+    clienteSelecionado ? "" : novoPedido.clienteNome
+  );
+
+  const selecionarCliente = (c: ClienteSugestao) => {
+    setClienteSelecionado(c);
+    setNovoPedido((prev) => ({
+      ...prev,
+      clienteNome: c.nome,
+      clienteTelefone: c.telefone || "",
+    }));
+  };
 
   const itensTotal = pedidoItens.reduce((s, i) => s + i.preco_unitario * i.quantidade, 0);
 
@@ -521,6 +546,7 @@ export function PedidosListaPage() {
         : novoPedido.descricao.trim();
 
     const resultado = await criarPedido({
+      clienteId: clienteSelecionado?.id,
       clienteNome: novoPedido.clienteNome,
       clienteTelefone: novoPedido.clienteTelefone || undefined,
       descricao,
@@ -541,6 +567,7 @@ export function PedidosListaPage() {
         formaPagamento: "pix",
         canal: "manual",
       });
+      setClienteSelecionado(null);
       setPedidoItens([]);
       setProdutoId("");
       setQuantidade(1);
@@ -994,6 +1021,18 @@ export function PedidosListaPage() {
                         <AlertCircle size={14} className="text-amber-500" />
                       )}
                       <StatusBadge status={pedido.status} />
+                      {pedido.status === "cancelado" && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPedidoParaExcluir({ id: pedido.id, numero: pedido.numero, cliente: pedido.cliente.nome });
+                          }}
+                          className="w-7 h-7 rounded-lg bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors shrink-0"
+                          aria-label={`Excluir pedido ${pedido.numero}`}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1042,12 +1081,18 @@ export function PedidosListaPage() {
                   {paginated.map((pedido) => (
                     <tr
                       key={pedido.id}
-                      className={`hover:bg-[#efefef]/80 transition-colors group ${
+                      className={`cursor-pointer hover:bg-[#efefef]/80 transition-colors group ${
                         selectedIds.has(pedido.id) ? "bg-[#efefef]/50" : ""
                       }`}
+                      onClick={() => navigate(`/vendas/pedidos/${pedido.id}`)}
                     >
                       <td className="px-4 py-3.5">
-                        <button onClick={() => toggleSelect(pedido.id)}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSelect(pedido.id);
+                          }}
+                        >
                           {selectedIds.has(pedido.id) ? (
                             <CheckSquare size={16} style={{ color: "#1f2937" }} />
                           ) : (
@@ -1104,19 +1149,34 @@ export function PedidosListaPage() {
                         <StatusBadge status={pedido.status} />
                       </td>
                       <td className="px-4 py-3.5 relative">
-                        <button
-                          className="w-8 h-8 rounded-xl flex items-center justify-center text-[#627271] hover:bg-[#efefef] hover:text-[#1f2937] transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShowActionsMenu(showActionsMenu === pedido.id ? null : pedido.id);
-                          }}
-                        >
-                          <MoreHorizontal size={16} />
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          {pedido.status === "cancelado" && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPedidoParaExcluir({ id: pedido.id, numero: pedido.numero, cliente: pedido.cliente.nome });
+                              }}
+                              className="w-7 h-7 rounded-lg bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors"
+                              aria-label={`Excluir pedido ${pedido.numero}`}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                          <button
+                            className="w-8 h-8 rounded-xl flex items-center justify-center text-[#627271] hover:bg-[#efefef] hover:text-[#1f2937] transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowActionsMenu(showActionsMenu === pedido.id ? null : pedido.id);
+                            }}
+                          >
+                            <MoreHorizontal size={16} />
+                          </button>
+                        </div>
                         {showActionsMenu === pedido.id && (
                           <div
                             className="absolute right-2 top-12 z-50 bg-white rounded-2xl border border-[#efefef] shadow-xl py-1.5 min-w-[180px]"
                             onMouseLeave={() => setShowActionsMenu(null)}
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <button
                               className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#1f2937] hover:bg-[#efefef] transition-colors"
@@ -1332,7 +1392,7 @@ export function PedidosListaPage() {
       {/* Novo Pedido Modal */}
       {showNovoPedidoModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto overflow-x-hidden">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-2xl bg-green-100 flex items-center justify-center">
                 <Plus size={18} className="text-green-600" />
@@ -1350,15 +1410,70 @@ export function PedidosListaPage() {
             <div className="space-y-4">
               <div>
                 <label className="text-xs text-[#1f2937] mb-1.5 block" style={{ fontWeight: 600 }}>
-                  Nome do cliente *
+                  Cliente *
                 </label>
                 <input
                   type="text"
                   className="w-full border border-[#efefef] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
-                  placeholder="Ex: Maria Silva"
+                  placeholder="Busque por nome ou telefone..."
                   value={novoPedido.clienteNome}
-                  onChange={(e) => setNovoPedido({ ...novoPedido, clienteNome: e.target.value })}
+                  onChange={(e) => {
+                    // Digitar depois de selecionar = escolheu outro cliente
+                    setClienteSelecionado(null);
+                    setNovoPedido({ ...novoPedido, clienteNome: e.target.value });
+                  }}
                 />
+                {/* Cliente real encontrado na busca (item 8) */}
+                {clienteSelecionado && (
+                  <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-xl border border-[#A7F3D0] bg-[#F0FDF4]">
+                    <Check size={14} className="shrink-0" style={{ color: "#059669" }} />
+                    <span className="flex-1 min-w-0 text-xs" style={{ color: "#059669", fontWeight: 600 }}>
+                      Cliente existente — o pedido usará este cadastro
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setClienteSelecionado(null)}
+                      className="shrink-0 p-1 text-[#627271] hover:text-[#1f2937] transition-colors"
+                      aria-label="Remover seleção do cliente"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
+                {/* Sugestões conforme digita: nome ou telefone normalizado */}
+                {!clienteSelecionado && novoPedido.clienteNome.trim().length >= 2 && (
+                  <div className="mt-2 rounded-xl border border-[#efefef] bg-white overflow-hidden">
+                    {buscandoClientes ? (
+                      <p className="px-3 py-2.5 text-xs text-[#627271] flex items-center gap-2">
+                        <RefreshCw size={12} className="animate-spin" />
+                        Buscando clientes...
+                      </p>
+                    ) : sugestoesClientes.length > 0 ? (
+                      <ul role="listbox" aria-label="Clientes encontrados">
+                        {sugestoesClientes.map((c) => (
+                          <li key={c.id} role="option" aria-selected={false}>
+                            <button
+                              type="button"
+                              onClick={() => selecionarCliente(c)}
+                              className="w-full flex items-center justify-between gap-3 px-3 py-2.5 min-h-[44px] text-left text-sm hover:bg-[#efefef]/60 active:bg-[#efefef] transition-colors border-b border-[#efefef] last:border-b-0"
+                            >
+                              <span className="min-w-0 truncate text-[#1f2937]" style={{ fontWeight: 500 }}>
+                                {c.nome}
+                              </span>
+                              <span className="shrink-0 text-xs text-[#627271]">
+                                {formatTelefoneSugestao(c.telefone)}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="px-3 py-2.5 text-xs text-[#627271]">
+                        Nenhum cliente encontrado — será criado um novo ao salvar.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>
@@ -1382,9 +1497,11 @@ export function PedidosListaPage() {
                 {loadingProdutos ? (
                   <div className="h-12 rounded-xl bg-[#efefef] animate-pulse" />
                 ) : (
-                  <div className="flex gap-2">
+                  // Mobile: select ocupa a linha inteira e quantidade + botão
+                  // formam a segunda linha. Desktop: tudo inline (flex-row).
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <select
-                      className="flex-1 border border-[#efefef] rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 truncate"
+                      className="w-full sm:w-auto sm:flex-1 sm:min-w-0 border border-[#efefef] rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 truncate"
                       value={produtoId}
                       onChange={(e) => setProdutoId(e.target.value)}
                       aria-label="Selecionar produto"
@@ -1396,22 +1513,24 @@ export function PedidosListaPage() {
                         </option>
                       ))}
                     </select>
-                    <input
-                      type="number"
-                      min={1}
-                      value={quantidade}
-                      onChange={(e) => setQuantidade(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                      className="w-16 border border-[#efefef] rounded-xl px-2 py-3 text-sm text-center focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
-                      aria-label="Quantidade"
-                    />
-                    <button
-                      onClick={adicionarItem}
-                      className="px-3 py-3 rounded-xl text-white shrink-0 transition-colors disabled:opacity-50"
-                      style={{ background: "#2e7d32" }}
-                      aria-label="Adicionar produto"
-                    >
-                      <Plus size={16} />
-                    </button>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        min={1}
+                        value={quantidade}
+                        onChange={(e) => setQuantidade(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                        className="flex-1 sm:w-16 sm:flex-none border border-[#efefef] rounded-xl px-2 py-3 text-sm text-center focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
+                        aria-label="Quantidade"
+                      />
+                      <button
+                        onClick={adicionarItem}
+                        className="px-4 sm:px-3 py-3 rounded-xl text-white shrink-0 transition-colors disabled:opacity-50"
+                        style={{ background: "#2e7d32" }}
+                        aria-label="Adicionar produto"
+                      >
+                        <Plus size={16} />
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -1420,12 +1539,19 @@ export function PedidosListaPage() {
                     {pedidoItens.map((item) => (
                       <div
                         key={item.produto_id}
-                        className="flex items-center gap-2 px-3 py-2 rounded-xl border border-[#efefef]"
+                        className="flex flex-wrap items-center gap-x-2 gap-y-2 px-3 py-2.5 rounded-xl border border-[#efefef]"
                       >
+                        {/* Nome: linha própria no mobile (w-full); inline no desktop */}
+                        <p
+                          className="w-full sm:w-auto sm:flex-1 sm:min-w-0 text-sm text-[#1f2937] truncate"
+                          style={{ fontWeight: 500 }}
+                        >
+                          {item.nome_produto}
+                        </p>
                         <div className="flex items-center gap-0.5 border border-[#efefef] rounded-lg shrink-0">
                           <button
                             onClick={() => alterarQtdItem(item.produto_id, -1)}
-                            className="w-6 h-6 flex items-center justify-center text-[#627271] hover:text-[#1f2937] transition-colors"
+                            className="w-7 h-7 flex items-center justify-center text-[#627271] hover:text-[#1f2937] transition-colors"
                             aria-label="Diminuir quantidade"
                           >
                             <Minus size={12} />
@@ -1435,21 +1561,22 @@ export function PedidosListaPage() {
                           </span>
                           <button
                             onClick={() => alterarQtdItem(item.produto_id, 1)}
-                            className="w-6 h-6 flex items-center justify-center text-[#627271] hover:text-[#1f2937] transition-colors"
+                            className="w-7 h-7 flex items-center justify-center text-[#627271] hover:text-[#1f2937] transition-colors"
                             aria-label="Aumentar quantidade"
                           >
                             <Plus size={12} />
                           </button>
                         </div>
-                        <p className="flex-1 text-sm text-[#1f2937] truncate" style={{ fontWeight: 500 }}>
-                          {item.nome_produto}
-                        </p>
-                        <p className="text-sm text-[#1f2937] whitespace-nowrap" style={{ fontWeight: 600 }}>
+                        {/* ml-auto: total empurra para a direita na 2ª linha do mobile */}
+                        <p
+                          className="ml-auto sm:ml-0 text-sm text-[#1f2937] whitespace-nowrap shrink-0"
+                          style={{ fontWeight: 600 }}
+                        >
                           {formatCurrency(item.preco_unitario * item.quantidade)}
                         </p>
                         <button
                           onClick={() => removerItem(item.produto_id)}
-                          className="text-[#627271] hover:text-red-500 transition-colors shrink-0"
+                          className="text-[#627271] hover:text-red-500 transition-colors shrink-0 p-1 -mr-1 sm:mr-0"
                           aria-label={`Remover ${item.nome_produto}`}
                         >
                           <X size={14} />
@@ -1554,6 +1681,7 @@ export function PedidosListaPage() {
                     formaPagamento: "pix",
                     canal: "manual",
                   });
+                  setClienteSelecionado(null);
                   setPedidoItens([]);
                   setProdutoId("");
                   setQuantidade(1);
@@ -1584,6 +1712,21 @@ export function PedidosListaPage() {
           </div>
         </div>
       )}
+
+      {/* Excluir pedido (item 4) — só em pedido cancelado; modal autocontido */}
+      <ExcluirPedidoModal
+        open={pedidoParaExcluir !== null}
+        vendaId={pedidoParaExcluir?.id ?? ""}
+        numeroPedido={pedidoParaExcluir?.numero ?? ""}
+        nomeCliente={pedidoParaExcluir?.cliente ?? ""}
+        estoqueSeraDevolvido={undefined}
+        onClose={() => setPedidoParaExcluir(null)}
+        onSuccess={() => {
+          toast.success("Pedido excluído com sucesso!");
+          setPedidoParaExcluir(null);
+          recarregar();
+        }}
+      />
     </div>
   );
 }
