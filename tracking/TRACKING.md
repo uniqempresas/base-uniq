@@ -797,16 +797,17 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 | **A** | itens **1, 2, 7** + pendência **A** (3 lanes em paralelo) | ✅ **concluída, verificada e EM PRODUÇÃO** — `tsc` **13** (linha de base exata, zero novos) · `npm run build` OK |
 | **B** | itens **5b/5c/5d/5e + 5a + 6** (lane `des-1`, @designer) | ✅ **concluída, verificada e EM PRODUÇÃO** — `tsc` **13** (zero novos) · `npm run build` OK · artefato de teste removido |
 | **C** | item **3** (lane `fix-7`, @fixer) | ✅ **concluída, verificada e EM PRODUÇÃO** — coluna criada no banco + 5 arquivos de código |
-| **D** | item **4** — deletar pedido cancelado | ⏭️ **PRÓXIMO**. Precisa de SDD + WIRE aprovado. A Wave B já fechou → os arquivos (`use-pedidos.ts`, `use-pedido.ts`, `PedidosListaPage.tsx`) estão **liberados** |
+| **D** | item **4** — deletar pedido cancelado | 📝 **SDD ESCRITO** — `tracking/plans/PRD-DeletarPedidoCancelado.md` · `tracking/specs/SPEC-DeletarPedidoCancelado.md` · `tracking/wireframe/WIRE-DeletarPedidoCancelado.md`. **⏸️ Aguardando aprovação do WIRE** pelo fundador para implementar (regra de ouro do `AGENTS.md`) |
 | **E** | pendência **D'**, `tsconfig`, migrations untracked, ESLint | ⏸️ aguarda decisão do fundador |
 
 ### 🎯 Próximos passos acordados (ordem)
 
-1. Fechar as lanes **`des-1`** (itens 5+6) e **`fix-7`** (item 3) → reconciliar + `tsc`/`build`.
-2. Montar o **SDD do item 4** (PRD + SPEC + WIRE) e submeter o WIRE ao fundador.
-3. **Commit + push de tudo** (Wave A + itens 3, 5, 6) → a Vercel dispara o deploy automático.
-4. **Guia de teste na Vercel** montado pelo orchestrator, item por item, para o fundador validar no celular.
-5. Só depois: **item 4** (com a procedure) e as pendências da **Wave E**.
+1. ✅ ~~Fechar as lanes `des-1` e `fix-7`~~ **feito** — reconciliadas e verificadas.
+2. ✅ ~~Commit + push de tudo~~ **feito** — push `4a434bf` + `876683d`; **deploy verificado em produção**.
+3. ✅ ~~Guia de teste na Vercel~~ **feito** — `tracking/GUIA_TESTE_VERCEL_17-09-2026.md`.
+4. ✅ ~~Montar o SDD do item 4~~ **feito** — PRD/SPEC/WIRE escritos (`…DeletarPedidoCancelado.md`).
+5. ⏭️ **AGORA (fundador):** testar o lote no celular pelo guia e **aprovar o WIRE do item 4** (6 pontos no WIRE §8).
+6. ⏭️ **Depois:** implementar o **item 4** (migration + RPC + 4 filtros de leitura + UI) e resolver as pendências da **Wave E**.
 
 ### 🔎 Reconciliação das pendências A–I (17/09/2026)
 
