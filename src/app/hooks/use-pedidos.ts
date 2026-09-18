@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
-import { PEDIDOS, type Pedido, type StatusPedido } from "../components/pedidos/pedidosMockData";
+import { PEDIDOS, type Pedido, type StatusPedido, type CanalVenda } from "../components/pedidos/pedidosMockData";
 
 interface DBVenda {
   id: string;
@@ -43,18 +43,21 @@ export function mapStatusVenda(status: string): StatusPedido {
 function mapFormaPagamento(codigo: number | null): string {
   const map: Record<number, string> = {
     1: "dinheiro",
-    2: "pix",
-    3: "cartao_credito",
+    2: "cartao_credito",
+    3: "pix",
     4: "cartao_debito",
     5: "boleto",
   };
-  return map[codigo || 3] || "cartao_credito";
+  if (codigo === null || codigo === undefined) return "nao_informado";
+  return map[codigo] ?? "nao_informado";
 }
 
-function mapCanalVenda(canal: string | null): "pdv" | "loja" | "whatsapp" | "outros" {
+function mapCanalVenda(canal: string | null): CanalVenda {
   if (canal === "whatsapp") return "whatsapp";
   if (canal === "loja" || canal === "online") return "loja";
-  if (canal === "pdv" || canal === "interna") return "pdv";
+  if (canal === "pdv") return "pdv";
+  // Decisão do fundador (5d): manual e interno são o mesmo canal
+  if (canal === "manual" || canal === "interna") return "manual";
   return "outros";
 }
 
@@ -216,7 +219,13 @@ export function usePedidos(): UsePedidosReturn {
       // Mapeia vendas com dados dos clientes
       const pedidosMapeados = vendasValidas.map((venda) => {
         const cliente = venda.cliente_id ? clientesMap.get(venda.cliente_id) : null;
-        return mapVendaToPedido(venda, cliente, statusPagamentoMap.get(venda.id) ?? "pendente");
+        // Legado (5e): antes de me_contas_receber, `status_venda='pago'` era o sinal
+        // de pagamento. Eleva para "confirmado" para o badge/ponto não contradizer
+        // e para o pedido cair no filtro de pagamento "Pago".
+        const statusPagamento =
+          statusPagamentoMap.get(venda.id) ??
+          (venda.status_venda === "pago" ? "confirmado" : "pendente");
+        return mapVendaToPedido(venda, cliente, statusPagamento);
       });
 
       setPedidos(pedidosMapeados);

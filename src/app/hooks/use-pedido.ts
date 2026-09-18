@@ -7,6 +7,7 @@ import {
   type Pedido,
   type TimelineEntry,
   type StatusPedido,
+  type CanalVenda,
 } from "../components/pedidos/pedidosMockData";
 
 interface DBVenda {
@@ -77,18 +78,21 @@ function mapStatusVenda(status: string): StatusPedido {
 function mapFormaPagamento(codigo: number | null): string {
   const map: Record<number, string> = {
     1: "dinheiro",
-    2: "pix",
-    3: "cartao_credito",
+    2: "cartao_credito",
+    3: "pix",
     4: "cartao_debito",
     5: "boleto",
   };
-  return map[codigo || 3] || "cartao_credito";
+  if (codigo === null || codigo === undefined) return "nao_informado";
+  return map[codigo] ?? "nao_informado";
 }
 
-function mapCanalVenda(canal: string | null): "pdv" | "loja" | "whatsapp" | "outros" {
+function mapCanalVenda(canal: string | null): CanalVenda {
   if (canal === "whatsapp") return "whatsapp";
   if (canal === "loja" || canal === "online") return "loja";
-  if (canal === "pdv" || canal === "interna") return "pdv";
+  if (canal === "pdv") return "pdv";
+  // Decisão do fundador (5d): manual e interno são o mesmo canal
+  if (canal === "manual" || canal === "interna") return "manual";
   return "outros";
 }
 
@@ -286,6 +290,10 @@ export function usePedido(id: string | undefined): UsePedidoReturn {
           .limit(1);
 
         if (contas && contas.length > 0 && contas[0].status === "pago") {
+          statusPagamento = "confirmado";
+        } else if (dbVenda.status_venda === "pago") {
+          // Legado (5e): antes de me_contas_receber, `status_venda='pago'` era o
+          // sinal de pagamento — mantém o detalhe coerente com a lista.
           statusPagamento = "confirmado";
         }
 

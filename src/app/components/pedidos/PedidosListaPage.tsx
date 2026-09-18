@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import {
   Search,
@@ -24,6 +24,8 @@ import {
   ChevronRight,
   Plus,
   Minus,
+  LayoutGrid,
+  Table2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -42,6 +44,7 @@ import { usePedidos } from "../../hooks/use-pedidos";
 import { useCriarPedido, type PedidoItemInput } from "../../hooks/use-criar-pedido";
 import { useProdutos } from "../../hooks/use-produtos";
 import { useAtualizarStatusPedido } from "../../hooks/use-atualizar-status-pedido";
+import { useAuth } from "../../contexts/AuthContext";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -53,28 +56,39 @@ const PERIODO_OPTIONS = [
   { value: "todos", label: "Todos" },
 ];
 
-const STATUS_OPTIONS: { value: StatusPedido | "todos"; label: string }[] = [
-  { value: "todos", label: "Todos os status" },
-  { value: "aguardando", label: "Aguardando" },
-  { value: "recebido", label: "Recebido" },
-  { value: "confirmado", label: "Confirmado" },
-  { value: "pago", label: "Pago" },
-  { value: "separacao", label: "Em Separação" },
-  { value: "enviado", label: "Enviado" },
-  { value: "entregue", label: "Entregue" },
-  { value: "cancelado", label: "Cancelado" },
+// Filtro multi-seleção por chips (5a) — vazio = "todos".
+// Obs.: "pago" NÃO é status do pedido (5e) — vive no eixo pagamento.
+const STATUS_CHIP_OPTIONS: StatusPedido[] = [
+  "aguardando",
+  "recebido",
+  "confirmado",
+  "separacao",
+  "enviado",
+  "entregue",
+  "cancelado",
 ];
 
-const CANAL_OPTIONS: { value: CanalVenda | "todos"; label: string }[] = [
-  { value: "todos", label: "Todos os canais" },
-  { value: "pdv", label: "PDV" },
-  { value: "loja", label: "Loja Virtual" },
-  { value: "whatsapp", label: "WhatsApp" },
-  { value: "outros", label: "Outros" },
-];
+type StatusPagamentoFiltro = Extract<Pedido["statusPagamento"], "confirmado" | "pendente">;
+
+// Valores que os hooks realmente produzem: me_contas_receber.status === "pago" →
+// "confirmado"; sem conta receber → "pendente". ("recusado" existe no tipo, mas
+// nenhum produtor emite — não entra nas opções.)
+const PAGAMENTO_CHIP_OPTIONS: StatusPagamentoFiltro[] = ["confirmado", "pendente"];
+
+const PAGAMENTO_CHIP_CONFIG: Record<
+  StatusPagamentoFiltro,
+  { label: string; color: string; bg: string; borderColor: string }
+> = {
+  confirmado: { label: "Pago", color: "#059669", bg: "#F0FDF4", borderColor: "#A7F3D0" },
+  pendente: { label: "Pendente", color: "#D97706", bg: "#FFFBEB", borderColor: "#FDE68A" },
+};
+
+const CANAL_CHIP_OPTIONS: CanalVenda[] = ["manual", "pdv", "loja", "whatsapp", "outros"];
 
 function filterByPeriod(pedidos: Pedido[], periodo: string): Pedido[] {
-  const now = new Date("2026-04-02T23:59:59");
+  // 5b: a data estava congelada em 2026-04-02 — "Hoje" mostrava tudo e "Ontem"
+  // nada. Agora é o "agora" real, relativo aos dados de cada empresa.
+  const now = new Date();
   return pedidos.filter((p) => {
     const d = new Date(p.dataHora);
     const diffDays = (now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24);
@@ -114,6 +128,43 @@ function CanalBadge({ canal }: { canal: CanalVenda }) {
     >
       {cfg.label}
     </span>
+  );
+}
+
+// Chip de filtro multi-seleção (5a) — marca/desmarca por toque ou teclado.
+// Estado selecionado vs. não selecionado é inequívoco: selecionado ganha a cor
+// do config (bg/texto/borda), não selecionado fica neutro com borda clara.
+function FilterChip({
+  label,
+  color,
+  bg,
+  borderColor,
+  selected,
+  onToggle,
+}: {
+  label: string;
+  color: string;
+  bg: string;
+  borderColor: string;
+  selected: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      className="inline-flex items-center gap-1 px-3 min-h-[36px] rounded-full text-xs border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#86cb92]/50 focus-visible:ring-offset-1"
+      style={{
+        color: selected ? color : "#627271",
+        background: selected ? bg : "white",
+        borderColor: selected ? borderColor : "#efefef",
+        fontWeight: selected ? 600 : 500,
+      }}
+      onClick={onToggle}
+    >
+      {label}
+      {selected && <X size={12} className="opacity-70" aria-hidden="true" />}
+    </button>
   );
 }
 
@@ -178,8 +229,11 @@ export function PedidosListaPage() {
   const { atualizarStatus } = useAtualizarStatusPedido();
   const [search, setSearch] = useState("");
   const [periodo, setPeriodo] = useState("30dias");
-  const [statusFilter, setStatusFilter] = useState<StatusPedido | "todos">("todos");
-  const [canalFilter, setCanalFilter] = useState<CanalVenda | "todos">("todos");
+  // Multi-seleção (5a): array vazio = "todos" as opções do grupo
+  const [statusFilters, setStatusFilters] = useState<StatusPedido[]>([]);
+  const [pagamentoFilters, setPagamentoFilters] = useState<StatusPagamentoFiltro[]>([]);
+  const [canalFilters, setCanalFilters] = useState<CanalVenda[]>([]);
+  const [viewMode, setViewMode] = useState<"grade" | "tabela">("tabela");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
@@ -188,6 +242,85 @@ export function PedidosListaPage() {
   const [cancelMotivo, setCancelMotivo] = useState("");
   const [statusUpdateModal, setStatusUpdateModal] = useState<{ pedidos: Pedido[] } | null>(null);
   const [showNovoPedidoModal, setShowNovoPedidoModal] = useState(searchParams.get("novo") === "1");
+
+  // ---- Persistência de filtros (item 6) — por EMPRESA, nunca global ----
+  // Chave `uniq:pedidos:filtros:<empresaId>`: a Base UNIQ é multi-tenant e um
+  // filtro global atravessaria de uma empresa para outra.
+  const { empresa } = useAuth();
+  const storageKey = empresa?.id ? `uniq:pedidos:filtros:${empresa.id}` : null;
+  const filtrosCarregados = useRef(false);
+
+  // Grava a cada mudança. Declarado ANTES do load: no 1º commit em que a empresa
+  // resolve, esta effect roda com `filtrosCarregados=false` e pula — evitando
+  // sobrescrever o que acabou de ser lido do storage no mesmo ciclo.
+  useEffect(() => {
+    if (!storageKey || !filtrosCarregados.current) return;
+    try {
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          periodo,
+          status: statusFilters,
+          pagamento: pagamentoFilters,
+          canal: canalFilters,
+          viewMode,
+        })
+      );
+    } catch {
+      // Storage indisponível/cheio — persistência é best-effort, não quebra a tela.
+    }
+  }, [storageKey, periodo, statusFilters, pagamentoFilters, canalFilters, viewMode]);
+
+  // Lê na inicialização. JSON inválido/corrompido cai no try/catch → defaults.
+  useEffect(() => {
+    if (!storageKey || filtrosCarregados.current) return;
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as {
+          periodo?: unknown;
+          status?: unknown;
+          pagamento?: unknown;
+          canal?: unknown;
+          viewMode?: unknown;
+        };
+        if (
+          typeof parsed.periodo === "string" &&
+          PERIODO_OPTIONS.some((o) => o.value === parsed.periodo)
+        ) {
+          setPeriodo(parsed.periodo);
+        }
+        if (Array.isArray(parsed.status)) {
+          setStatusFilters(
+            parsed.status.filter((s): s is StatusPedido =>
+              STATUS_CHIP_OPTIONS.includes(s as StatusPedido)
+            )
+          );
+        }
+        if (Array.isArray(parsed.pagamento)) {
+          setPagamentoFilters(
+            parsed.pagamento.filter((p): p is StatusPagamentoFiltro =>
+              PAGAMENTO_CHIP_OPTIONS.includes(p as StatusPagamentoFiltro)
+            )
+          );
+        }
+        if (Array.isArray(parsed.canal)) {
+          setCanalFilters(
+            parsed.canal.filter((c): c is CanalVenda =>
+              CANAL_CHIP_OPTIONS.includes(c as CanalVenda)
+            )
+          );
+        }
+        if (parsed.viewMode === "grade" || parsed.viewMode === "tabela") {
+          setViewMode(parsed.viewMode);
+        }
+      }
+    } catch {
+      // Storage corrompido/indisponível → mantém os defaults (item 6)
+    } finally {
+      filtrosCarregados.current = true;
+    }
+  }, [storageKey]);
 
   // Veio de "Nova Venda"/"Venda rápida" (?novo=1): abre o modal e limpa o param da URL
   // para o modal não reabrir ao voltar/recarregar a página
@@ -202,7 +335,9 @@ export function PedidosListaPage() {
     descricao: "",
     valor: "",
     formaPagamento: "pix",
-    canal: "whatsapp",
+    // 5c: canal padrão do pedido manual é "manual" (havia "whatsapp" chumbado);
+    // o seletor do modal permite trocar — o payload usa a escolha do usuário.
+    canal: "manual",
   });
   const { produtos, loading: loadingProdutos } = useProdutos();
   const [pedidoItens, setPedidoItens] = useState<PedidoItemInput[]>([]);
@@ -256,11 +391,13 @@ export function PedidosListaPage() {
     setPedidoItens((prev) => prev.filter((i) => i.produto_id !== produtoIdItem));
   };
 
-  // Filter logic
+  // Filter logic — arrays vazios = grupo sem filtro (5a)
   const filtered = useMemo(() => {
     let list = filterByPeriod(pedidos, periodo);
-    if (statusFilter !== "todos") list = list.filter((p) => p.status === statusFilter);
-    if (canalFilter !== "todos") list = list.filter((p) => p.canal === canalFilter);
+    if (statusFilters.length > 0) list = list.filter((p) => statusFilters.includes(p.status));
+    if (pagamentoFilters.length > 0)
+      list = list.filter((p) => pagamentoFilters.includes(p.statusPagamento as StatusPagamentoFiltro));
+    if (canalFilters.length > 0) list = list.filter((p) => canalFilters.includes(p.canal));
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
@@ -271,10 +408,45 @@ export function PedidosListaPage() {
       );
     }
     return list;
-  }, [pedidos, search, periodo, statusFilter, canalFilter]);
+  }, [pedidos, search, periodo, statusFilters, pagamentoFilters, canalFilters]);
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
   const paginated = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+
+  const totalFiltrosAtivos = statusFilters.length + pagamentoFilters.length + canalFilters.length;
+
+  const toggleStatus = (s: StatusPedido) => {
+    setStatusFilters((prev) => (prev.includes(s) ? prev.filter((v) => v !== s) : [...prev, s]));
+    setPage(1);
+  };
+
+  const togglePagamento = (p: StatusPagamentoFiltro) => {
+    setPagamentoFilters((prev) => (prev.includes(p) ? prev.filter((v) => v !== p) : [...prev, p]));
+    setPage(1);
+  };
+
+  const toggleCanal = (c: CanalVenda) => {
+    setCanalFilters((prev) => (prev.includes(c) ? prev.filter((v) => v !== c) : [...prev, c]));
+    setPage(1);
+  };
+
+  // Item 6: "Limpar filtros" também apaga o storage — senão o filtro "volta" ao
+  // recarregar. Reseta para o estado default (período "todos" = mostra tudo).
+  const limparFiltros = () => {
+    setPeriodo("todos");
+    setStatusFilters([]);
+    setPagamentoFilters([]);
+    setCanalFilters([]);
+    setViewMode("tabela");
+    setPage(1);
+    if (storageKey) {
+      try {
+        localStorage.removeItem(storageKey);
+      } catch {
+        // best-effort — não quebra a tela
+      }
+    }
+  };
 
   // KPIs
   const totalValor = (filtered || []).reduce((s, p) => s + (p.status !== "cancelado" ? p.total : 0), 0);
@@ -367,7 +539,7 @@ export function PedidosListaPage() {
         descricao: "",
         valor: "",
         formaPagamento: "pix",
-        canal: "whatsapp",
+        canal: "manual",
       });
       setPedidoItens([]);
       setProdutoId("");
@@ -391,6 +563,39 @@ export function PedidosListaPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Modo de visualização (item 6): grade (cards) / tabela — persistido por empresa */}
+          <div
+            className="flex border border-[#efefef] rounded-xl overflow-hidden bg-[#efefef] shrink-0"
+            role="group"
+            aria-label="Modo de visualização"
+          >
+            <button
+              onClick={() => setViewMode("grade")}
+              aria-pressed={viewMode === "grade"}
+              className="px-2.5 py-2 transition-all"
+              style={{
+                background: viewMode === "grade" ? "white" : "transparent",
+                color: viewMode === "grade" ? "#1f2937" : "#627271",
+              }}
+              title="Visualizar em grade (cards)"
+              aria-label="Visualizar em grade (cards)"
+            >
+              <LayoutGrid size={15} />
+            </button>
+            <button
+              onClick={() => setViewMode("tabela")}
+              aria-pressed={viewMode === "tabela"}
+              className="px-2.5 py-2 transition-all"
+              style={{
+                background: viewMode === "tabela" ? "white" : "transparent",
+                color: viewMode === "tabela" ? "#1f2937" : "#627271",
+              }}
+              title="Visualizar em tabela"
+              aria-label="Visualizar em tabela"
+            >
+              <Table2 size={15} />
+            </button>
+          </div>
           <button
             onClick={() => setShowNovoPedidoModal(true)}
             className="flex items-center gap-1.5 px-3 py-2 text-xs rounded-xl text-[#1f2937] transition-colors"
@@ -534,55 +739,133 @@ export function PedidosListaPage() {
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={`flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm rounded-xl border transition-colors shrink-0 ${
-              showFilters || statusFilter !== "todos" || canalFilter !== "todos"
+              showFilters || totalFiltrosAtivos > 0
                 ? "border-[#86cb92] text-[#1f2937] bg-[#efefef]"
                 : "border-[#efefef] text-[#1f2937] hover:bg-[#efefef]"
             }`}
           >
             <Filter size={14} />
             <span className="hidden sm:inline">Filtros</span>
-            {(statusFilter !== "todos" || canalFilter !== "todos") && (
+            {totalFiltrosAtivos > 0 && (
               <span
                 className="w-4 h-4 rounded-full text-[10px] flex items-center justify-center text-[#1f2937]"
                 style={{ background: "#86cb92" }}
               >
-                {(statusFilter !== "todos" ? 1 : 0) + (canalFilter !== "todos" ? 1 : 0)}
+                {totalFiltrosAtivos}
               </span>
             )}
           </button>
         </div>
 
-        {/* Expanded filters */}
+        {/* Expanded filters — multi-seleção por chips (5a): nenhum selecionado = todos */}
         {showFilters && (
-          <div className="flex flex-wrap gap-2 sm:gap-3 pt-2 border-t border-[#efefef]">
-            <div className="relative">
-              <select
-                className="appearance-none pl-3 pr-8 py-2 text-sm border border-[#efefef] rounded-xl bg-white text-[#1f2937] focus:outline-none focus:ring-2 focus:ring-[#86cb92]/30"
-                value={statusFilter}
-                onChange={(e) => { setStatusFilter(e.target.value as StatusPedido | "todos"); setPage(1); }}
+          <div className="pt-2 border-t border-[#efefef] space-y-3">
+            <div className="flex items-start gap-2">
+              <span
+                className="w-24 sm:w-28 shrink-0 text-xs text-[#627271] pt-2"
+                style={{ fontWeight: 600 }}
               >
-                {STATUS_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-              <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#627271] pointer-events-none" />
+                Status
+              </span>
+              <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
+                {STATUS_CHIP_OPTIONS.map((s) => {
+                  const cfg = STATUS_CONFIG[s];
+                  return (
+                    <FilterChip
+                      key={s}
+                      label={cfg.label}
+                      color={cfg.color}
+                      bg={cfg.bg}
+                      borderColor={cfg.borderColor}
+                      selected={statusFilters.includes(s)}
+                      onToggle={() => toggleStatus(s)}
+                    />
+                  );
+                })}
+              </div>
+              {statusFilters.length > 0 && (
+                <button
+                  className="shrink-0 mt-1.5 px-2 min-h-[36px] rounded-lg text-xs text-[#627271] hover:text-[#1f2937] hover:bg-[#efefef] transition-colors"
+                  onClick={() => { setStatusFilters([]); setPage(1); }}
+                  aria-label="Limpar filtro de status"
+                >
+                  <X size={13} />
+                </button>
+              )}
             </div>
-            <div className="relative">
-              <select
-                className="appearance-none pl-3 pr-8 py-2 text-sm border border-[#efefef] rounded-xl bg-white text-[#1f2937] focus:outline-none focus:ring-2 focus:ring-[#86cb92]/30"
-                value={canalFilter}
-                onChange={(e) => { setCanalFilter(e.target.value as CanalVenda | "todos"); setPage(1); }}
+
+            <div className="flex items-start gap-2">
+              <span
+                className="w-24 sm:w-28 shrink-0 text-xs text-[#627271] pt-2"
+                style={{ fontWeight: 600 }}
               >
-                {CANAL_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-              <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#627271] pointer-events-none" />
+                Pagamento
+              </span>
+              <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
+                {PAGAMENTO_CHIP_OPTIONS.map((p) => {
+                  const cfg = PAGAMENTO_CHIP_CONFIG[p];
+                  return (
+                    <FilterChip
+                      key={p}
+                      label={cfg.label}
+                      color={cfg.color}
+                      bg={cfg.bg}
+                      borderColor={cfg.borderColor}
+                      selected={pagamentoFilters.includes(p)}
+                      onToggle={() => togglePagamento(p)}
+                    />
+                  );
+                })}
+              </div>
+              {pagamentoFilters.length > 0 && (
+                <button
+                  className="shrink-0 mt-1.5 px-2 min-h-[36px] rounded-lg text-xs text-[#627271] hover:text-[#1f2937] hover:bg-[#efefef] transition-colors"
+                  onClick={() => { setPagamentoFilters([]); setPage(1); }}
+                  aria-label="Limpar filtro de pagamento"
+                >
+                  <X size={13} />
+                </button>
+              )}
             </div>
-            {(statusFilter !== "todos" || canalFilter !== "todos") && (
+
+            <div className="flex items-start gap-2">
+              <span
+                className="w-24 sm:w-28 shrink-0 text-xs text-[#627271] pt-2"
+                style={{ fontWeight: 600 }}
+              >
+                Canal
+              </span>
+              <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
+                {CANAL_CHIP_OPTIONS.map((c) => {
+                  const cfg = CANAL_CONFIG[c];
+                  return (
+                    <FilterChip
+                      key={c}
+                      label={cfg.label}
+                      color={cfg.color}
+                      bg={cfg.bg}
+                      borderColor={cfg.color}
+                      selected={canalFilters.includes(c)}
+                      onToggle={() => toggleCanal(c)}
+                    />
+                  );
+                })}
+              </div>
+              {canalFilters.length > 0 && (
+                <button
+                  className="shrink-0 mt-1.5 px-2 min-h-[36px] rounded-lg text-xs text-[#627271] hover:text-[#1f2937] hover:bg-[#efefef] transition-colors"
+                  onClick={() => { setCanalFilters([]); setPage(1); }}
+                  aria-label="Limpar filtro de canal"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+
+            {totalFiltrosAtivos > 0 && (
               <button
                 className="px-3 py-2 text-xs text-[#627271] hover:text-[#1f2937] hover:bg-[#efefef] rounded-xl transition-colors"
-                onClick={() => { setStatusFilter("todos"); setCanalFilter("todos"); setPage(1); }}
+                onClick={limparFiltros}
               >
                 Limpar filtros
               </button>
@@ -642,15 +925,21 @@ export function PedidosListaPage() {
             <button
               className="mt-4 px-4 py-2 text-sm rounded-xl text-[#1f2937] transition-colors"
               style={{ background: "#86cb92" }}
-              onClick={() => { setSearch(""); setStatusFilter("todos"); setCanalFilter("todos"); setPeriodo("todos"); }}
+              onClick={() => { setSearch(""); limparFiltros(); }}
             >
               Limpar filtros
             </button>
           </div>
         ) : (
           <>
-            {/* Cards para mobile - sem scroll horizontal */}
-            <div className="md:hidden divide-y divide-[#efefef]">
+            {/* Cards — mobile por padrão (viewMode "tabela"); "grade" força cards em qualquer tela */}
+            <div
+              className={
+                viewMode === "grade"
+                  ? "divide-y divide-[#efefef]"
+                  : "md:hidden divide-y divide-[#efefef]"
+              }
+            >
               {paginated.map((pedido) => (
                 <div
                   key={pedido.id}
@@ -711,8 +1000,8 @@ export function PedidosListaPage() {
               ))}
             </div>
 
-            {/* Tabela para desktop */}
-            <div className="hidden md:block overflow-x-auto">
+            {/* Tabela para desktop — "grade" força cards em qualquer tela */}
+            <div className={viewMode === "grade" ? "hidden" : "hidden md:block overflow-x-auto"}>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[#efefef]">
@@ -1263,7 +1552,7 @@ export function PedidosListaPage() {
                     descricao: "",
                     valor: "",
                     formaPagamento: "pix",
-                    canal: "whatsapp",
+                    canal: "manual",
                   });
                   setPedidoItens([]);
                   setProdutoId("");

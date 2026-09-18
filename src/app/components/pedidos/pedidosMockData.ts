@@ -12,13 +12,14 @@ export type StatusPedido =
   | "entregue"
   | "cancelado";
 
-export type CanalVenda = "pdv" | "loja" | "whatsapp" | "outros";
+export type CanalVenda = "manual" | "pdv" | "loja" | "whatsapp" | "outros";
 export type FormaPagamento =
   | "pix"
   | "cartao_credito"
   | "cartao_debito"
   | "dinheiro"
-  | "boleto";
+  | "boleto"
+  | "nao_informado";
 
 export interface ItemPedido {
   id: string;
@@ -76,10 +77,17 @@ export interface Pedido {
 }
 
 // ----- helpers -----
+// Mock âncora no "agora" (avaliado uma vez, no load do módulo) para os filtros de
+// período (5b) funcionarem também no MODO DEMO — data congelada em 2026-04-02
+// fazia "Hoje"/"30dias" mostrarem lista vazia com `new Date()` real.
 const dateBack = (days: number, hour = "10:00") => {
-  const d = new Date("2026-04-02");
+  const d = new Date();
+  d.setHours(12, 0, 0, 0); // meio-dia local — evita salto de dia na formatação
   d.setDate(d.getDate() - days);
-  return `${d.toISOString().split("T")[0]}T${hour}:00`;
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const da = String(d.getDate()).padStart(2, "0");
+  return `${y}-${mo}-${da}T${hour}:00`;
 };
 
 // ----- mock orders -----
@@ -819,6 +827,7 @@ export const CANAL_CONFIG: Record<
   CanalVenda,
   { label: string; color: string; bg: string }
 > = {
+  manual: { label: "Manual", color: "#475569", bg: "#F1F5F9" },
   pdv: { label: "PDV", color: "#0284C7", bg: "#E0F2FE" },
   loja: { label: "Loja Virtual", color: "#7C3AED", bg: "#EDE9FE" },
   whatsapp: { label: "WhatsApp", color: "#16A34A", bg: "#DCFCE7" },
@@ -831,6 +840,7 @@ export const PAGAMENTO_LABELS: Record<FormaPagamento, string> = {
   cartao_debito: "Cartão de Débito",
   dinheiro: "Dinheiro",
   boleto: "Boleto",
+  nao_informado: "Não informado",
 };
 
 // ==============================
