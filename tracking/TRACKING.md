@@ -764,34 +764,41 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 
 > 📄 **Diagnósticos completos, com causa raiz (arquivo:linha e banco): `tracking/AJUSTES_17-09-2026.md`**
 >
-> ✅ **Todas as decisões de produto JÁ FORAM TOMADAS pelo fundador** (17/09/2026) — ver tabela abaixo. O que falta é execução.
+> ✅ **Todas as decisões de produto JÁ FORAM TOMADAS pelo fundador** (17/09/2026) — ver tabela abaixo.
+>
+> 🚀 **TODO O LOTE ABAIXO (itens 1, 2, 3, 5a–5e, 6, 7 e pendência A) ESTÁ IMPLEMENTADO, COMMITADO E EM PRODUÇÃO.**
+> Push **`4a434bf`** na `master` — 4 commits: `66fb73f` (pedidos) · `3504e71` (produtos) · `43b53ee` (crm) · `4a434bf` (tracking + migrations).
+> **Deploy verificado em produção:** a Vercel passou a servir `PedidosListaPage-BoT81rLk.js` (entry `index-BS6R34Pm.js`), com os marcadores do código novo confirmados no chunk.
+> 🧪 **Guia de teste para validar no celular: `tracking/GUIA_TESTE_VERCEL_17-09-2026.md`**
+>
+> ⏭️ **O que ainda falta:** item **4** (deletar pedido — precisa de SDD + WIRE aprovado) e as pendências da **Wave E** (ver abaixo).
 
 ### ✅ Decisões do fundador (FECHADAS) + estado de execução
 
 | # | Item | Decisão tomada | Estado |
 |---|---|---|---|
-| 1 | Retirar "Tags / Etiquetas" do modal de produto | Retirar | ✅ **feito** (lane `fix-4`) — sem commit |
+| 1 | Retirar "Tags / Etiquetas" do modal de produto | Retirar | ✅ **feito** (lane `fix-4`) — commitado e em produção |
 | 2 | Botão "Duplicar" morto na lista de produtos | Consertar | ✅ **feito** (lane `fix-4`) — incluiu também a view de tabela, que tinha o mesmo botão morto |
-| 3 | Estoque mínimo sempre 5 | **Ter o campo em `me_produto`** · default **5** · tratar como **hotfix** (sem SDD) | 🔄 **em execução** (lane `fix-7`) — coluna `estoque_minimo` já criada no banco |
+| 3 | Estoque mínimo sempre 5 | **Ter o campo em `me_produto`** · default **5** · tratar como **hotfix** (sem SDD) | ✅ **feito** (lane `fix-7`) — coluna `estoque_minimo` criada no banco + hooks e modal gravando/lendo |
 | 4 | Deletar pedido cancelado | **Soft delete** · **bloqueia** se a conta a receber estiver **paga** · **devolve estoque** · botão em **detalhe + lista** · **qualquer usuário** · **como PROCEDURE/RPC** (para ser chamada tanto pelo cliente quanto pela Base UNIQ) | ⏸️ **precisa de PRD/SPEC/WIRE + aprovação do WIRE** |
-| 5b | Filtro de período com data congelada | Corrigir (`new Date()`) | ✅ **feito** (lane `des-1`) — sem commit |
-| 5c | "Novo Pedido" grava canal chumbado `whatsapp` | Canal correto = **`manual`** | ✅ **feito** (lane `des-1`) — sem commit |
-| 5d | Canais colapsados (`interna→pdv`, `manual→outros`) | `interna` e `manual` são o mesmo → ambos viram **`manual`** · **NÃO mexer no histórico** (são pedidos de teste) | ✅ **feito** (lane `des-1`) — sem commit |
-| 5e | "Status parecem errados" | **Confirmado pelo fundador:** "Pago" **não é status do pedido** — é status de **pagamento**. Remover do filtro de status do pedido e **criar um filtro separado de status de pagamento** | ✅ **feito** (lane `des-1`) — sem commit |
-| 5a | Filtros multi-seleção | **Chips** clicáveis para status do pedido, status de pagamento e canal | ✅ **feito** (lane `des-1`) — sem commit |
-| 6 | Persistir filtros de pedidos | Por **empresa** (`uniq:pedidos:filtros:<empresaId>`) · persistir `periodo`/`status`/`pagamento`/`canal`/`viewMode` · **não** persistir a busca digitada · "Limpar filtros" também apaga o storage | ✅ **feito** (lane `des-1`) — sem commit |
-| 7 | WhatsApp/n8n sempre "Cartão de Crédito" | Corrigir os mapas — **o banco estava certo: era Pix**, o erro era só de exibição | ✅ **feito** (lane `fix-5`) — sem commit |
-| A | `ClienteConversaResumo` sem filtro `empresa_id` | WIRE aprovado pelo fundador | ✅ **feito** (lane `fix-6`) — sem commit |
+| 5b | Filtro de período com data congelada | Corrigir (`new Date()`) | ✅ **feito** (lane `des-1`) — commitado e em produção |
+| 5c | "Novo Pedido" grava canal chumbado `whatsapp` | Canal correto = **`manual`** | ✅ **feito** (lane `des-1`) — commitado e em produção |
+| 5d | Canais colapsados (`interna→pdv`, `manual→outros`) | `interna` e `manual` são o mesmo → ambos viram **`manual`** · **NÃO mexer no histórico** (são pedidos de teste) | ✅ **feito** (lane `des-1`) — commitado e em produção |
+| 5e | "Status parecem errados" | **Confirmado pelo fundador:** "Pago" **não é status do pedido** — é status de **pagamento**. Remover do filtro de status do pedido e **criar um filtro separado de status de pagamento** | ✅ **feito** (lane `des-1`) — commitado e em produção |
+| 5a | Filtros multi-seleção | **Chips** clicáveis para status do pedido, status de pagamento e canal | ✅ **feito** (lane `des-1`) — commitado e em produção |
+| 6 | Persistir filtros de pedidos | Por **empresa** (`uniq:pedidos:filtros:<empresaId>`) · persistir `periodo`/`status`/`pagamento`/`canal`/`viewMode` · **não** persistir a busca digitada · "Limpar filtros" também apaga o storage | ✅ **feito** (lane `des-1`) — commitado e em produção |
+| 7 | WhatsApp/n8n sempre "Cartão de Crédito" | Corrigir os mapas — **o banco estava certo: era Pix**, o erro era só de exibição | ✅ **feito** (lane `fix-5`) — commitado e em produção |
+| A | `ClienteConversaResumo` sem filtro `empresa_id` | WIRE aprovado pelo fundador | ✅ **feito** (lane `fix-6`) — commitado e em produção |
 
 ### 📍 Estado das waves
 
 | Wave | Conteúdo | Estado |
 |---|---|---|
-| **A** | itens **1, 2, 7** + pendência **A** (3 lanes em paralelo) | ✅ **concluída e verificada** — `tsc` **13** (linha de base exata, zero novos) · `npm run build` OK |
-| **B** | itens **5b/5c/5d/5e + 5a + 6** (lane `des-1`, @designer) | ✅ **concluída e verificada** — `tsc` **13** (zero novos) · `npm run build` OK · artefato de teste removido |
-| **C** | item **3** (lane `fix-7`, @fixer) | 🔄 **em execução** |
-| **D** | item **4** — deletar pedido cancelado | ⏸️ **precisa de SDD + WIRE aprovado**. ⚠️ Colide nos mesmos arquivos da Wave B (`use-pedidos.ts`, `use-pedido.ts`, `PedidosListaPage.tsx`) → **só depois que a Wave B fechar** |
-| **E** | pendência **D'**, `tsconfig`, migrations untracked, ESLint | ⏸️ aguarda decisão |
+| **A** | itens **1, 2, 7** + pendência **A** (3 lanes em paralelo) | ✅ **concluída, verificada e EM PRODUÇÃO** — `tsc` **13** (linha de base exata, zero novos) · `npm run build` OK |
+| **B** | itens **5b/5c/5d/5e + 5a + 6** (lane `des-1`, @designer) | ✅ **concluída, verificada e EM PRODUÇÃO** — `tsc` **13** (zero novos) · `npm run build` OK · artefato de teste removido |
+| **C** | item **3** (lane `fix-7`, @fixer) | ✅ **concluída, verificada e EM PRODUÇÃO** — coluna criada no banco + 5 arquivos de código |
+| **D** | item **4** — deletar pedido cancelado | ⏭️ **PRÓXIMO**. Precisa de SDD + WIRE aprovado. A Wave B já fechou → os arquivos (`use-pedidos.ts`, `use-pedido.ts`, `PedidosListaPage.tsx`) estão **liberados** |
+| **E** | pendência **D'**, `tsconfig`, migrations untracked, ESLint | ⏸️ aguarda decisão do fundador |
 
 ### 🎯 Próximos passos acordados (ordem)
 
