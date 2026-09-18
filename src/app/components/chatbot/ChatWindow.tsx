@@ -7,7 +7,6 @@
 import React, { useRef, useEffect } from 'react';
 import { Avatar } from '../ui/avatar';
 import { Button } from '../ui/button';
-import { ScrollArea } from '../ui/scroll-area';
 import { MessageBubble } from './MessageBubble';
 import { ChatInput } from './ChatInput';
 import { Conversa, Mensagem } from '../../types/chatbot';
@@ -34,12 +33,16 @@ function getInitials(nome: string): string {
 export function ChatWindow({ conversa, mensagens, onSendMessage, onBack, inputRef }: ChatWindowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll para a última mensagem
+  // Auto-scroll para a última mensagem ao abrir/trocar de conversa ou quando
+  // chega mensagem nova. O ref aponta para o próprio container de rolagem
+  // (div com overflow-y-auto), então scrollTop/scrollHeight são aplicados no
+  // elemento certo — antes o ref apontava para um div interno sem rolagem.
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const container = scrollRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
     }
-  }, [mensagens]);
+  }, [mensagens, conversa?.id]);
 
   if (!conversa) {
     return (
@@ -50,7 +53,7 @@ export function ChatWindow({ conversa, mensagens, onSendMessage, onBack, inputRe
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-white">
+    <div className="flex-1 flex flex-col bg-white min-h-0 overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between p-3 lg:p-4 border-b border-border bg-white shrink-0">
         <div className="flex items-center gap-3 min-w-0">
@@ -96,18 +99,24 @@ export function ChatWindow({ conversa, mensagens, onSendMessage, onBack, inputRe
         </div>
       </div>
 
-      {/* Área de mensagens */}
-      <ScrollArea className="flex-1 p-4 bg-muted" aria-live="polite" aria-atomic="false">
-        <div ref={scrollRef} className="h-full">
-          {mensagens.map((mensagem) => (
-            <MessageBubble
-              key={mensagem.id}
-              mensagem={mensagem}
-              isOwn={!mensagem.isBot}
-            />
-          ))}
-        </div>
-      </ScrollArea>
+      {/* Área de mensagens — rolagem vertical própria.
+          O cabeçalho e o campo de escrita ficam fixos (shrink-0); só esta
+          lista rola. min-h-0 impede o flexbox de esticar além da altura
+          disponível (que era o que cortava a conversa sem barra de rolagem). */}
+      <div
+        ref={scrollRef}
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 bg-muted"
+        aria-live="polite"
+        aria-atomic="false"
+      >
+        {mensagens.map((mensagem) => (
+          <MessageBubble
+            key={mensagem.id}
+            mensagem={mensagem}
+            isOwn={!mensagem.isBot}
+          />
+        ))}
+      </div>
 
       {/* Input de mensagem */}
       <ChatInput ref={inputRef} onSend={onSendMessage} />

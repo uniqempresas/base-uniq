@@ -161,7 +161,10 @@ export function ClienteConversaResumo({ clienteNome, clienteTelefone }: ClienteC
       <h3 className="text-[#1f2937] text-sm mb-4" style={{ fontWeight: 600 }}>
         Resumo da Conversa
       </h3>
-      <div className="space-y-3">
+      {/* Lista de mensagens com rolagem vertical própria: quando o conteúdo
+          passa da altura, rola dentro do card — o título e o botão "Ver
+          conversa completa" permanecem visíveis e a página não cresce. */}
+      <div className="space-y-3 max-h-[60vh] sm:max-h-[480px] overflow-y-auto overscroll-contain pr-1 -mr-1">
         {mensagens.map((msg) => (
           <div key={msg.id} className={`flex ${msg.isCliente ? "justify-start" : "justify-end"}`}>
             <div
