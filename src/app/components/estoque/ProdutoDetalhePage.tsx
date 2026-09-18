@@ -39,7 +39,7 @@ import {
 } from "./estoqueMockData";
 import { useProduto } from "../../hooks/use-produto";
 import { useAtualizarProduto } from "../../hooks/use-atualizar-produto";
-import { useTags, getTagPalette } from "../../hooks/use-tags";
+import { getTagPalette } from "../../hooks/use-tags";
 import { ProdutoFormModal } from "./ProdutoFormModal";
 import { useCategorias } from "../../hooks/use-categorias";
 
@@ -264,7 +264,6 @@ export function ProdutoDetalhePage() {
   const [toast, setToast] = useState("");
 
   const { produto, loading, error, isFallback, recarregar } = useProduto(id);
-  const { tags: tagsConfig } = useTags();
   const { categorias: categoriasConfig } = useCategorias();
 
   // Movimentações: só em modo demo (mock-first); com sessão ativa vêm da base (empty state real)
@@ -360,7 +359,6 @@ export function ProdutoDetalhePage() {
       {produtoParaEditar && (
         <ProdutoFormModal
           produto={produtoParaEditar}
-          tags={tagsConfig}
           categorias={categoriasConfig}
           onClose={() => setProdutoParaEditar(null)}
           onSuccess={() => {
@@ -374,7 +372,6 @@ export function ProdutoDetalhePage() {
       {produtoParaDuplicar && (
         <ProdutoFormModal
           produtoBase={produtoParaDuplicar}
-          tags={tagsConfig}
           categorias={categoriasConfig}
           onClose={() => setProdutoParaDuplicar(null)}
           onSuccess={() => {

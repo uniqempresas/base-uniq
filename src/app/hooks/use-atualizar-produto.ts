@@ -12,6 +12,7 @@ export interface AtualizarProdutoParams {
   precoVenda?: number;
   precoCusto?: number;
   estoque?: number;
+  estoqueMinimo?: number;
   descricao?: string;
   fotoUrl?: string;
   ativo?: boolean;
@@ -53,6 +54,7 @@ export function useAtualizarProduto() {
         if (campos.precoVenda !== undefined) updateData.preco = campos.precoVenda;
         if (campos.precoCusto !== undefined) updateData.preco_custo = campos.precoCusto;
         if (campos.estoque !== undefined) updateData.estoque_atual = campos.estoque;
+        if (campos.estoqueMinimo !== undefined) updateData.estoque_minimo = campos.estoqueMinimo;
         if (campos.descricao !== undefined) updateData.descricao = campos.descricao;
         if (campos.fotoUrl !== undefined) updateData.foto_url = campos.fotoUrl;
         if (campos.ativo !== undefined) updateData.ativo = campos.ativo;

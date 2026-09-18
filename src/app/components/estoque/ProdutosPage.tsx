@@ -31,7 +31,7 @@ import {
 } from "./estoqueMockData";
 import { useProdutos } from "../../hooks/use-produtos";
 import { useAtualizarProduto } from "../../hooks/use-atualizar-produto";
-import { useTags, getTagPalette } from "../../hooks/use-tags";
+import { getTagPalette } from "../../hooks/use-tags";
 import { useCategorias } from "../../hooks/use-categorias";
 import { ProdutoFormModal } from "./ProdutoFormModal";
 
@@ -86,7 +86,7 @@ function MargemChip({ pct }: { pct: number }) {
 }
 
 /* ─────────── Product Grid Card ─────────── */
-function ProdutoGridCard({ produto, onClick, onDelete, onEdit }: { produto: Produto; onClick: () => void; onDelete: () => void; onEdit: () => void }) {
+function ProdutoGridCard({ produto, onClick, onDelete, onEdit, onDuplicate }: { produto: Produto; onClick: () => void; onDelete: () => void; onEdit: () => void; onDuplicate: () => void }) {
   const [hovered, setHovered] = useState(false);
   const [imgFalhou, setImgFalhou] = useState(false);
   const catColors = corCategoria(produto.categoriaCor, produto.categoria);
@@ -159,7 +159,7 @@ function ProdutoGridCard({ produto, onClick, onDelete, onEdit }: { produto: Prod
             <Edit2 size={14} className="text-[#1f2937]" />
           </button>
           <button
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onDuplicate(); }}
             className="w-8 h-8 rounded-xl bg-white flex items-center justify-center shadow-sm hover:bg-[#efefef]"
           >
             <Copy size={14} className="text-[#1f2937]" />
@@ -240,7 +240,7 @@ function ProdutoGridCard({ produto, onClick, onDelete, onEdit }: { produto: Prod
             <Edit2 size={13} />
           </button>
           <button
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onDuplicate(); }}
             aria-label={`Duplicar ${produto.nome}`}
             className="w-7 h-7 rounded-lg bg-[#efefef] text-[#627271] flex items-center justify-center transition-transform active:scale-95"
           >
@@ -267,7 +267,6 @@ export function ProdutosPage() {
   const navigate = useNavigate();
   const { produtos, loading, isFallback, recarregar } = useProdutos();
   const { atualizarProduto, loading: atualizandoProduto } = useAtualizarProduto();
-  const { tags: tagsConfig } = useTags();
   const { categorias: categoriasConfig } = useCategorias();
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [busca, setBusca] = useState("");
@@ -278,6 +277,7 @@ export function ProdutosPage() {
   const [showNovoProduto, setShowNovoProduto] = useState(false);
   const [produtoParaEditar, setProdutoParaEditar] = useState<Produto | null>(null);
   const [produtoParaExcluir, setProdutoParaExcluir] = useState<Produto | null>(null);
+  const [produtoParaDuplicar, setProdutoParaDuplicar] = useState<Produto | null>(null);
   const [toast, setToast] = useState("");
 
   const showToast = (msg: string) => {
@@ -411,7 +411,6 @@ export function ProdutosPage() {
         <>
           {showNovoProduto && (
             <ProdutoFormModal
-              tags={tagsConfig}
               categorias={categoriasConfig}
               onClose={() => setShowNovoProduto(false)}
               onSuccess={() => {
@@ -424,12 +423,23 @@ export function ProdutosPage() {
           {produtoParaEditar && (
             <ProdutoFormModal
               produto={produtoParaEditar}
-              tags={tagsConfig}
               categorias={categoriasConfig}
               onClose={() => setProdutoParaEditar(null)}
               onSuccess={() => {
                 setProdutoParaEditar(null);
                 showToast("Produto atualizado com sucesso!");
+                recarregar();
+              }}
+            />
+          )}
+          {produtoParaDuplicar && (
+            <ProdutoFormModal
+              produtoBase={produtoParaDuplicar}
+              categorias={categoriasConfig}
+              onClose={() => setProdutoParaDuplicar(null)}
+              onSuccess={() => {
+                setProdutoParaDuplicar(null);
+                showToast("Produto duplicado com sucesso!");
                 recarregar();
               }}
             />
@@ -635,6 +645,7 @@ export function ProdutosPage() {
               onClick={() => navigate(`/estoque/produtos/${p.id}`)}
               onDelete={() => setProdutoParaExcluir(p)}
               onEdit={() => setProdutoParaEditar(p)}
+              onDuplicate={() => setProdutoParaDuplicar(p)}
             />
           ))}
         </div>
@@ -689,7 +700,7 @@ export function ProdutosPage() {
                       <td className="px-4 py-3">
                         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                           <button className="w-7 h-7 rounded-lg bg-[#efefef] text-[#627271] flex items-center justify-center hover:bg-[#efefef]" onClick={() => setProdutoParaEditar(p)}><Edit2 size={13} /></button>
-                          <button className="w-7 h-7 rounded-lg bg-[#efefef] text-[#627271] flex items-center justify-center hover:bg-[#efefef]"><Copy size={13} /></button>
+                          <button className="w-7 h-7 rounded-lg bg-[#efefef] text-[#627271] flex items-center justify-center hover:bg-[#efefef]" onClick={() => setProdutoParaDuplicar(p)}><Copy size={13} /></button>
                           <button
                             className="w-7 h-7 rounded-lg bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100"
                             onClick={() => setProdutoParaExcluir(p)}

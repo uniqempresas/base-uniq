@@ -4,7 +4,7 @@ import { X, CheckCircle2, Loader2, Barcode, Camera, Trash2, Package, Settings } 
 import { formatCurrency, calcMargem, type Produto } from "./estoqueMockData";
 import { useCriarProduto } from "../../hooks/use-criar-produto";
 import { useAtualizarProduto } from "../../hooks/use-atualizar-produto";
-import { getTagPalette, type Tag } from "../../hooks/use-tags";
+import { getTagPalette } from "../../hooks/use-tags";
 import type { CategoriaProduto } from "../../hooks/use-categorias";
 import { useAuth } from "../../contexts/AuthContext";
 import { useUploadProdutoFoto } from "../../hooks/use-upload-produto";
@@ -14,13 +14,12 @@ const STEPS = ["Informações", "Preços", "Estoque"];
 interface ProdutoFormModalProps {
   produto?: Produto | null; // null/undefined = modo criar; Produto = modo editar
   produtoBase?: Produto | null; // null/undefined = modo criar normal; Produto = modo duplicar
-  tags: Tag[];              // catálogo via useTags (mesmo de clientes)
   categorias: CategoriaProduto[]; // catálogo via useCategorias (o CRUD fica em /estoque/configuracoes)
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export function ProdutoFormModal({ produto, produtoBase, tags, categorias, onClose, onSuccess }: ProdutoFormModalProps) {
+export function ProdutoFormModal({ produto, produtoBase, categorias, onClose, onSuccess }: ProdutoFormModalProps) {
   const ehEdicao = Boolean(produto);
   const ehDuplicacao = Boolean(produtoBase);
   const { empresa } = useAuth();
@@ -43,7 +42,7 @@ export function ProdutoFormModal({ produto, produtoBase, tags, categorias, onClo
       precoCusto: base ? String(base.precoCusto ?? 0) : "",
       precoVenda: base ? String(base.precoVenda ?? 0) : "",
       estoque: produtoBase ? "0" : base ? String(base.estoque ?? 0) : "",
-      estoqueMinimo: base ? String(base.estoqueMinimo ?? 0) : "",
+      estoqueMinimo: base ? String(base.estoqueMinimo ?? 0) : "5",
       codigoBarras: base?.codigoBarras || "",
       descricao: base?.descricaoCurta || "",
     };
@@ -54,9 +53,6 @@ export function ProdutoFormModal({ produto, produtoBase, tags, categorias, onClo
   );
   const [fotoRemovida, setFotoRemovida] = useState(false);
   const [erroFoto, setErroFoto] = useState("");
-  const [tagsSelecionadas, setTagsSelecionadas] = useState<string[]>(
-    (produtoBase || produto)?.tags || []
-  );
 
   const base = produtoBase || produto || null;
   const navigate = useNavigate();
@@ -97,9 +93,9 @@ export function ProdutoFormModal({ produto, produtoBase, tags, categorias, onClo
         precoVenda: parseFloat(form.precoVenda) || 0,
         precoCusto: parseFloat(form.precoCusto) || 0,
         estoque: parseInt(form.estoque) || 0,
+        estoqueMinimo: form.estoqueMinimo === "" ? 5 : parseInt(form.estoqueMinimo, 10),
         codigoBarras: form.codigoBarras || undefined,
         descricao: form.descricao || undefined,
-        tags: tagsSelecionadas,
         fotoUrl: fotoUrlFinal,
       });
 
@@ -118,9 +114,9 @@ export function ProdutoFormModal({ produto, produtoBase, tags, categorias, onClo
       precoVenda: parseFloat(form.precoVenda) || 0,
       precoCusto: parseFloat(form.precoCusto) || 0,
       estoque: parseInt(form.estoque) || 0,
+      estoqueMinimo: form.estoqueMinimo === "" ? 5 : parseInt(form.estoqueMinimo, 10),
       codigoBarras: form.codigoBarras || undefined,
       descricao: form.descricao || undefined,
-      tags: tagsSelecionadas,
       // No duplicar, herda a URL da foto original; no criar sem foto, undefined → hook grava null.
       fotoUrl: fotoUrlFinal !== undefined ? fotoUrlFinal : base?.foto,
     });
@@ -382,41 +378,7 @@ export function ProdutoFormModal({ produto, produtoBase, tags, categorias, onClo
                   />
                 </div>
               </div>
-              <div>
-                <label className="block text-[#1f2937] text-xs mb-1.5" style={{ fontWeight: 500 }}>
-                  Tags / Etiquetas
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {tags.length === 0 && (
-                    <p className="text-[#627271] text-xs">Nenhuma tag cadastrada ainda (crie em Configurações).</p>
-                  )}
-                  {tags.map((tag) => {
-                    const selected = tagsSelecionadas.includes(tag.nome);
-                    const colors = getTagPalette(tag.cor);
-                    return (
-                      <button
-                        key={tag.id}
-                        type="button"
-                        onClick={() =>
-                          setTagsSelecionadas((prev) =>
-                            selected ? prev.filter((t) => t !== tag.nome) : [...prev, tag.nome]
-                          )
-                        }
-                        className="px-2.5 py-1 rounded-full border text-[11px] transition-all"
-                        style={{
-                          background: selected ? colors.bg : "transparent",
-                          color: selected ? colors.text : "#627271",
-                          borderColor: selected ? colors.border : "#efefef",
-                          fontWeight: selected ? 600 : 400,
-                        }}
-                      >
-                        {tag.nome}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </>
+              </>
           )}
 
           {step === 2 && (

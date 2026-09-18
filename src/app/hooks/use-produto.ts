@@ -17,6 +17,7 @@ interface DBProduto {
   preco_custo: number | null;
   sku: string | null;
   estoque_atual: number | null;
+  estoque_minimo: number | null;
   categoria_id: number | null;
   ativo: boolean | null;
   unidade_medida_id: number | null;
@@ -38,7 +39,9 @@ function calcEstoqueStatus(estoque: number, estoqueMinimo: number): EstoqueStatu
 
 function mapProduto(db: DBProduto): Produto {
   const estoque = db.estoque_atual || 0;
-  const estoqueMinimo = 5; // padrão, pode vir de config depois
+  // Valor real da coluna estoque_minimo (NOT NULL DEFAULT 5 no banco);
+  // fallback defensivo preserva linhas antigas/embed sem a coluna.
+  const estoqueMinimo = db.estoque_minimo ?? 5;
 
   // Defensivo: só strings viram tags; entradas não-string (uso futuro da coluna) são ignoradas
   const opcoes = Array.isArray(db.opcoes_config) ? db.opcoes_config : [];

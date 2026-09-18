@@ -11,6 +11,7 @@ export interface CriarProdutoParams {
   precoVenda: number;
   precoCusto?: number;
   estoque?: number;
+  estoqueMinimo?: number;
   descricao?: string;
   fotoUrl?: string;
   tags?: string[]; // nomes das tags → me_produto.opcoes_config (jsonb array de strings)
@@ -54,6 +55,7 @@ export function useCriarProduto() {
             preco: params.precoVenda,
             preco_custo: params.precoCusto || 0,
             estoque_atual: params.estoque || 0,
+            estoque_minimo: params.estoqueMinimo ?? 5,
             descricao: params.descricao || null,
             foto_url: params.fotoUrl || null,
             opcoes_config: params.tags?.length ? params.tags : [],
