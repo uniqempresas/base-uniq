@@ -77,7 +77,12 @@ export function useRegistrarVenda() {
           p_status: params.status || "confirmada",
           p_itens: params.itens,
           p_observacoes: params.observacoes || null,
-          p_origem: params.origem || "whatsapp",
+          // Default 'interna', não 'whatsapp': o valor anterior ativava a guarda
+          // anti-duplicidade do WhatsApp numa venda interna.
+          // ⚠️ ATENÇÃO: este hook NÃO é importado por nenhum componente — o botão
+          // "Contabilizar venda" real está em PedidoDetalhePage.handleContabilizar,
+          // que só faz atualizarStatus(status='pago'). Isto é código morto.
+          p_origem: params.origem || "interna",
         });
 
         if (rpcError) throw rpcError;

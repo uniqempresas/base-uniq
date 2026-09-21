@@ -34,15 +34,22 @@ function formatFormaPagamento(codigo: number | string | null): string {
     if (codigo === "Dinheiro" || codigo === "dinheiro") return "Dinheiro";
     return codigo;
   }
-  if (codigo === null || codigo === undefined) return "Pix";
+  // Sem forma registrada → dizer a verdade, não inventar "Pix".
+  // A RPC `registrar_venda` passou a deixar o id NULL quando o nome não casa
+  // com nenhuma forma da empresa nem global (correção F5 de 21/09/2026),
+  // então NULL é um estado real — não um caso impossível.
+  if (codigo === null || codigo === undefined) return "Não informado";
+  // Mapa conforme a tabela `me_forma_pagamento` (ids globais 1–5).
+  // ⚠️ 2 = Cartão de Crédito e 3 = Pix — aqui estava INVERTIDO, e por isso
+  // uma venda Pix era exibida como "Cartão de Crédito" em "Meus pedidos".
   const mapa: Record<number, string> = {
     1: "Dinheiro",
-    2: "Pix",
-    3: "Cartão de Crédito",
+    2: "Cartão de Crédito",
+    3: "Pix",
     4: "Cartão de Débito",
     5: "Boleto",
   };
-  return mapa[codigo] || "Pix";
+  return mapa[codigo] ?? "Não informado";
 }
 
 /**
