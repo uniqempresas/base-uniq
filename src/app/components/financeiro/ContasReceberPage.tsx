@@ -1,53 +1,110 @@
 import { FormEvent, useMemo, useState } from "react";
-import { AlertCircle, Calendar, Check, CheckCircle, Clock, Edit, MessageCircle, Plus, Search, Trash2, X } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-import { calcularDiasVencimento, calcularStatus, ContaReceber, formatarMoeda, StatusMovimentacao } from "./mockData";
+import {
+  AlertCircle,
+  Calendar,
+  Check,
+  CheckCircle,
+  Clock,
+  Edit,
+  Loader2,
+  MessageCircle,
+  Plus,
+  Receipt,
+  RefreshCw,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
+import { toast } from "sonner";
+import {
+  calcularStatus,
+  ContaReceberInput,
+  formaPagamentoParaBanco,
+  formatarMoeda,
+  StatusMovimentacao,
+} from "./mockData";
+import {
+  BottomSheet,
+  campoFormSheet,
+  ContaReceberView,
+  FilterChip,
+  FinanceKpi,
+  formatarDataBR,
+  hojeLocal,
+  limparDescricao,
+  normalizarTelefoneWhatsApp,
+  numeroPedidoDe,
+  SheetActions,
+  sheetButtonPerigo,
+  sheetButtonPrimario,
+  sheetButtonSecundario,
+  STATUS_CONFIG_RECEBER,
+  StatusBadge,
+  telefoneDe,
+  textoDiasPrazo,
+  vendaCanceladaDe,
+} from "./components";
 import { useContasReceber } from "../../hooks/use-contas-receber";
 import { useCriarContaReceber } from "../../hooks/use-criar-conta-receber";
 import { useAtualizarContaReceber } from "../../hooks/use-atualizar-conta-receber";
+import { useAuth } from "../../contexts/AuthContext";
 
-const hoje = () => new Date().toISOString().slice(0, 10);
-const labels: Record<StatusMovimentacao, string> = { pago: "Recebido", pendente: "A receber", vencido: "Atrasado", cancelado: "Cancelado" };
-
-function StatusBadge({ status }: { status: StatusMovimentacao }) {
-  const dotColor = status === "cancelado" ? "bg-[#b0b6b6]" : "bg-[#86cb92]";
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-[#627271] px-2 py-1 text-xs font-medium">
-      <span className={`h-1.5 w-1.5 rounded-full ${dotColor}`} />
-      {labels[status]}
-    </span>
-  );
-}
+// Rótulo amigável -> valor que a API persiste (contrato congelado)
+const STATUS_CHIP_OPTIONS: StatusMovimentacao[] = ["pendente", "vencido", "pago", "cancelado"];
 
 export function ContasReceberPage() {
-  const { contas, loading, isFallback, recarregar } = useContasReceber();
+  const hook = useContasReceber();
+  const { contas, loading, isFallback, recarregar } = hook;
+  const erroCarregamento = (hook as { error?: string | null }).error;
+
   const { criarConta } = useCriarContaReceber();
   const { atualizarConta, receberConta, loading: atualizando } = useAtualizarContaReceber();
+  const { empresa } = useAuth();
 
-  const [filtroStatus, setFiltroStatus] = useState<StatusMovimentacao | "todos">("todos");
+  const [statusFiltros, setStatusFiltros] = useState<StatusMovimentacao[]>([]);
   const [busca, setBusca] = useState("");
-  const [modal, setModal] = useState<"nova" | "editar" | "receber" | "cobranca" | null>(null);
-  const [selecionada, setSelecionada] = useState<ContaReceber | null>(null);
-  const [feedback, setFeedback] = useState("");
+  const [modal, setModal] = useState<"nova" | "editar" | "receber" | "cobranca" | "excluir" | null>(null);
+  const [selecionada, setSelecionada] = useState<ContaReceberView | null>(null);
   const [salvando, setSalvando] = useState(false);
 
+  const esEdicao = modal === "editar" && selecionada !== null;
+
+  // Status calculado (vencido quando a data passou e não foi pago/cancelado)
   const comStatus = useMemo(
-    () => contas.map((c) => ({ ...c, status: calcularStatus(c.dataPrevista, c.status) })),
+    () =>
+      contas.map((c) => ({
+        ...(c as ContaReceberView),
+        status: calcularStatus(c.dataPrevista, c.status),
+      })),
     [contas]
   );
 
-  const filtradas = comStatus.filter(
-    (c) =>
-      (filtroStatus === "todos" || c.status === filtroStatus) &&
-      `${c.descricao} ${c.cliente}`.toLowerCase().includes(busca.toLowerCase())
-  );
+  const temFiltro = statusFiltros.length > 0 || busca.trim() !== "";
 
-  const total = (status: StatusMovimentacao) =>
-    comStatus.filter((c) => c.status === status).reduce((s, c) => s + c.valor, 0);
+  const filtradas = comStatus.filter((c) => {
+    const matchStatus = statusFiltros.length === 0 || statusFiltros.includes(c.status);
+    const q = busca.trim().toLowerCase();
+    const matchBusca =
+      !q ||
+      `${c.cliente} ${limparDescricao(c.descricao, c.cliente)} ${c.formaPagamento || ""}`
+        .toLowerCase()
+        .includes(q);
+    return matchStatus && matchBusca;
+  });
 
-  const avisar = (text: string) => {
-    setFeedback(text);
-    window.setTimeout(() => setFeedback(""), 3200);
+  // KPIs: venda vinculada cancelada NÃO é dinheiro a receber → fica fora de todos
+  const kpi = (status: StatusMovimentacao) =>
+    comStatus
+      .filter((c) => c.status === status && !vendaCanceladaDe(c))
+      .reduce((soma, c) => soma + (c.valor || 0), 0);
+
+  const aReceber = kpi("pendente");
+  const emAtraso = kpi("vencido");
+  const recebido = kpi("pago");
+
+  const abrir = (tipo: typeof modal, conta: ContaReceberView) => {
+    setSelecionada(conta);
+    setModal(tipo);
   };
 
   const fechar = () => {
@@ -55,428 +112,914 @@ export function ContasReceberPage() {
     setSelecionada(null);
   };
 
+  const limparFiltros = () => {
+    setStatusFiltros([]);
+    setBusca("");
+  };
+
+  const toggleStatus = (s: StatusMovimentacao) => {
+    setStatusFiltros((prev) => (prev.includes(s) ? prev.filter((v) => v !== s) : [...prev, s]));
+  };
+
   const salvar = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setSalvando(true);
-
     const data = new FormData(event.currentTarget);
-    const params = {
-      descricao: String(data.get("descricao")),
+    // Contrato congelado: cliente (obrigatório), descrição amigável SEM uuid cru.
+    const params: ContaReceberInput = {
+      cliente: String(data.get("cliente") || "").trim(),
+      descricao: String(data.get("descricao") || "").trim(),
       valor: Number(data.get("valor")),
-      data_vencimento: String(data.get("data")),
-      forma_pagamento: String(data.get("forma") || "pix").toLowerCase(),
-      observacoes: String(data.get("observacoes") || ""),
+      data_vencimento: String(data.get("data") || ""),
+      forma_pagamento: String(data.get("forma") || "pix"),
+      observacoes: String(data.get("observacoes") || "").trim() || undefined,
     };
 
-    if (selecionada) {
-      // Editar conta existente
-      const result = await atualizarConta({
-        id: selecionada.id,
-        ...params,
-      });
+    if (!params.cliente) return toast.error("Informe o nome do cliente.");
+    if (!params.descricao) return toast.error("Informe a descrição.");
+    if (!(params.valor > 0)) return toast.error("Informe um valor válido.");
+    if (!params.data_vencimento) return toast.error("Informe a data prevista.");
 
+    setSalvando(true);
+    let sucesso = false;
+
+    if (selecionada) {
+      const result = await atualizarConta({ id: selecionada.id, ...params });
       if (result.success) {
-        avisar("Conta atualizada.");
-        recarregar();
+        sucesso = true;
+        toast.success("Conta atualizada com sucesso.");
       } else {
-        avisar(`Erro: ${result.error}`);
+        toast.error(result.error || "Não foi possível atualizar a conta.");
       }
     } else {
-      // Criar nova conta
       const result = await criarConta(params);
-
       if (result.success) {
-        avisar("Conta criada com sucesso.");
-        recarregar();
+        sucesso = true;
+        toast.success("Conta criada com sucesso.");
       } else {
-        avisar(`Erro: ${result.error}`);
+        toast.error(result.error || "Não foi possível criar a conta.");
       }
     }
 
     setSalvando(false);
-    fechar();
+    if (sucesso) {
+      fechar();
+      recarregar();
+    }
   };
 
   const receber = async () => {
     if (!selecionada) return;
-
     const result = await receberConta({
       id: selecionada.id,
-      data_pagamento: hoje(),
+      data_pagamento: hojeLocal(),
       valor_pago: selecionada.valor,
     });
 
     if (result.success) {
-      avisar("Recebimento registrado com sucesso.");
+      toast.success("Recebimento registrado com sucesso.");
+      fechar();
       recarregar();
     } else {
-      avisar(`Erro: ${result.error}`);
+      toast.error(result.error || "Não foi possível registrar o recebimento.");
     }
+  };
 
+  const mensagemCobranca = useMemo(() => {
+    if (!selecionada) return "";
+    const primeiroNome = selecionada.cliente.split(" ")[0];
+    const descricao = limparDescricao(selecionada.descricao, selecionada.cliente) || "conta";
+    return (
+      `Olá, ${primeiroNome}! Aqui é a ${empresa?.nome_fantasia || "UNIQ"}. ` +
+      `Lembrete: a conta de ${descricao}, no valor de ${formatarMoeda(selecionada.valor)}, ` +
+      `vence em ${formatarDataBR(selecionada.dataPrevista)}. ` +
+      `Qualquer dúvida, é só chamar! 😊`
+    );
+  }, [selecionada, empresa]);
+
+  const enviarCobranca = () => {
+    if (!selecionada) return;
+    const telefone = telefoneDe(selecionada);
+    if (!telefone) return;
+    window.open(
+      `https://wa.me/${normalizarTelefoneWhatsApp(telefone)}?text=${encodeURIComponent(mensagemCobranca)}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
     fechar();
   };
 
-  const excluir = async (conta: ContaReceber) => {
-    if (!window.confirm(`Excluir a conta de ${conta.cliente}?`)) return;
-
-    const result = await atualizarConta({
-      id: conta.id,
-      status: "cancelado",
-    });
-
+  const excluir = async () => {
+    if (!selecionada) return;
+    const result = await atualizarConta({ id: selecionada.id, status: "cancelado" });
     if (result.success) {
-      avisar("Conta excluída.");
+      toast.success("Conta excluída.");
+      fechar();
       recarregar();
     } else {
-      avisar(`Erro: ${result.error}`);
+      toast.error(result.error || "Não foi possível excluir a conta.");
     }
   };
 
+  // ---------- Loading (skeleton no formato do layout final) ----------
   if (loading) {
     return (
-      <main className="mx-auto max-w-7xl p-4 text-[#1f2937] sm:p-6">
-        <div className="mb-6 h-8 w-48 animate-pulse rounded bg-[#efefef]" />
-        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-24 animate-pulse rounded-lg bg-[#efefef]" />
+      <main data-od-id="contas-receber-regiao" className="mx-auto max-w-screen-xl p-3 text-[#1f2937] sm:p-6">
+        <div className="mb-5 flex items-center justify-between gap-4">
+          <div className="space-y-2">
+            <div className="h-6 w-44 animate-pulse rounded-lg bg-[#efefef]" />
+            <div className="h-4 w-64 animate-pulse rounded bg-[#efefef]" />
+          </div>
+          <div className="h-11 w-32 animate-pulse rounded-xl bg-[#efefef]" />
+        </div>
+        <div className="mb-5 grid grid-cols-2 gap-2 lg:grid-cols-3 lg:gap-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-[76px] animate-pulse rounded-xl bg-[#efefef]" />
           ))}
         </div>
-        <div className="h-96 animate-pulse rounded-lg bg-[#efefef]" />
+        <div className="mb-5 h-12 animate-pulse rounded-xl bg-white/60" />
+        <div className="rounded-2xl border border-[#efefef] bg-white p-4">
+          <div className="hidden gap-3 md:flex">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="h-12 flex-1 animate-pulse rounded-lg bg-[#efefef]" />
+            ))}
+          </div>
+          <div className="space-y-3 md:hidden">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="h-28 animate-pulse rounded-xl bg-[#efefef]" />
+            ))}
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // ---------- Erro ----------
+  if (erroCarregamento) {
+    return (
+      <main data-od-id="contas-receber-regiao" className="mx-auto max-w-screen-xl p-3 text-[#1f2937] sm:p-6">
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-[#efefef] bg-white px-4 py-16 text-center">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50">
+            <AlertCircle size={24} className="text-red-500" />
+          </div>
+          <h2 className="font-semibold text-[#1f2937]">Não foi possível carregar as contas</h2>
+          <p className="mt-1 max-w-md text-sm text-[#627271]">{erroCarregamento}</p>
+          <button
+            onClick={recarregar}
+            className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-[#86cb92] px-4 py-2.5 text-sm font-semibold text-[#1f2937] hover:bg-[#1f2937] hover:text-white"
+          >
+            <RefreshCw size={16} />
+            Tentar novamente
+          </button>
+        </div>
       </main>
     );
   }
 
   return (
-    <main data-od-id="contas-receber-regiao" className="mx-auto max-w-7xl p-4 text-[#1f2937] sm:p-6">
-      <header className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+    <main
+      data-od-id="contas-receber-regiao"
+      className="mx-auto max-w-screen-xl p-3 text-[#1f2937] sm:p-6"
+      style={{ fontFamily: "Poppins, sans-serif" }}
+    >
+      {/* Header */}
+      <div className="mb-5 flex items-center justify-between gap-3">
         <div>
-          <h1 data-od-id="contas-receber-heading" className="mb-1 text-2xl font-semibold">
+          <h1 data-od-id="contas-receber-heading" className="text-[#1f2937]" style={{ fontWeight: 700, fontSize: 18 }}>
             Contas a Receber
           </h1>
-          <p className="text-sm text-[#627271]">Acompanhe pagamentos de clientes e parcelas pendentes.</p>
+          <p className="mt-0.5 text-xs text-[#627271] sm:text-sm">
+            Acompanhe os pagamentos de clientes e parcelas pendentes.
+          </p>
         </div>
         <button
           data-od-id="contas-receber-cta"
-          onClick={() => setModal("nova")}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#86cb92] px-4 py-2.5 text-sm font-semibold hover:bg-[#1f2937] hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#1f2937]"
+          onClick={() => {
+            setSelecionada(null);
+            setModal("nova");
+          }}
+          className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#86cb92] px-3.5 py-2.5 text-sm font-semibold text-[#1f2937] transition-colors hover:bg-[#1f2937] hover:text-white"
         >
-          <Plus size={18} />
-          Nova conta
+          <Plus size={16} />
+          <span className="hidden sm:inline">Nova conta</span>
+          <span className="sm:hidden">Nova</span>
         </button>
-      </header>
+      </div>
 
       {isFallback && (
-        <div className="mb-4 rounded-lg border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-800">
-          ⚠️ Exibindo dados de exemplo — conecte-se ao banco para ver dados reais.
+        <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <span aria-hidden="true">⚠️</span>
+          <p>Exibindo dados de exemplo — conecte-se ao banco para ver dados reais.</p>
         </div>
       )}
 
-      {feedback && (
-        <div role="status" className="mb-4 flex items-center gap-2 rounded-lg border border-[#627271] bg-[#efefef] p-3 text-sm">
-          <Check size={17} />
-          {feedback}
+      {/* KPIs — mobile: 2 compactos + 1; desktop: os 3 */}
+      <div className="mb-5 grid grid-cols-2 gap-2 lg:grid-cols-3 lg:gap-3">
+        <div className="col-span-2 grid grid-cols-2 gap-2 lg:hidden">
+          <FinanceKpi
+            compact
+            label="A receber (no prazo)"
+            value={formatarMoeda(aReceber)}
+            icon={Clock}
+            iconColor="#D97706"
+            iconBg="#FFFBEB"
+          />
+          <FinanceKpi
+            compact
+            label="Em atraso"
+            value={formatarMoeda(emAtraso)}
+            icon={AlertCircle}
+            iconColor="#DC2626"
+            iconBg="#FEF2F2"
+          />
         </div>
-      )}
+        <div className="hidden lg:contents">
+          <FinanceKpi
+            label="A receber (no prazo)"
+            value={formatarMoeda(aReceber)}
+            icon={Clock}
+            iconColor="#D97706"
+            iconBg="#FFFBEB"
+          />
+          <FinanceKpi
+            label="Em atraso"
+            value={formatarMoeda(emAtraso)}
+            icon={AlertCircle}
+            iconColor="#DC2626"
+            iconBg="#FEF2F2"
+          />
+          <FinanceKpi
+            label="Recebido"
+            value={formatarMoeda(recebido)}
+            icon={CheckCircle}
+            iconColor="#059669"
+            iconBg="#F0FDF4"
+          />
+        </div>
+        <div className="col-span-2 lg:hidden">
+          <FinanceKpi
+            compact
+            label="Recebido"
+            value={formatarMoeda(recebido)}
+            icon={CheckCircle}
+            iconColor="#059669"
+            iconBg="#F0FDF4"
+          />
+        </div>
+      </div>
 
-      <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {(
-          [
-            ["Total a receber", total("pendente"), Clock],
-            ["Total em atraso", total("vencido"), AlertCircle],
-            ["Total recebido", total("pago"), CheckCircle],
-            ["Previsão de receita", total("pendente") + total("vencido"), Clock],
-          ] as [string, number, LucideIcon][]
-        ).map(([label, value, Icon]) => (
-          <div key={label} className="rounded-lg border border-[#efefef] bg-white p-4">
-            <div className="mb-4 flex items-center justify-between">
-              <span className="text-sm text-[#627271]">{label}</span>
-              <span className="rounded-lg bg-[#efefef] p-2">
-                <Icon size={18} />
-              </span>
-            </div>
-            <strong className="text-2xl">{formatarMoeda(value)}</strong>
-          </div>
-        ))}
-      </section>
-
-      <section data-od-id="contas-receber-filtros" className="mb-6 rounded-lg border border-[#efefef] bg-white p-4">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="text-sm font-medium">
-            Status
-            <select
-              value={filtroStatus}
-              onChange={(e) => setFiltroStatus(e.target.value as StatusMovimentacao | "todos")}
-              className="mt-1.5 w-full rounded-lg border border-[#627271] bg-white px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#86cb92]"
+      {/* Filtros: busca + chips multi-seleção */}
+      <section data-od-id="contas-receber-filtros" className="mb-5 space-y-3 rounded-2xl border border-[#efefef] bg-white p-3 shadow-sm sm:p-4">
+        <div className="relative">
+          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#627271]" />
+          <input
+            type="text"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar por cliente, descrição ou forma de pagamento"
+            aria-label="Buscar contas"
+            className="w-full rounded-xl border border-[#efefef] bg-[#efefef] py-2.5 pl-9 pr-9 text-sm text-[#1f2937] placeholder:text-[#627271] focus:border-[#86cb92] focus:outline-none focus:ring-2 focus:ring-[#86cb92]/30"
+          />
+          {busca && (
+            <button
+              onClick={() => setBusca("")}
+              aria-label="Limpar busca"
+              className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-[#627271] hover:text-[#1f2937]"
             >
-              <option value="todos">Todos</option>
-              <option value="pendente">A receber</option>
-              <option value="pago">Recebidos</option>
-              <option value="vencido">Atrasados</option>
-            </select>
-          </label>
-          <label className="text-sm font-medium">
-            Buscar
-            <input
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              placeholder="Descrição ou cliente"
-              className="mt-1.5 w-full rounded-lg border border-[#627271] px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#86cb92]"
-            />
-          </label>
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filtrar por status">
+          {STATUS_CHIP_OPTIONS.map((s) => {
+            const cfg = STATUS_CONFIG_RECEBER[s];
+            return (
+              <FilterChip
+                key={s}
+                label={cfg.label}
+                color={cfg.color}
+                bg={cfg.bg}
+                borderColor={cfg.borderColor}
+                selected={statusFiltros.includes(s)}
+                onToggle={() => toggleStatus(s)}
+              />
+            );
+          })}
+          {temFiltro && (
+            <button
+              onClick={limparFiltros}
+              className="min-h-[36px] rounded-lg px-2 text-xs text-[#627271] transition-colors hover:bg-[#efefef] hover:text-[#1f2937]"
+            >
+              Limpar
+            </button>
+          )}
         </div>
       </section>
 
-      <section data-od-id="contas-receber-tabela" className="overflow-hidden rounded-lg border border-[#efefef] bg-white">
-        <div className="border-b border-[#efefef] p-4">
-          <h2 className="font-semibold">
-            Contas cadastradas <span className="text-sm font-normal text-[#627271]">({filtradas.length})</span>
+      {/* Lista: cards no mobile, tabela no desktop */}
+      <section data-od-id="contas-receber-tabela" className="overflow-hidden rounded-2xl border border-[#efefef] bg-white shadow-sm">
+        <div className="flex items-center justify-between border-b border-[#efefef] px-4 py-3">
+          <h2 className="font-semibold text-[#1f2937]">
+            Contas cadastradas{" "}
+            <span className="text-sm font-normal text-[#627271]">({filtradas.length})</span>
           </h2>
         </div>
 
         {filtradas.length === 0 ? (
-          <div className="p-10 text-center">
-            <Search className="mx-auto mb-3" />
-            <h3 className="font-semibold">Nenhuma conta encontrada</h3>
-            <p className="mt-1 text-sm text-[#627271]">Ajuste os filtros ou cadastre um novo recebimento.</p>
+          <div className="flex flex-col items-center justify-center px-4 py-14 text-center">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#efefef]">
+              <Receipt size={24} className="text-[#627271]" />
+            </div>
+            <p className="font-semibold text-[#1f2937]">
+              {temFiltro ? "Nenhuma conta encontrada" : "Nenhuma conta a receber"}
+            </p>
+            <p className="mt-1 max-w-xs text-sm text-[#627271]">
+              {temFiltro
+                ? "Ajuste os filtros ou a busca."
+                : "Cadastre a primeira conta para acompanhar os recebimentos."}
+            </p>
+            <button
+              onClick={temFiltro ? limparFiltros : () => setModal("nova")}
+              className="mt-4 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#86cb92] px-4 py-2.5 text-sm font-semibold text-[#1f2937] transition-colors hover:bg-[#1f2937] hover:text-white"
+            >
+              {temFiltro ? (
+                "Limpar filtros"
+              ) : (
+                <>
+                  <Plus size={16} />
+                  Nova conta
+                </>
+              )}
+            </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full table-fixed text-left text-sm">
-              <thead className="bg-[#efefef] text-xs">
-                <tr>
-                  <th className="w-[18%] px-3 py-3">Cliente</th>
-                  <th className="w-[24%] px-3 py-3">Descrição</th>
-                  <th className="w-[16%] px-3 py-3">Data prevista</th>
-                  <th className="w-[14%] px-3 py-3 text-right">Valor</th>
-                  <th className="w-[14%] px-3 py-3 text-center">Status</th>
-                  <th className="w-[18%] px-3 py-3 text-center">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtradas.map((conta) => (
-                  <tr data-od-id="contas-receber-linha" key={conta.id} className="border-t border-[#efefef] align-middle hover:bg-[#efefef]">
-                    <td className="break-words px-3 py-3 font-medium">
-                      {conta.cliente}
-                      {conta.formaPagamento && (
-                        <span className="block text-xs font-normal text-[#627271]">{conta.formaPagamento}</span>
-                      )}
-                    </td>
-                    <td className="break-words px-3 py-3">
-                      {conta.descricao}
-                      {conta.parcela && <span className="block text-xs text-[#627271]">Parcela {conta.parcela}</span>}
-                    </td>
-                    <td className="px-3 py-3">
-                      <span className="flex items-center gap-1">
-                        <Calendar size={14} />
-                        {new Date(conta.dataPrevista).toLocaleDateString("pt-BR")}
-                      </span>
-<span className="text-xs text-[#627271]">
-  {calcularDiasVencimento(conta.dataPrevista) < 0 && conta.status !== "pago" && conta.status !== "cancelado" ? "Em atraso" : "No prazo"}
-</span>
-                    </td>
-                    <td className="px-3 py-3 text-right font-semibold">{formatarMoeda(conta.valor)}</td>
-                    <td className="px-3 py-3 text-center">
-                      <StatusBadge status={conta.status} />
-                    </td>
-                    <td className="px-2 py-3">
-                      <div className="flex items-center justify-center gap-1">
-                        {conta.status !== "pago" && conta.status !== "cancelado" && (
-                          <>
-                            <button
-                              onClick={() => { setSelecionada(conta); setModal("receber"); }}
-                              className="rounded p-1.5 text-[#86cb92] hover:bg-[#efefef]"
-                              title="Receber"
-                            >
-                              <Check size={16} />
-                            </button>
-                            <button
-                              onClick={() => { setSelecionada(conta); setModal("cobranca"); }}
-                              className="rounded p-1.5 text-[#627271] hover:bg-[#efefef]"
-                              title="Cobrança"
-                            >
-                              <MessageCircle size={16} />
-                            </button>
-                          </>
-                        )}
-                        <button
-                          onClick={() => { setSelecionada(conta); setModal("editar"); }}
-                          className="rounded p-1.5 text-[#627271] hover:bg-[#efefef]"
-                          title="Editar"
-                        >
-                          <Edit size={16} />
-                        </button>
-                        <button
-                          onClick={() => excluir(conta)}
-                          className="rounded p-1.5 text-red-500 hover:bg-[#efefef]"
-                          title="Excluir"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
+          <>
+            {/* Cards — mobile */}
+            <div className="divide-y divide-[#efefef] md:hidden">
+              {filtradas.map((conta) => (
+                <ContaReceberCard
+                  key={conta.id}
+                  conta={conta}
+                  onReceber={() => abrir("receber", conta)}
+                  onCobrar={() => abrir("cobranca", conta)}
+                  onEditar={() => abrir("editar", conta)}
+                  onExcluir={() => abrir("excluir", conta)}
+                />
+              ))}
+            </div>
+
+            {/* Tabela — desktop */}
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[#efefef]">
+                    <th className="px-4 py-3 text-left text-xs text-[#627271]" style={{ fontWeight: 600 }}>
+                      Pedido / Cliente
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs text-[#627271]" style={{ fontWeight: 600 }}>
+                      Descrição
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs text-[#627271]" style={{ fontWeight: 600 }}>
+                      Vencimento
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs text-[#627271]" style={{ fontWeight: 600 }}>
+                      Valor
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs text-[#627271]" style={{ fontWeight: 600 }}>
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs text-[#627271]" style={{ fontWeight: 600 }}>
+                      Ações
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-[#efefef]">
+                  {filtradas.map((conta) => (
+                    <ContaReceberRow
+                      key={conta.id}
+                      conta={conta}
+                      onReceber={() => abrir("receber", conta)}
+                      onCobrar={() => abrir("cobranca", conta)}
+                      onEditar={() => abrir("editar", conta)}
+                      onExcluir={() => abrir("excluir", conta)}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </section>
 
-      {/* Modal Nova/Editar Conta */}
-      {(modal === "nova" || modal === "editar") && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1f2937]/70 p-4">
-          <div data-od-id="contas-receber-modal" role="dialog" aria-modal="true" className="w-full max-w-lg rounded-lg bg-white p-5">
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">{modal === "editar" ? "Editar conta a receber" : "Nova conta a receber"}</h2>
-              <button onClick={fechar} aria-label="Fechar" className="rounded-lg p-1 hover:bg-[#efefef]">
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={salvar} className="space-y-3">
-              <label className="block text-sm font-medium">
-                Cliente
-                <input
-                  required
-                  name="cliente"
-                  defaultValue={selecionada?.cliente}
-                  className="mt-1 block w-full rounded-lg border border-[#627271] px-3 py-2"
-                />
-              </label>
-              <label className="block text-sm font-medium">
-                Descrição
-                <input
-                  required
-                  name="descricao"
-                  defaultValue={selecionada?.descricao}
-                  className="mt-1 block w-full rounded-lg border border-[#627271] px-3 py-2"
-                />
-              </label>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="text-sm font-medium">
-                  Valor
-                  <input
-                    required
-                    min="0.01"
-                    step="0.01"
-                    type="number"
-                    name="valor"
-                    defaultValue={selecionada?.valor}
-                    className="mt-1 block w-full rounded-lg border border-[#627271] px-3 py-2"
-                  />
-                </label>
-                <label className="text-sm font-medium">
-                  Data prevista
-                  <input
-                    required
-                    type="date"
-                    name="data"
-                    defaultValue={selecionada?.dataPrevista || hoje()}
-                    className="mt-1 block w-full rounded-lg border border-[#627271] px-3 py-2"
-                  />
-                </label>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="text-sm font-medium">
-                  Categoria
-                  <input
-                    required
-                    name="categoria"
-                    defaultValue={selecionada?.categoria || "Vendas"}
-                    className="mt-1 block w-full rounded-lg border border-[#627271] px-3 py-2"
-                  />
-                </label>
-                <label className="text-sm font-medium">
-                  Forma de pagamento
-                  <select
-                    name="forma"
-                    defaultValue={selecionada?.formaPagamento || "PIX"}
-                    className="mt-1 block w-full rounded-lg border border-[#627271] bg-white px-3 py-2"
-                  >
-                    <option>PIX</option>
-                    <option>Dinheiro</option>
-                    <option>Boleto</option>
-                    <option>Transferência</option>
-                    <option>Cartão</option>
-                  </select>
-                </label>
-              </div>
-              <label className="block text-sm font-medium">
-                Observações
-                <textarea
-                  name="observacoes"
-                  defaultValue={selecionada?.observacoes}
-                  rows={2}
-                  className="mt-1 block w-full rounded-lg border border-[#627271] px-3 py-2"
-                />
-              </label>
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={fechar}
-                  className="flex-1 rounded-lg border border-[#627271] px-4 py-2"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={salvando}
-                  className="flex-1 rounded-lg bg-[#86cb92] px-4 py-2 font-semibold disabled:opacity-50"
-                >
-                  {salvando ? "Salvando..." : "Salvar"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Receber */}
-      {modal === "receber" && selecionada && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1f2937]/70 p-4">
-          <div role="dialog" aria-modal="true" className="w-full max-w-md rounded-lg bg-white p-5">
-            <h2 className="mb-2 text-lg font-semibold">Registrar recebimento</h2>
-            <p className="mb-5 text-sm text-[#627271]">
-              Confirmar recebimento de <strong className="text-[#1f2937]">{selecionada.cliente}</strong> no valor de{" "}
-              {formatarMoeda(selecionada.valor)}?
+      {/* Modal Nova/Editar */}
+      <BottomSheet
+        open={modal === "nova" || modal === "editar"}
+        onClose={fechar}
+        labelledBy="contas-receber-modal-titulo"
+        wide
+      >
+        <div data-od-id="contas-receber-modal" className="mb-5 flex items-start justify-between gap-3">
+          <div>
+            <h2 id="contas-receber-modal-titulo" className="text-lg font-semibold text-[#1f2937]">
+              {esEdicao ? "Editar conta a receber" : "Nova conta a receber"}
+            </h2>
+            <p className="mt-0.5 text-xs text-[#627271]">
+              {esEdicao
+                ? "Atualize os dados deste recebimento."
+                : "Registre um valor que sua empresa vai receber."}
             </p>
-            <div className="flex gap-2">
-              <button onClick={fechar} className="flex-1 rounded-lg border border-[#627271] px-4 py-2">
-                Cancelar
-              </button>
-              <button
-                onClick={receber}
-                disabled={salvando}
-                className="flex-1 rounded-lg bg-[#86cb92] px-4 py-2 font-semibold disabled:opacity-50"
-              >
-                {salvando ? "Confirmando..." : "Confirmar"}
-              </button>
-            </div>
           </div>
+          <button
+            onClick={fechar}
+            aria-label="Fechar"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#627271] transition-colors hover:bg-[#efefef] hover:text-[#1f2937]"
+          >
+            <X size={18} />
+          </button>
         </div>
-      )}
 
-      {/* Modal Cobrança */}
-      {modal === "cobranca" && selecionada && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1f2937]/70 p-4">
-          <div role="dialog" aria-modal="true" className="w-full max-w-md rounded-lg bg-white p-5">
-            <h2 className="mb-2 text-lg font-semibold">Demonstrar cobrança</h2>
-            <p className="mb-4 text-sm text-[#627271]">Esta é uma simulação. Nenhuma mensagem será enviada.</p>
-            <div className="mb-5 rounded-lg border border-[#627271] bg-[#efefef] p-3 text-sm">
-              Olá, {selecionada.cliente}. Lembrete sobre o pagamento de {formatarMoeda(selecionada.valor)} referente a{" "}
-              {selecionada.descricao}.
-            </div>
-            <button
-              onClick={() => {
-                fechar();
-                avisar("Cobrança demonstrada — nenhuma mensagem foi enviada.");
-              }}
-              className="w-full rounded-lg bg-[#86cb92] px-4 py-2.5 font-semibold"
+        <form onSubmit={salvar} className="space-y-4" data-od-id="contas-receber-form">
+          <label className="block text-sm font-medium text-[#1f2937]">
+            Cliente *
+            <input
+              required
+              name="cliente"
+              autoComplete="off"
+              placeholder="Nome do cliente"
+              defaultValue={selecionada?.cliente || ""}
+              className={campoFormSheet}
+            />
+          </label>
+
+          <label className="block text-sm font-medium text-[#1f2937]">
+            Descrição *
+            <input
+              required
+              name="descricao"
+              autoComplete="off"
+              placeholder="Ex.: Venda no balcão, Fiado, Encomenda"
+              defaultValue={limparDescricao(selecionada?.descricao, selecionada?.cliente)}
+              className={campoFormSheet}
+            />
+          </label>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="text-sm font-medium text-[#1f2937]">
+              Valor *
+              <input
+                required
+                min="0.01"
+                step="0.01"
+                inputMode="decimal"
+                type="number"
+                name="valor"
+                placeholder="0,00"
+                defaultValue={selecionada?.valor ?? ""}
+                className={campoFormSheet}
+              />
+            </label>
+            <label className="text-sm font-medium text-[#1f2937]">
+              Data prevista *
+              <input
+                required
+                type="date"
+                name="data"
+                defaultValue={selecionada?.dataPrevista || hojeLocal()}
+                className={campoFormSheet}
+              />
+            </label>
+          </div>
+
+          <label className="block text-sm font-medium text-[#1f2937]">
+            Forma de pagamento
+            <select
+              name="forma"
+              defaultValue={formaPagamentoParaBanco(selecionada?.formaPagamento) || "pix"}
+              className={campoFormSheet}
             >
-              Entendi
+              <option value="pix">PIX</option>
+              <option value="dinheiro">Dinheiro</option>
+              <option value="boleto">Boleto</option>
+              <option value="transferencia">Transferência</option>
+              <option value="cartao">Cartão</option>
+            </select>
+          </label>
+
+          <label className="block text-sm font-medium text-[#1f2937]">
+            Observações
+            <textarea
+              name="observacoes"
+              rows={2}
+              placeholder="Anotações sobre este recebimento (opcional)"
+              defaultValue={selecionada?.observacoes || ""}
+              className={`${campoFormSheet} resize-none`}
+            />
+          </label>
+
+          <SheetActions>
+            <button type="button" onClick={fechar} className={sheetButtonSecundario}>
+              Cancelar
             </button>
+            <button
+              type="submit"
+              data-sheet-foco
+              disabled={salvando}
+              className={sheetButtonPrimario}
+              style={{ background: "#86cb92" }}
+            >
+              {salvando ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Salvando...
+                </>
+              ) : esEdicao ? (
+                "Salvar alterações"
+              ) : (
+                "Salvar conta"
+              )}
+            </button>
+          </SheetActions>
+        </form>
+      </BottomSheet>
+
+      {/* Modal Registrar recebimento */}
+      <BottomSheet open={modal === "receber"} onClose={fechar} labelledBy="contas-receber-receber-titulo">
+        <div className="mb-4 flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-green-100">
+            <Check size={18} className="text-green-600" />
+          </div>
+          <div>
+            <h2 id="contas-receber-receber-titulo" className="text-[#1f2937]" style={{ fontWeight: 700 }}>
+              Registrar recebimento?
+            </h2>
+            <p className="text-xs text-[#627271]">O valor será marcado como recebido hoje.</p>
           </div>
         </div>
-      )}
+
+        <div className="mb-4 space-y-2 rounded-xl bg-[#f8f9fa] p-4">
+          <div className="flex justify-between gap-3 text-sm">
+            <span className="shrink-0 text-[#627271]">Cliente</span>
+            <span className="truncate text-right font-medium text-[#1f2937]">{selecionada?.cliente}</span>
+          </div>
+          <div className="flex justify-between gap-3 text-sm">
+            <span className="shrink-0 text-[#627271]">Descrição</span>
+            <span className="truncate text-right text-[#1f2937]">
+              {limparDescricao(selecionada?.descricao, selecionada?.cliente)}
+            </span>
+          </div>
+          <div className="flex justify-between gap-3 text-sm">
+            <span className="shrink-0 text-[#627271]">Vencimento</span>
+            <span className="text-right text-[#1f2937]">{formatarDataBR(selecionada?.dataPrevista)}</span>
+          </div>
+          <div className="flex items-center justify-between gap-3 border-t border-[#e5e7eb] pt-2">
+            <span className="text-sm text-[#627271]">Valor</span>
+            <span className="text-lg text-[#1f2937]" style={{ fontWeight: 700 }}>
+              {formatarMoeda(selecionada?.valor || 0)}
+            </span>
+          </div>
+        </div>
+
+        <SheetActions>
+          <button type="button" onClick={fechar} disabled={atualizando} className={sheetButtonSecundario}>
+            Cancelar
+          </button>
+          <button
+            onClick={receber}
+            data-sheet-foco
+            disabled={atualizando}
+            className={sheetButtonPrimario}
+            style={{ background: "#86cb92" }}
+          >
+            {atualizando ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                Confirmando...
+              </>
+            ) : (
+              "Confirmar recebimento"
+            )}
+          </button>
+        </SheetActions>
+      </BottomSheet>
+
+      {/* Modal Cobrança no WhatsApp (real — abre wa.me) */}
+      <BottomSheet open={modal === "cobranca"} onClose={fechar} labelledBy="contas-receber-cobranca-titulo">
+        <div className="mb-4 flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-green-100">
+            <MessageCircle size={18} className="text-green-600" />
+          </div>
+          <div>
+            <h2 id="contas-receber-cobranca-titulo" className="text-[#1f2937]" style={{ fontWeight: 700 }}>
+              Cobrar no WhatsApp
+            </h2>
+            <p className="text-xs text-[#627271]">
+              Revise a mensagem — ela será aberta no WhatsApp do cliente.
+            </p>
+          </div>
+        </div>
+
+        <div className="mb-1 rounded-xl bg-[#f8f9fa] p-4">
+          <p className="whitespace-pre-line text-sm leading-relaxed text-[#1f2937]">{mensagemCobranca}</p>
+        </div>
+
+        <SheetActions>
+          <button type="button" onClick={fechar} className={sheetButtonSecundario}>
+            Voltar
+          </button>
+          <button
+            onClick={enviarCobranca}
+            data-sheet-foco
+            className={sheetButtonPrimario}
+            style={{ background: "#25D366", color: "#ffffff" }}
+          >
+            <MessageCircle size={16} />
+            Enviar no WhatsApp
+          </button>
+        </SheetActions>
+      </BottomSheet>
+
+      {/* Modal Excluir */}
+      <BottomSheet open={modal === "excluir"} onClose={fechar} labelledBy="contas-receber-excluir-titulo">
+        <div className="mb-4 flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-red-100">
+            <Trash2 size={18} className="text-red-600" />
+          </div>
+          <div>
+            <h2 id="contas-receber-excluir-titulo" className="text-[#1f2937]" style={{ fontWeight: 700 }}>
+              Excluir conta?
+            </h2>
+            <p className="text-xs text-[#627271]">
+              Conta de {selecionada?.cliente || "cliente não informado"} —{" "}
+              {formatarMoeda(selecionada?.valor || 0)}
+            </p>
+          </div>
+        </div>
+
+        <div className="mb-4 rounded-xl bg-[#f8f9fa] p-4">
+          <p className="mb-2 text-xs text-[#1f2937]" style={{ fontWeight: 700 }}>
+            O que vai acontecer
+          </p>
+          <ul className="space-y-1.5 text-xs text-[#627271]">
+            <li>• A conta sai da lista e dos relatórios.</li>
+            <li>• O histórico é preservado no banco.</li>
+            <li>• Esta ação não pode ser desfeita pela tela.</li>
+          </ul>
+        </div>
+
+        <SheetActions>
+          <button type="button" onClick={fechar} className={sheetButtonSecundario}>
+            Cancelar
+          </button>
+          <button
+            onClick={excluir}
+            data-sheet-foco
+            className={sheetButtonPerigo}
+            style={{ background: "#DC2626" }}
+          >
+            <Trash2 size={16} />
+            Excluir conta
+          </button>
+        </SheetActions>
+      </BottomSheet>
     </main>
+  );
+}
+
+// ---- Card mobile -------------------------------------------------------------
+function ContaReceberCard({
+  conta,
+  onReceber,
+  onCobrar,
+  onEditar,
+  onExcluir,
+}: {
+  conta: ContaReceberView;
+  onReceber: () => void;
+  onCobrar: () => void;
+  onEditar: () => void;
+  onExcluir: () => void;
+}) {
+  const numero = numeroPedidoDe(conta);
+  const cancelada = vendaCanceladaDe(conta);
+  const telefone = telefoneDe(conta);
+  const podeAcao = conta.status !== "pago" && conta.status !== "cancelado";
+  const descricao = limparDescricao(conta.descricao, conta.cliente);
+
+  return (
+    <div data-od-id="contas-receber-linha" className="p-3.5 transition-colors hover:bg-[#efefef]/40">
+      {/* linha 1: número do pedido (ou Manual) + valor */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          {numero ? (
+            <span className="text-sm text-[#1f2937]" style={{ fontWeight: 700, fontFamily: "monospace" }}>
+              #{numero}
+            </span>
+          ) : (
+            <span className="rounded-full border border-[#efefef] bg-[#efefef] px-2 py-0.5 text-[11px] font-medium text-[#627271]">
+              Manual
+            </span>
+          )}
+          {cancelada && (
+            <span className="rounded-full bg-[#efefef] px-2 py-0.5 text-[10px] font-medium text-[#627271]">
+              Venda cancelada
+            </span>
+          )}
+        </div>
+        <span
+          className="shrink-0 text-sm text-[#1f2937]"
+          style={
+            cancelada
+              ? { fontWeight: 700, color: "#627271", textDecoration: "line-through" }
+              : { fontWeight: 700 }
+          }
+        >
+          {formatarMoeda(conta.valor)}
+        </span>
+      </div>
+
+      {/* linha 2: cliente (destaque) + status */}
+      <div className="mt-1.5 flex items-start justify-between gap-2">
+        <p className="min-w-0 truncate text-sm font-semibold text-[#1f2937]">
+          {conta.cliente || "Cliente não informado"}
+        </p>
+        <StatusBadge status={conta.status} config={STATUS_CONFIG_RECEBER} />
+      </div>
+
+      {/* linha 3: descrição + forma + vencimento (muted) + indicador de atraso */}
+      <div className="mt-1 space-y-0.5 text-xs text-[#627271]">
+        {descricao && <p className="truncate">{descricao}</p>}
+        <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+          {conta.itensResumo && <span className="truncate">{conta.itensResumo}</span>}
+          {conta.formaPagamento && <span>· {conta.formaPagamento}</span>}
+          <span className="inline-flex items-center gap-1">
+            <Calendar size={12} />
+            vence {formatarDataBR(conta.dataPrevista)}
+          </span>
+          {conta.status === "vencido" && (
+            <span className="font-medium text-red-600">· {textoDiasPrazo(conta.dataPrevista)}</span>
+          )}
+        </p>
+      </div>
+
+      {/* linha 4: ações (alvo de toque >= 40px) */}
+      <div className="mt-2.5 flex items-center justify-end gap-1.5">
+        {podeAcao && (
+          <button
+            onClick={onReceber}
+            aria-label={`Registrar recebimento de ${conta.cliente}`}
+            className="inline-flex h-10 items-center gap-1 rounded-xl bg-[#86cb92] px-3 text-xs font-semibold text-[#1f2937] transition-colors hover:bg-[#1f2937] hover:text-white"
+          >
+            <Check size={14} />
+            Receber
+          </button>
+        )}
+        {podeAcao && telefone && (
+          <button
+            onClick={onCobrar}
+            aria-label={`Cobrar ${conta.cliente} no WhatsApp`}
+            title="Cobrar no WhatsApp"
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-[#16A34A] transition-colors hover:bg-[#efefef]"
+          >
+            <MessageCircle size={17} />
+          </button>
+        )}
+        <button
+          onClick={onEditar}
+          aria-label={`Editar conta de ${conta.cliente}`}
+          title="Editar"
+          className="flex h-10 w-10 items-center justify-center rounded-xl text-[#627271] transition-colors hover:bg-[#efefef] hover:text-[#1f2937]"
+        >
+          <Edit size={16} />
+        </button>
+        <button
+          onClick={onExcluir}
+          aria-label={`Excluir conta de ${conta.cliente}`}
+          title="Excluir"
+          className="flex h-10 w-10 items-center justify-center rounded-xl text-red-500 transition-colors hover:bg-red-50"
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ---- Linha desktop -----------------------------------------------------------
+function ContaReceberRow({
+  conta,
+  onReceber,
+  onCobrar,
+  onEditar,
+  onExcluir,
+}: {
+  conta: ContaReceberView;
+  onReceber: () => void;
+  onCobrar: () => void;
+  onEditar: () => void;
+  onExcluir: () => void;
+}) {
+  const numero = numeroPedidoDe(conta);
+  const cancelada = vendaCanceladaDe(conta);
+  const telefone = telefoneDe(conta);
+  const podeAcao = conta.status !== "pago" && conta.status !== "cancelado";
+  const descricao = limparDescricao(conta.descricao, conta.cliente);
+
+  return (
+    <tr data-od-id="contas-receber-linha" className="transition-colors hover:bg-[#efefef]/50">
+      <td className="px-4 py-3.5">
+        <div className="mb-0.5 flex items-center gap-1.5">
+          {numero ? (
+            <span className="text-xs text-[#1f2937]" style={{ fontWeight: 700, fontFamily: "monospace" }}>
+              #{numero}
+            </span>
+          ) : (
+            <span className="rounded-full border border-[#efefef] bg-[#efefef] px-2 py-0.5 text-[11px] font-medium text-[#627271]">
+              Manual
+            </span>
+          )}
+          {cancelada && (
+            <span className="rounded-full bg-[#efefef] px-2 py-0.5 text-[10px] font-medium text-[#627271]">
+              Cancelada
+            </span>
+          )}
+        </div>
+        <p className="text-sm font-semibold text-[#1f2937]">{conta.cliente || "Cliente não informado"}</p>
+      </td>
+      <td className="px-4 py-3.5">
+        {descricao && <p className="text-sm text-[#1f2937]">{descricao}</p>}
+        <p className="text-xs text-[#627271]">
+          {conta.itensResumo}
+          {conta.itensResumo && conta.formaPagamento ? " · " : ""}
+          {conta.formaPagamento}
+          {conta.parcela ? ` · Parcela ${conta.parcela}` : ""}
+        </p>
+      </td>
+      <td className="px-4 py-3.5">
+        <span className="inline-flex items-center gap-1 text-sm text-[#1f2937]">
+          <Calendar size={13} />
+          {formatarDataBR(conta.dataPrevista)}
+        </span>
+        {conta.status !== "pago" && conta.status !== "cancelado" && (
+          <span className={`block text-xs ${conta.status === "vencido" ? "font-medium text-red-600" : "text-[#627271]"}`}>
+            {textoDiasPrazo(conta.dataPrevista)}
+          </span>
+        )}
+      </td>
+      <td className="px-4 py-3.5 text-right">
+        <span
+          className="text-sm text-[#1f2937]"
+          style={
+            cancelada
+              ? { fontWeight: 700, color: "#627271", textDecoration: "line-through" }
+              : { fontWeight: 700 }
+          }
+        >
+          {formatarMoeda(conta.valor)}
+        </span>
+      </td>
+      <td className="px-4 py-3.5">
+        <StatusBadge status={conta.status} config={STATUS_CONFIG_RECEBER} />
+      </td>
+      <td className="px-4 py-3.5">
+        <div className="flex items-center justify-end gap-1">
+          {podeAcao && (
+            <button
+              onClick={onReceber}
+              aria-label={`Registrar recebimento de ${conta.cliente}`}
+              title="Receber"
+              className="flex h-9 w-9 items-center justify-center rounded-xl text-[#16A34A] transition-colors hover:bg-[#efefef]"
+            >
+              <Check size={16} />
+            </button>
+          )}
+          {podeAcao && telefone && (
+            <button
+              onClick={onCobrar}
+              aria-label={`Cobrar ${conta.cliente} no WhatsApp`}
+              title="Cobrar no WhatsApp"
+              className="flex h-9 w-9 items-center justify-center rounded-xl text-[#16A34A] transition-colors hover:bg-[#efefef]"
+            >
+              <MessageCircle size={15} />
+            </button>
+          )}
+          <button
+            onClick={onEditar}
+            aria-label={`Editar conta de ${conta.cliente}`}
+            title="Editar"
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-[#627271] transition-colors hover:bg-[#efefef] hover:text-[#1f2937]"
+          >
+            <Edit size={16} />
+          </button>
+          <button
+            onClick={onExcluir}
+            aria-label={`Excluir conta de ${conta.cliente}`}
+            title="Excluir"
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-red-500 transition-colors hover:bg-red-50"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
+      </td>
+    </tr>
   );
 }

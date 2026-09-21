@@ -2,7 +2,11 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import type { ContaPagar, StatusMovimentacao } from "../components/financeiro/mockData";
-import { contasPagarMock, calcularStatus } from "../components/financeiro/mockData";
+import {
+  contasPagarMock,
+  calcularStatus,
+  mapearFormaPagamento,
+} from "../components/financeiro/mockData";
 
 interface DBContaPagar {
   id: string;
@@ -23,7 +27,12 @@ interface DBContaPagar {
 
 interface DBFornecedor {
   id: string;
-  nome_fantasia: string | null;
+  nome_fornecedor: string | null;
+}
+
+interface DBCategoriaFinanceira {
+  id: string;
+  nome: string;
 }
 
 function mapStatus(status: string | null): StatusMovimentacao {
@@ -32,18 +41,23 @@ function mapStatus(status: string | null): StatusMovimentacao {
   return "pendente";
 }
 
-function mapContaPagar(db: DBContaPagar, fornecedorNome?: string): ContaPagar {
+function mapContaPagar(
+  db: DBContaPagar,
+  contexto: { fornecedorNome?: string; categoriaNome?: string }
+): ContaPagar {
   const status = calcularStatus(db.data_vencimento, mapStatus(db.status));
 
   return {
     id: db.id,
-    descricao: db.descricao,
-    fornecedor: fornecedorNome || "Fornecedor",
-    categoria: "Outras Despesas",
+    descricao: db.descricao || "Conta a pagar",
+    fornecedor: contexto.fornecedorNome || "",
+    fornecedorId: db.fornecedor_id || undefined,
+    categoria: contexto.categoriaNome || "Outras Despesas",
+    categoriaId: db.categoria_id || undefined,
     valor: Number(db.valor),
     dataVencimento: db.data_vencimento,
     status,
-    recorrente: false,
+    formaPagamento: mapearFormaPagamento(db.forma_pagamento),
     observacoes: db.observacoes || undefined,
   };
 }
@@ -108,16 +122,16 @@ export function useContasPagar(): UseContasPagarReturn {
       }
 
       // Busca nomes dos fornecedores (sub-query filtrada por empresa)
+      // ⚠️ schema real: me_fornecedor.nome_fornecedor (NÃO nome_fantasia)
       const fornecedorIds = contasValidas
         .map((c) => c.fornecedor_id)
         .filter((id): id is string => id !== null);
 
       let fornecedoresMap: Map<string, string> = new Map();
-
       if (fornecedorIds.length > 0) {
         const { data: fornecedoresData } = await supabase
           .from("me_fornecedor")
-          .select("id, nome_fantasia")
+          .select("id, nome_fornecedor")
           .in("id", fornecedorIds)
           .eq("empresa_id", empresaId);
 
@@ -125,14 +139,41 @@ export function useContasPagar(): UseContasPagarReturn {
           fornecedoresMap = new Map(
             (fornecedoresData as DBFornecedor[]).map((f) => [
               f.id,
-              f.nome_fantasia || "Fornecedor",
+              f.nome_fornecedor || "Fornecedor",
             ])
           );
         }
       }
 
-      const contasMapeadas = contasValidas.map((conta) =>
-        mapContaPagar(conta, conta.fornecedor_id ? fornecedoresMap.get(conta.fornecedor_id) : undefined)
+      // ---- categorias (P1): me_categoria_financeira está vazia hoje ----
+      const categoriaIds = contasValidas
+        .map((c) => c.categoria_id)
+        .filter((id): id is string => id !== null);
+
+      let categoriasMap: Map<string, string> = new Map();
+      if (categoriaIds.length > 0) {
+        const { data: categoriasData } = await supabase
+          .from("me_categoria_financeira")
+          .select("id, nome")
+          .in("id", categoriaIds)
+          .eq("empresa_id", empresaId);
+
+        if (categoriasData) {
+          categoriasMap = new Map(
+            (categoriasData as DBCategoriaFinanceira[]).map((c) => [c.id, c.nome])
+          );
+        }
+      }
+
+      const contasMapeadas: ContaPagar[] = contasValidas.map((conta) =>
+        mapContaPagar(conta, {
+          fornecedorNome: conta.fornecedor_id
+            ? fornecedoresMap.get(conta.fornecedor_id)
+            : undefined,
+          categoriaNome: conta.categoria_id
+            ? categoriasMap.get(conta.categoria_id)
+            : undefined,
+        })
       );
 
       setContas(contasMapeadas);

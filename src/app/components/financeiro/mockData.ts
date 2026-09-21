@@ -34,37 +34,135 @@ export interface ContaPagar {
   id: string;
   descricao: string;
   fornecedor: string;
-  categoria: Categoria;
+  fornecedorId?: string;
+  categoria?: string;
+  categoriaId?: string;
   valor: number;
   dataVencimento: string;
   status: StatusMovimentacao;
+  formaPagamento?: FormaPagamento;
   recorrente?: boolean;
   observacoes?: string;
 }
 
 export interface ContaReceber {
   id: string;
-  cliente: string;
-  descricao: string;
-  categoria: Categoria;
+  cliente: string; // nome do cliente (NUNCA vazio; fallback "Cliente não informado")
+  clienteId?: string;
+  telefone?: string; // me_cliente.telefone — usado pela ação "Enviar cobrança" (wa.me)
+  vendaId?: string;
+  numeroPedido?: string; // npedido da venda, senão 8 primeiros chars do uuid da venda
+  descricao: string; // rótulo amigável SEM uuid cru
+  itensResumo?: string; // "2x Surpresa de Uva, 1x Trufa"
+  categoria?: string;
+  categoriaId?: string;
   valor: number;
-  dataPrevista: string;
+  dataPrevista: string; // ISO yyyy-mm-dd
   status: StatusMovimentacao;
   formaPagamento?: FormaPagamento;
-  vinculoVenda?: string;
   parcela?: string; // "1/3", "2/3", etc.
   observacoes?: string;
+  vendaCancelada?: boolean; // true quando me_venda.status_venda = 'cancelado'
+}
+
+// ============================================================
+// Contratos de input do módulo Financeiro (frozen — a lane de
+// páginas codifica contra estes tipos)
+// ============================================================
+export interface ContaReceberInput {
+  cliente: string;
+  descricao: string;
+  valor: number;
+  data_vencimento: string;
+  forma_pagamento: string;
+  observacoes?: string;
+}
+
+export interface ContaPagarInput {
+  descricao: string;
+  fornecedor?: string;
+  valor: number;
+  data_vencimento: string;
+  forma_pagamento: string;
+  observacoes?: string;
+}
+
+// ============================================================
+// Helpers de normalização de forma de pagamento
+// Banco grava minúsculo canônico (pix, dinheiro, boleto,
+// transferencia, cartao). Na exibição vira FormaPagamento.
+// ============================================================
+
+const FORMA_PAGAMENTO_PARA_BANCO: Record<string, string> = {
+  pix: "pix",
+  dinheiro: "dinheiro",
+  boleto: "boleto",
+  transferencia: "transferencia",
+  cartao: "cartao",
+  cartaocredito: "cartao",
+  cartaodebito: "cartao",
+  credito: "cartao",
+  debito: "cartao",
+};
+
+/** Normaliza qualquer escrita ("PIX", "pix", "cartão", "cartao_credito", "Transferência"...) para a chave canônica. */
+function normalizarChaveFormaPagamento(valor: string): string {
+  return valor
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // remove acentos
+    .replace(/[^a-z]/g, ""); // remove espaços, _, - etc.
+}
+
+/** Converte valor do banco/formulário para FormaPagamento exibível. */
+export function mapearFormaPagamento(
+  fp: string | null | undefined
+): FormaPagamento | undefined {
+  if (!fp) return undefined;
+  const chave = normalizarChaveFormaPagamento(fp);
+  if (chave === "pix") return "PIX";
+  if (chave === "dinheiro") return "Dinheiro";
+  if (chave === "boleto") return "Boleto";
+  if (chave === "transferencia") return "Transferência";
+  if (chave.startsWith("cartao") || chave === "credito" || chave === "debito") return "Cartão";
+  return undefined;
+}
+
+/** Converte FormaPagamento/formulário para o valor minúsculo canônico gravado no banco. */
+export function formaPagamentoParaBanco(
+  fp: string | null | undefined
+): string | null {
+  if (!fp) return null;
+  const chave = normalizarChaveFormaPagamento(fp);
+  const resolvido = FORMA_PAGAMENTO_PARA_BANCO[chave];
+  if (resolvido) return resolvido;
+  // Desconhecida: grava o que veio, minúsculo e sem acentos, para não quebrar a exibição.
+  return chave || null;
+}
+
+/**
+ * Data local (yyyy-mm-dd) n dias a partir de hoje — nunca usa toISOString
+ * (evita bug de fuso). n negativo = passado, n positivo = futuro.
+ * Os mocks do Financeiro usam este helper para nunca ficarem obsoletos:
+ * as telas sempre exercitam KPIs/badges com datas relativas a hoje.
+ */
+export function diasAPartirDeHoje(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  const mes = String(d.getMonth() + 1).padStart(2, "0");
+  const dia = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mes}-${dia}`;
 }
 
 // Movimentações (últimos 30 dias)
 export const movimentacoesMock: Movimentacao[] = [
-  // Entradas (vendas)
+  // Entradas (vendas) — datas relativas ao mês corrente para o demo nunca envelhecer
   {
     id: "mov-1",
     descricao: "Venda PDV #1234",
     tipo: "entrada",
     valor: 450.00,
-    data: "2025-04-01T10:30:00",
+    data: `${diasAPartirDeHoje(-1)}T10:30:00`,
     categoria: "Vendas",
     status: "pago",
     pessoa: "Maria Santos",
@@ -74,7 +172,7 @@ export const movimentacoesMock: Movimentacao[] = [
     descricao: "Venda Loja Online #5678",
     tipo: "entrada",
     valor: 890.50,
-    data: "2025-04-01T14:20:00",
+    data: `${diasAPartirDeHoje(-2)}T14:20:00`,
     categoria: "Vendas",
     status: "pago",
     pessoa: "João Silva",
@@ -84,7 +182,7 @@ export const movimentacoesMock: Movimentacao[] = [
     descricao: "Venda PDV #1235",
     tipo: "entrada",
     valor: 125.00,
-    data: "2025-03-31T16:45:00",
+    data: `${diasAPartirDeHoje(-3)}T16:45:00`,
     categoria: "Vendas",
     status: "pago",
     pessoa: "Cliente Avulso",
@@ -94,7 +192,7 @@ export const movimentacoesMock: Movimentacao[] = [
     descricao: "Venda PDV #1236",
     tipo: "entrada",
     valor: 670.00,
-    data: "2025-03-30T11:10:00",
+    data: `${diasAPartirDeHoje(-6)}T11:10:00`,
     categoria: "Vendas",
     status: "pago",
   },
@@ -103,7 +201,7 @@ export const movimentacoesMock: Movimentacao[] = [
     descricao: "Prestação de Serviço",
     tipo: "entrada",
     valor: 350.00,
-    data: "2025-03-29T09:00:00",
+    data: `${diasAPartirDeHoje(-8)}T09:00:00`,
     categoria: "Outras Receitas",
     status: "pago",
     pessoa: "Empresa XYZ",
@@ -111,10 +209,10 @@ export const movimentacoesMock: Movimentacao[] = [
   // Saídas (despesas)
   {
     id: "mov-6",
-    descricao: "Aluguel Março",
+    descricao: "Aluguel do mês",
     tipo: "saida",
     valor: 1200.00,
-    data: "2025-03-10T08:00:00",
+    data: `${diasAPartirDeHoje(-5)}T08:00:00`,
     categoria: "Aluguel",
     status: "pago",
     pessoa: "Imobiliária Silva",
@@ -124,7 +222,7 @@ export const movimentacoesMock: Movimentacao[] = [
     descricao: "Internet - NET",
     tipo: "saida",
     valor: 99.90,
-    data: "2025-03-15T00:00:00",
+    data: `${diasAPartirDeHoje(-9)}T12:00:00`,
     categoria: "Internet",
     status: "pago",
     pessoa: "NET",
@@ -134,7 +232,7 @@ export const movimentacoesMock: Movimentacao[] = [
     descricao: "Conta de Luz",
     tipo: "saida",
     valor: 180.50,
-    data: "2025-03-20T00:00:00",
+    data: `${diasAPartirDeHoje(-12)}T12:00:00`,
     categoria: "Luz",
     status: "pago",
     pessoa: "Copel",
@@ -144,7 +242,7 @@ export const movimentacoesMock: Movimentacao[] = [
     descricao: "Fornecedor - Mercadorias",
     tipo: "saida",
     valor: 850.00,
-    data: "2025-03-25T10:00:00",
+    data: `${diasAPartirDeHoje(-15)}T10:00:00`,
     categoria: "Fornecedores",
     status: "pago",
     pessoa: "Distribuidora ABC",
@@ -154,7 +252,7 @@ export const movimentacoesMock: Movimentacao[] = [
     descricao: "Material de Divulgação",
     tipo: "saida",
     valor: 150.00,
-    data: "2025-03-28T14:30:00",
+    data: `${diasAPartirDeHoje(-18)}T14:30:00`,
     categoria: "Marketing",
     status: "pago",
     pessoa: "Gráfica Rápida",
@@ -165,11 +263,11 @@ export const movimentacoesMock: Movimentacao[] = [
 export const contasPagarMock: ContaPagar[] = [
   {
     id: "pagar-1",
-    descricao: "Aluguel Abril",
+    descricao: "Aluguel do mês",
     fornecedor: "Imobiliária Silva",
     categoria: "Aluguel",
     valor: 1200.00,
-    dataVencimento: "2025-04-10",
+    dataVencimento: diasAPartirDeHoje(4),
     status: "pendente",
     recorrente: true,
   },
@@ -179,7 +277,7 @@ export const contasPagarMock: ContaPagar[] = [
     fornecedor: "NET",
     categoria: "Internet",
     valor: 99.90,
-    dataVencimento: "2025-04-15",
+    dataVencimento: diasAPartirDeHoje(11),
     status: "pendente",
     recorrente: true,
   },
@@ -189,7 +287,7 @@ export const contasPagarMock: ContaPagar[] = [
     fornecedor: "Copel",
     categoria: "Luz",
     valor: 195.30,
-    dataVencimento: "2025-04-20",
+    dataVencimento: diasAPartirDeHoje(7),
     status: "pendente",
   },
   {
@@ -198,7 +296,7 @@ export const contasPagarMock: ContaPagar[] = [
     fornecedor: "Sanepar",
     categoria: "Água",
     valor: 65.80,
-    dataVencimento: "2025-04-18",
+    dataVencimento: diasAPartirDeHoje(2),
     status: "pendente",
   },
   {
@@ -207,7 +305,7 @@ export const contasPagarMock: ContaPagar[] = [
     fornecedor: "Distribuidora ABC",
     categoria: "Fornecedores",
     valor: 1450.00,
-    dataVencimento: "2025-04-05",
+    dataVencimento: diasAPartirDeHoje(6),
     status: "pendente",
   },
   {
@@ -216,7 +314,7 @@ export const contasPagarMock: ContaPagar[] = [
     fornecedor: "Receita Federal",
     categoria: "Impostos",
     valor: 320.50,
-    dataVencimento: "2025-03-28",
+    dataVencimento: diasAPartirDeHoje(-5),
     status: "vencido",
     recorrente: true,
   },
@@ -226,7 +324,7 @@ export const contasPagarMock: ContaPagar[] = [
     fornecedor: "Ana Costa",
     categoria: "Salários",
     valor: 1500.00,
-    dataVencimento: "2025-04-05",
+    dataVencimento: diasAPartirDeHoje(1),
     status: "pendente",
     recorrente: true,
   },
@@ -236,8 +334,8 @@ export const contasPagarMock: ContaPagar[] = [
     fornecedor: "TechFix",
     categoria: "Outras Despesas",
     valor: 250.00,
-    dataVencimento: "2025-03-30",
-    status: "vencido",
+    dataVencimento: diasAPartirDeHoje(-9),
+    status: "pago",
   },
 ];
 
@@ -249,11 +347,15 @@ export const contasReceberMock: ContaReceber[] = [
     descricao: "Venda Parcelada #5678",
     categoria: "Vendas",
     valor: 296.83,
-    dataPrevista: "2025-04-05",
+    dataPrevista: diasAPartirDeHoje(4),
     status: "pendente",
     formaPagamento: "Cartão",
     parcela: "2/3",
-    vinculoVenda: "venda-5678",
+    vendaId: "venda-5678",
+    numeroPedido: "5678",
+    clienteId: "cli-joao-silva",
+    telefone: "11987654321",
+    categoriaId: "cat-vendas",
   },
   {
     id: "receber-2",
@@ -261,9 +363,10 @@ export const contasReceberMock: ContaReceber[] = [
     descricao: "Fiado - Produtos",
     categoria: "Vendas",
     valor: 150.00,
-    dataPrevista: "2025-04-10",
+    dataPrevista: diasAPartirDeHoje(11),
     status: "pendente",
     formaPagamento: "PIX",
+    telefone: "11981112222",
   },
   {
     id: "receber-3",
@@ -271,8 +374,8 @@ export const contasReceberMock: ContaReceber[] = [
     descricao: "Prestação de Serviço - Parcela 1/2",
     categoria: "Outras Receitas",
     valor: 500.00,
-    dataPrevista: "2025-04-15",
-    status: "pendente",
+    dataPrevista: diasAPartirDeHoje(-12),
+    status: "vencido",
     formaPagamento: "Transferência",
     parcela: "1/2",
   },
@@ -282,7 +385,7 @@ export const contasReceberMock: ContaReceber[] = [
     descricao: "Venda a Prazo",
     categoria: "Vendas",
     valor: 340.00,
-    dataPrevista: "2025-03-25",
+    dataPrevista: diasAPartirDeHoje(-3),
     status: "vencido",
     formaPagamento: "PIX",
     observacoes: "Cliente pediu para parcelar",
@@ -293,8 +396,8 @@ export const contasReceberMock: ContaReceber[] = [
     descricao: "Encomenda Especial",
     categoria: "Vendas",
     valor: 680.00,
-    dataPrevista: "2025-04-20",
-    status: "pendente",
+    dataPrevista: diasAPartirDeHoje(-9),
+    status: "pago",
     formaPagamento: "Boleto",
   },
   {
@@ -303,11 +406,15 @@ export const contasReceberMock: ContaReceber[] = [
     descricao: "Venda Parcelada #4521",
     categoria: "Vendas",
     valor: 220.00,
-    dataPrevista: "2025-03-28",
-    status: "vencido",
+    dataPrevista: diasAPartirDeHoje(-2),
+    status: "cancelado",
     formaPagamento: "Cartão",
     parcela: "3/4",
-    vinculoVenda: "venda-4521",
+    vendaId: "venda-4521",
+    numeroPedido: "4521",
+    clienteId: "cli-carlos-mendes",
+    telefone: "11985556666",
+    categoriaId: "cat-vendas",
   },
 ];
 
@@ -326,8 +433,15 @@ export interface DREData {
   categoriasReceitas: { nome: string; valor: number }[];
 }
 
+/** Rótulo do mês corrente em pt-BR (ex.: "Setembro 2026"). */
+export function mesCorrenteRotulo(): string {
+  const agora = new Date();
+  const mes = agora.toLocaleDateString("pt-BR", { month: "long" });
+  return `${mes.charAt(0).toUpperCase()}${mes.slice(1)} ${agora.getFullYear()}`;
+}
+
 export const dreMock: DREData = {
-  periodo: "Março 2025",
+  periodo: mesCorrenteRotulo(),
   receitaBruta: 2485.50,
   impostos: 124.28, // ~5% estimado Simples Nacional
   receitaLiquida: 2361.22,

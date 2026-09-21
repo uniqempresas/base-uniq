@@ -1,16 +1,61 @@
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import { TrendingUp, TrendingDown, DollarSign, Calendar, Download, AlertCircle, RefreshCw } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { CardKPI, AlertaAmigavel } from "./components";
 import { dreMock, formatarMoeda } from "./mockData";
 import { useDRE } from "../../hooks/use-dre";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 
+// KPI compacto para mobile (2 colunas) — o CardKPI padrão usa texto 2xl + ícone 40px,
+// grande demais para ~156px de largura em 360px de tela.
+function KpiCompact({
+  label,
+  valor,
+  icon: Icon,
+  negativo = false,
+}: {
+  label: string;
+  valor: string;
+  icon: LucideIcon;
+  negativo?: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-[#efefef] bg-white p-3 shadow-sm">
+      <div className="mb-1 flex items-start justify-between gap-2">
+        <span className="truncate text-xs text-[#627271]">{label}</span>
+        <span
+          className={`shrink-0 flex h-8 w-8 items-center justify-center rounded-lg ${
+            negativo ? "bg-red-50" : "bg-[#efefef]"
+          }`}
+        >
+          <Icon size={15} className={negativo ? "text-red-600" : "text-[#627271]"} />
+        </span>
+      </div>
+      <p
+        className={`truncate text-lg ${negativo ? "text-red-900" : "text-[#1f2937]"}`}
+        style={{ fontWeight: 700 }}
+        title={valor}
+      >
+        {valor}
+      </p>
+    </div>
+  );
+}
+
+// Formatação compacta do eixo Y (mobile): "R$ 1,2 mil" em vez de "R$ 1200"
+function formatarEixo(valor: number): string {
+  const n = Number(valor);
+  if (Math.abs(n) >= 1000) return `R$ ${(n / 1000).toFixed(1).replace(".", ",")} mil`;
+  return `R$ ${n}`;
+}
+
 export function DREPage() {
+  const navigate = useNavigate();
   const [periodo, setPeriodo] = useState(() => {
     const agora = new Date();
     return `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}`;
   });
-  const [mostrarComparativo, setMostrarComparativo] = useState(false);
 
   const { dre: dreData, loading, error, isFallback } = useDRE(periodo);
 
@@ -49,7 +94,7 @@ export function DREPage() {
           </button>
         </div>
         {/* Skeleton KPIs */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 gap-2 mb-6 sm:grid-cols-2 sm:gap-3 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="bg-white rounded-xl border border-[#efefef] p-4 animate-pulse">
               <div className="h-4 bg-gray-200 rounded w-24 mb-3"></div>
@@ -58,7 +103,7 @@ export function DREPage() {
           ))}
         </div>
         {/* Skeleton Tabela DRE */}
-        <div className="bg-white rounded-xl border border-[#efefef] p-6 mb-6 animate-pulse">
+        <div className="bg-white rounded-xl border border-[#efefef] p-4 sm:p-6 mb-6 animate-pulse">
           <div className="h-5 bg-gray-200 rounded w-48 mb-4"></div>
           {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="flex justify-between py-2 border-b border-[#efefef]">
@@ -69,13 +114,13 @@ export function DREPage() {
         </div>
         {/* Skeleton Gráficos */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl border border-[#efefef] p-6 animate-pulse">
+          <div className="bg-white rounded-xl border border-[#efefef] p-4 sm:p-6 animate-pulse">
             <div className="h-5 bg-gray-200 rounded w-48 mb-4"></div>
-            <div className="h-64 bg-gray-200 rounded"></div>
+            <div className="h-56 sm:h-72 bg-gray-200 rounded"></div>
           </div>
-          <div className="bg-white rounded-xl border border-[#efefef] p-6 animate-pulse">
+          <div className="bg-white rounded-xl border border-[#efefef] p-4 sm:p-6 animate-pulse">
             <div className="h-5 bg-gray-200 rounded w-32 mb-4"></div>
-            <div className="h-64 bg-gray-200 rounded"></div>
+            <div className="h-56 sm:h-72 bg-gray-200 rounded"></div>
           </div>
         </div>
       </div>
@@ -97,7 +142,7 @@ export function DREPage() {
           <span className="flex-1">Erro ao carregar dados financeiros. Tente novamente.</span>
           <button
             onClick={() => window.location.reload()}
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-white border border-red-200 hover:bg-red-100 transition-colors"
+            className="flex min-h-[36px] items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-white border border-red-200 hover:bg-red-100 transition-colors"
             style={{ fontWeight: 600 }}
           >
             <RefreshCw size={12} />
@@ -132,6 +177,13 @@ export function DREPage() {
           <p className="text-sm text-[#1f2937] mb-6 text-center max-w-md">
             Nenhuma venda ou despesa registrada neste mês. Cadastre pedidos e contas para ver seu DRE.
           </p>
+          <button
+            onClick={() => navigate("/financeiro/contas-pagar")}
+            className="inline-flex min-h-[36px] items-center gap-2 rounded-lg bg-[#86cb92] px-4 py-2.5 text-sm font-semibold text-[#1f2937] transition hover:bg-[#1f2937] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86cb92] focus-visible:ring-offset-2"
+          >
+            <Calendar size={16} />
+            Cadastrar contas
+          </button>
         </div>
       </div>
     );
@@ -171,6 +223,8 @@ export function DREPage() {
             tipo="info"
             titulo="Nenhuma venda ou despesa registrada neste mês"
             mensagem="Cadastre pedidos e contas para ver seu DRE."
+            ctaLabel="Cadastrar contas"
+            ctaAction={() => navigate("/financeiro/contas-pagar")}
           />
         </div>
       )}
@@ -192,77 +246,78 @@ export function DREPage() {
 
       {/* Filtros */}
       <div className="bg-white rounded-xl border border-[#efefef] p-4 mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Período */}
-          <div>
-            <label className="block text-sm text-[#1f2937] mb-1.5" style={{ fontWeight: 500 }}>
-              <Calendar size={14} className="inline mr-1" />
-              Período
-            </label>
-            <input
-              type="month"
-              value={periodo}
-              onChange={(e) => setPeriodo(e.target.value)}
-              className="w-full px-3 py-2 border border-[#efefef] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#86cb92]"
-            />
-          </div>
-
-          {/* Comparativo */}
-          <div className="flex items-end">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={mostrarComparativo}
-                onChange={(e) => setMostrarComparativo(e.target.checked)}
-                className="w-4 h-4 text-[#627271] focus:ring-[#86cb92] rounded"
-              />
-              <span className="text-sm text-[#1f2937]">Comparar com mês anterior</span>
-            </label>
-          </div>
-        </div>
+        <label className="block w-full sm:max-w-xs">
+          <span className="block text-sm text-[#1f2937] mb-1.5" style={{ fontWeight: 500 }}>
+            <Calendar size={14} className="inline mr-1" />
+            Período
+          </span>
+          <input
+            type="month"
+            value={periodo}
+            onChange={(e) => setPeriodo(e.target.value)}
+            className="w-full px-3 py-2.5 border border-[#efefef] rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#86cb92]"
+          />
+        </label>
       </div>
 
-      {/* KPIs Principais */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <CardKPI
-          label="Receitas Totais"
-          valor={dre.receitaBruta}
-          icon={TrendingUp}
-          tipo="positivo"
-          comparativo={mostrarComparativo ? 8.3 : undefined}
-        />
-        <CardKPI
-          label="Despesas Totais"
-          valor={dre.despesasOperacionais + dre.custos}
-          icon={TrendingDown}
-          tipo="negativo"
-          comparativo={mostrarComparativo ? -3.1 : undefined}
-        />
-        <CardKPI
-          label={isLucro ? "Lucro Líquido" : "Prejuízo"}
-          valor={Math.abs(dre.lucroLiquido)}
-          icon={DollarSign}
-          tipo={isLucro ? "positivo" : "negativo"}
-        />
-        <div className="bg-white rounded-xl border border-[#efefef] p-4">
-          <div className="flex items-start justify-between mb-3">
-            <p className="text-sm text-[#1f2937]">Margem de Lucro</p>
-            <div
-              className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                isLucro ? "bg-[#efefef]" : "bg-red-50"
-              }`}
-            >
-              <DollarSign size={20} className={isLucro ? "text-[#627271]" : "text-red-600"} />
+      {/* KPIs Principais — mobile: 2 colunas compactas; sm+: CardKPI padrão */}
+      <div className="grid grid-cols-2 gap-2 mb-6 sm:grid-cols-2 sm:gap-3 lg:grid-cols-4">
+        <div className="sm:hidden col-span-2 grid grid-cols-2 gap-2">
+          <KpiCompact label="Receitas Totais" valor={formatarMoeda(dre.receitaBruta)} icon={TrendingUp} />
+          <KpiCompact
+            label="Despesas Totais"
+            valor={formatarMoeda(dre.despesasOperacionais + dre.custos)}
+            icon={TrendingDown}
+            negativo
+          />
+          <KpiCompact
+            label={isLucro ? "Lucro Líquido" : "Prejuízo"}
+            valor={formatarMoeda(Math.abs(dre.lucroLiquido))}
+            icon={DollarSign}
+            negativo={!isLucro}
+          />
+          <KpiCompact label="Margem de Lucro" valor={`${dre.margemLucro.toFixed(1)}%`} icon={DollarSign} negativo={!isLucro} />
+        </div>
+
+        <div className="hidden sm:contents">
+          <CardKPI
+            label="Receitas Totais"
+            valor={dre.receitaBruta}
+            icon={TrendingUp}
+            tipo="positivo"
+          />
+          <CardKPI
+            label="Despesas Totais"
+            valor={dre.despesasOperacionais + dre.custos}
+            icon={TrendingDown}
+            tipo="negativo"
+          />
+          <CardKPI
+            label={isLucro ? "Lucro Líquido" : "Prejuízo"}
+            valor={Math.abs(dre.lucroLiquido)}
+            icon={DollarSign}
+            tipo={isLucro ? "positivo" : "negativo"}
+          />
+          <div className="bg-white rounded-xl border border-[#efefef] p-4">
+            <div className="flex items-start justify-between mb-3">
+              <p className="text-sm text-[#1f2937]">Margem de Lucro</p>
+              <div
+                className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                  isLucro ? "bg-[#efefef]" : "bg-red-50"
+                }`}
+              >
+                <DollarSign size={20} className={isLucro ? "text-[#627271]" : "text-red-600"} />
+              </div>
             </div>
+            <p className={`text-2xl ${isLucro ? "text-[#1f2937]" : "text-red-900"}`} style={{ fontWeight: 600 }}>
+              {dre.margemLucro.toFixed(1)}%
+            </p>
           </div>
-          <p className={`text-2xl ${isLucro ? "text-[#1f2937]" : "text-red-900"}`} style={{ fontWeight: 600 }}>
-            {dre.margemLucro.toFixed(1)}%
-          </p>
         </div>
       </div>
 
       {/* Estrutura DRE Simplificada */}
-      <div className="bg-white rounded-xl border border-[#efefef] p-6 mb-6">
+      <div className="bg-white rounded-xl border border-[#efefef] p-4 sm:p-6 mb-6">
         <h3 className="text-[#1f2937] mb-4">Demonstrativo do Período</h3>
 
         <div className="space-y-3">
@@ -294,13 +349,13 @@ export function DREPage() {
 
           {/* Custos */}
           <div className="flex items-center justify-between py-2 pl-4 border-b border-[#efefef]">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <span className="text-sm text-[#1f2937]">(-) Custos (mercadorias vendidas)</span>
               {!dre.cmvDisponivel && (
                 <span className="text-xs text-[#627271]">(Custo dos produtos não cadastrado)</span>
               )}
             </div>
-            <span className="text-sm text-red-600">{formatarMoeda(dre.custos)}</span>
+            <span className="text-sm text-red-600 shrink-0 ml-3">{formatarMoeda(dre.custos)}</span>
           </div>
 
           {/* Lucro Bruto */}
@@ -316,7 +371,7 @@ export function DREPage() {
           {/* Despesas Operacionais */}
           <div className="flex items-center justify-between py-2 pl-4 border-b border-[#efefef]">
             <span className="text-sm text-[#1f2937]">(-) Despesas Operacionais</span>
-            <span className="text-sm text-red-600">{formatarMoeda(dre.despesasOperacionais)}</span>
+            <span className="text-sm text-red-600 ml-3 shrink-0">{formatarMoeda(dre.despesasOperacionais)}</span>
           </div>
 
           {/* Lucro Líquido */}
@@ -328,7 +383,7 @@ export function DREPage() {
             <span className={`text-sm ${isLucro ? "text-[#1f2937]" : "text-red-900"}`} style={{ fontWeight: 600 }}>
               (=) {isLucro ? "Lucro Líquido" : "Prejuízo"}
             </span>
-            <span className={`text-lg ${isLucro ? "text-[#1f2937]" : "text-red-700"}`} style={{ fontWeight: 700 }}>
+            <span className={`text-lg ml-3 shrink-0 ${isLucro ? "text-[#1f2937]" : "text-red-700"}`} style={{ fontWeight: 700 }}>
               {formatarMoeda(Math.abs(dre.lucroLiquido))}
             </span>
           </div>
@@ -338,39 +393,39 @@ export function DREPage() {
       {/* Gráficos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Gráfico de Despesas por Categoria */}
-        <div className="bg-white rounded-xl border border-[#efefef] p-6">
+        <div className="bg-white rounded-xl border border-[#efefef] p-4 sm:p-6">
           <h3 className="text-[#1f2937] mb-4">Despesas por Categoria</h3>
           {dadosDespesas.length > 0 ? (
             <>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={dadosDespesas}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ nome, percent }) => `${nome} ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
-                    fill="#86cb92"
-                    dataKey="valor"
-                  >
-                    {dadosDespesas.map((_entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value: number) => formatarMoeda(value)} />
-                </PieChart>
-              </ResponsiveContainer>
+              <div className="h-56 sm:h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={dadosDespesas}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      fill="#86cb92"
+                      dataKey="valor"
+                    >
+                      {dadosDespesas.map((_entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value: number) => formatarMoeda(value)} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
 
-              {/* Lista de categorias */}
+              {/* Lista de categorias — funciona como legenda legível (substitui os labels do pie) */}
               <div className="mt-4 space-y-2">
                 {dre.categoriasDespesas.map((cat, i) => (
-                  <div key={cat.nome} className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ background: COLORS[i % COLORS.length] }}></div>
-                      <span className="text-[#1f2937]">{cat.nome}</span>
+                  <div key={cat.nome} className="flex items-center justify-between gap-3 text-sm">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-3 h-3 rounded-full shrink-0" style={{ background: COLORS[i % COLORS.length] }}></div>
+                      <span className="text-[#1f2937] truncate">{cat.nome}</span>
                     </div>
-                    <span className="text-[#1f2937]" style={{ fontWeight: 500 }}>
+                    <span className="text-[#1f2937] shrink-0" style={{ fontWeight: 500 }}>
                       {formatarMoeda(cat.valor)}
                     </span>
                   </div>
@@ -378,34 +433,36 @@ export function DREPage() {
               </div>
             </>
           ) : (
-            <div className="flex items-center justify-center h-[300px] text-sm text-[#627271]">
+            <div className="flex h-56 sm:h-72 items-center justify-center px-4 text-center text-sm text-[#627271]">
               Nenhuma despesa registrada neste período.
             </div>
           )}
         </div>
 
         {/* Gráfico Comparativo */}
-        <div className="bg-white rounded-xl border border-[#efefef] p-6">
+        <div className="bg-white rounded-xl border border-[#efefef] p-4 sm:p-6">
           <h3 className="text-[#1f2937] mb-4">Visão Geral</h3>
           {dadosComparativo.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={dadosComparativo}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#efefef" />
-                <XAxis dataKey="nome" tick={{ fontSize: 12 }} stroke="#627271" />
-                <YAxis tick={{ fontSize: 12 }} stroke="#627271" />
-                <Tooltip
-                  formatter={(value: number) => formatarMoeda(value)}
-                  contentStyle={{ backgroundColor: "#fff", border: "1px solid #efefef", borderRadius: "8px" }}
-                />
-                <Bar dataKey="valor" radius={[8, 8, 0, 0]}>
-                  {dadosComparativo.map((_entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS_BAR[index]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="h-56 sm:h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={dadosComparativo} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#efefef" />
+                  <XAxis dataKey="nome" tick={{ fontSize: 11, fill: "#627271" }} stroke="#627271" tickLine={false} interval="preserveStartEnd" minTickGap={8} />
+                  <YAxis width={46} tick={{ fontSize: 10, fill: "#627271" }} tickLine={false} axisLine={false} tickFormatter={formatarEixo} />
+                  <Tooltip
+                    formatter={(value: number) => formatarMoeda(value)}
+                    contentStyle={{ backgroundColor: "#fff", border: "1px solid #efefef", borderRadius: "8px" }}
+                  />
+                  <Bar dataKey="valor" radius={[8, 8, 0, 0]}>
+                    {dadosComparativo.map((_entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS_BAR[index]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           ) : (
-            <div className="flex items-center justify-center h-[300px] text-sm text-[#627271]">
+            <div className="flex h-56 sm:h-72 items-center justify-center px-4 text-center text-sm text-[#627271]">
               Sem dados para exibir.
             </div>
           )}

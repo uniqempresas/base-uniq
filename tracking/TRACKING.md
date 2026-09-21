@@ -921,6 +921,51 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 
 ---
 
+## 💰 REVISÃO DO MÓDULO FINANCEIRO — mobile-first (21/09/2026)
+
+**WHY:** o fundador vai mostrar o Financeiro para a usuária da Doceê cadastrar as primeiras informações. Revisar as 5 telas — o que falta, o que sobra, o que é inútil e o que quebra no celular.
+
+**Status:** ✅ CONCLUÍDO — 4 lanes (1 recon @explorer · 2 @designer · 1 @fixer) · `tsc` na linha de base (**5**, zero novos) · `npm run build` ✅.
+
+### 🐞 Bugs reais (verificados em dados de produção, não suposição)
+
+| # | Onde | Diagnóstico | Correção |
+|---|---|---|---|
+| 1 | `me_contas_receber.descricao` | O banco grava `"Venda #848081af-…-991a0ac0fb7c - Henriq Silva"` → **UUID cru na coluna Descrição** (queixa do fundador) | `use-contas-receber` parseia o padrão e deriva `cliente` + `numeroPedido` (`#848081af`); `limparDescricao` é a 2ª barreira na tela. Nenhum UUID é renderizado |
+| 2 | `ContasReceberPage` / `ContasPagarPage` | Os modais exigiam **"Cliente"** e **"Fornecedor"** e **nunca enviavam** esses campos (`me_contas_*` só tem FK, sem coluna de nome) → o dado digitado era **descartado** | find-or-create em `me_cliente` (obrigatório) e `me_fornecedor` (opcional, não bloqueia o salvamento) + grava `cliente_id`/`fornecedor_id` |
+| 3 | `use-contas-pagar` · `use-fluxo-caixa` · `use-financeiro-dashboard` | Join em `me_fornecedor` selecionava **`nome_fantasia`** — coluna **inexistente** (a real é `nome_fornecedor`) → o join sempre falhava e todo fornecedor virava "Fornecedor" | coluna corrigida nos 3 hooks |
+| 4 | venda `32f88d3f` (Doceê) | Venda **`status_venda='cancelado'`** com conta a receber de **R$ 15,00 `pendente`** → venda cancelada contava como dinheiro a receber | `vendaCancelada` derivado do join; a tela marca "Venda cancelada", risca o valor e **exclui dos 3 KPIs** |
+| 5 | `FluxoCaixaPage:36` | Período inicial **`"2025-03"` chumbado** → a tela abria vazia para dados reais | default = mês corrente real |
+| 6 | `App.tsx` | **`<Toaster />` (sonner) nunca foi montado** — o wrapper existia em `components/ui/sonner.tsx` mas ninguém o renderizava → **todo `toast.success`/`toast.error` do app era invisível** (Pedidos, Fornecedores, CRM, Estoque **e** Financeiro) | montado em `App.tsx` (`position="top-center"`). Verificado em runtime: o toast voltou a aparecer |
+| 7 | `FinanceiroDashboardPage` / `DREPage` | Tendências percentuais **falsas** hardcoded (`12.5%`, `−5.2%`) e checkbox "comparar mês anterior" que não controlava nada | removidos |
+| 8 | mocks do Financeiro | Datas fixas de **2025-03/04** → no modo demo tudo aparecia com **~530 dias de atraso** e os KPIs "no prazo"/"pago" zerados | datas relativas a hoje (`diasAPartirDeHoje`) + mix real de status |
+| 9 | `mockData.ts` (mappers) | `categoria` era **hardcoded** e `categoria_id` era lido e ignorado; `recorrente` hardcoded `false` | `categoriaId` mapeado; `recorrente` deixa de ser inventado |
+
+> 🔎 **Como o #6 foi achado:** só em **runtime** (o app compila, sobe, responde 200 e não lança exceção). `build`, `tsc` e o MCP da Vercel **não** pegam essa classe de defeito silencioso.
+
+### 📱 Redesenho mobile-first (o pedido central)
+- **Tabela de 6 colunas fixas → cards no mobile** (`md:hidden` + `divide-y`), tabela só no desktop — replicando o padrão de `/vendas/pedidos`.
+- **KPIs deixaram de ser redundantes:** "Total a receber" e "Previsão de receita" eram a **mesma** informação. Agora: **A receber (no prazo) · Em atraso · Recebido** (idem em Pagar).
+- **Badge de status com cor real** (âmbar = pendente, vermelho = vencido, verde = pago, cinza = cancelado) — antes o ponto era sempre verde.
+- **Bottom-sheets** (`rounded-t-3xl` + handle) no lugar de modais centrados; alvos de toque ≥ 40px.
+- **`window.confirm` → modal de confirmação próprio** ("o que vai acontecer").
+- **"Demonstrar cobrança" era fake** (o texto dizia "simulação") → agora abre o **WhatsApp real** com a mensagem pronta (`wa.me`), e só aparece quando há telefone.
+- **Campo "Categoria" removido** do formulário: não há coluna persistível e `me_categoria_financeira` está **vazia** (0 linhas). Era um campo obrigatório que mentia.
+- Filtros: chips multi-seleção + busca inline (padrão Pedidos).
+
+### 🧪 Verificação
+- `npx tsc --noEmit` → **5 erros** (linha de base, zero novos) · `npm run build` → ✅.
+- **Smoke de runtime (5 telas, viewport 390px):** todas renderizam, **zero erro de console**, cards legíveis; o bottom-sheet de cadastro abre com a data de hoje e o caminho de erro devolve mensagem amigável (*"Empresa não identificada para este usuário…"*) em vez de travar.
+- KPIs no modo demo (antes → depois): Receber *no prazo* R$ 0 → **R$ 446,83** · *atraso* ~530 dias → **3 e 12 dias** · *recebido* R$ 0 → **R$ 680,00**.
+
+### ⏳ Pendências / fora de escopo (registradas, não feitas)
+- **`use-dre.ts` mistura janelas de tempo:** receita por `me_venda.criado_em`, despesa por `data_pagamento`/`data_vencimento`. É decisão de negócio (caixa vs competência) — **não alterado**.
+- **CRUD de categorias financeiras:** hook de leitura `use-categorias-financeiras.ts` criado, mas **ainda não usado por nenhuma tela** (`me_categoria_financeira` vazia). Próximo passo se o fundador quiser categorizar.
+- **Contas manuais sem venda** (`venda_id` NULL) não têm `numeroPedido` — o card mostra o selo "Manual". Correto por ora.
+- **`me_fornecedor` ainda não é lido pela tela de Fornecedores** (`use-suppliers` segue mock/localStorage): a conta a pagar **cria** o fornecedor real, mas a tela de Fornecedores ainda não o lê.
+
+---
+
 ## ➕ PENDÊNCIAS QUE DEPENDEM DO FUNDADOR
 
 | # | Item | Necessário antes de | Observação |

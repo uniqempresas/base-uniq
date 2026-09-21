@@ -2,9 +2,12 @@ import { useState, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import type { StatusMovimentacao } from "../components/financeiro/mockData";
+import { formaPagamentoParaBanco } from "../components/financeiro/mockData";
 
 export interface AtualizarContaReceberParams {
   id: string;
+  /** Nome do cliente — quando vier, find-or-create em me_cliente + grava cliente_id. */
+  cliente?: string;
   cliente_id?: string;
   descricao?: string;
   valor?: number;
@@ -23,6 +26,51 @@ export interface ReceberContaParams {
 export interface AtualizarContaReceberResult {
   success: boolean;
   error?: string;
+}
+
+async function findOrCreateCliente(
+  empresaId: string,
+  nome: string
+): Promise<string | null> {
+  const nomeNormalizado = nome.trim().replace(/\s+/g, " ");
+  if (!nomeNormalizado) return null;
+
+  const { data: existente } = await supabase
+    .from("me_cliente")
+    .select("id")
+    .eq("empresa_id", empresaId)
+    .ilike("nome_cliente", nomeNormalizado)
+    .maybeSingle();
+
+  if (existente) return existente.id;
+
+  const { data: novo, error: insertError } = await supabase
+    .from("me_cliente")
+    .insert({
+      empresa_id: empresaId,
+      nome_cliente: nomeNormalizado,
+      origem: "manual",
+      tags: [],
+      telefone: null,
+    })
+    .select("id")
+    .single();
+
+  if (!insertError && novo) return novo.id;
+
+  if (insertError?.code === "23505") {
+    const { data: recuperado } = await supabase
+      .from("me_cliente")
+      .select("id")
+      .eq("empresa_id", empresaId)
+      .ilike("nome_cliente", nomeNormalizado)
+      .maybeSingle();
+
+    if (recuperado) return recuperado.id;
+  }
+
+  console.error("[useAtualizarContaReceber] find-or-create me_cliente falhou:", insertError);
+  return null;
 }
 
 export function useAtualizarContaReceber() {
@@ -47,11 +95,25 @@ export function useAtualizarContaReceber() {
       try {
         const updateData: Record<string, unknown> = {};
 
-        if (params.cliente_id !== undefined) updateData.cliente_id = params.cliente_id;
+        // Cliente pelo NOME (formulário novo) → find-or-create + grava cliente_id
+        if (params.cliente !== undefined && params.cliente.trim()) {
+          const clienteId = await findOrCreateCliente(empresaId, params.cliente);
+          if (clienteId) {
+            updateData.cliente_id = clienteId;
+          } else {
+            // find-or-create falhou → não gravar cliente_id parcial/silenciosamente
+            console.error("[useAtualizarContaReceber] cliente não resolvido; cliente_id mantido.");
+          }
+        } else if (params.cliente_id !== undefined) {
+          updateData.cliente_id = params.cliente_id;
+        }
+
         if (params.descricao !== undefined) updateData.descricao = params.descricao;
         if (params.valor !== undefined) updateData.valor = params.valor;
         if (params.data_vencimento !== undefined) updateData.data_vencimento = params.data_vencimento;
-        if (params.forma_pagamento !== undefined) updateData.forma_pagamento = params.forma_pagamento;
+        if (params.forma_pagamento !== undefined) {
+          updateData.forma_pagamento = formaPagamentoParaBanco(params.forma_pagamento);
+        }
         if (params.observacoes !== undefined) updateData.observacoes = params.observacoes;
         if (params.status !== undefined) updateData.status = params.status;
 

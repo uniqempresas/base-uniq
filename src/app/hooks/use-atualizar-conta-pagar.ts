@@ -2,9 +2,12 @@ import { useState, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import type { StatusMovimentacao } from "../components/financeiro/mockData";
+import { formaPagamentoParaBanco } from "../components/financeiro/mockData";
 
 export interface AtualizarContaPagarParams {
   id: string;
+  /** Nome do fornecedor — quando vier, find-or-create em me_fornecedor + grava fornecedor_id. */
+  fornecedor?: string;
   fornecedor_id?: string;
   descricao?: string;
   valor?: number;
@@ -23,6 +26,49 @@ export interface PagarContaParams {
 export interface AtualizarContaPagarResult {
   success: boolean;
   error?: string;
+}
+
+async function findOrCreateFornecedor(
+  empresaId: string,
+  nome: string
+): Promise<string | null> {
+  const nomeNormalizado = nome.trim().replace(/\s+/g, " ");
+  if (!nomeNormalizado) return null;
+
+  const { data: existente } = await supabase
+    .from("me_fornecedor")
+    .select("id")
+    .eq("empresa_id", empresaId)
+    .ilike("nome_fornecedor", nomeNormalizado)
+    .maybeSingle();
+
+  if (existente) return existente.id;
+
+  const { data: novo, error: insertError } = await supabase
+    .from("me_fornecedor")
+    .insert({
+      empresa_id: empresaId,
+      nome_fornecedor: nomeNormalizado,
+      ativo: true,
+    })
+    .select("id")
+    .single();
+
+  if (!insertError && novo) return novo.id;
+
+  if (insertError?.code === "23505") {
+    const { data: recuperado } = await supabase
+      .from("me_fornecedor")
+      .select("id")
+      .eq("empresa_id", empresaId)
+      .ilike("nome_fornecedor", nomeNormalizado)
+      .maybeSingle();
+
+    if (recuperado) return recuperado.id;
+  }
+
+  console.error("[useAtualizarContaPagar] find-or-create me_fornecedor falhou:", insertError);
+  return null;
 }
 
 export function useAtualizarContaPagar() {
@@ -47,11 +93,24 @@ export function useAtualizarContaPagar() {
       try {
         const updateData: Record<string, unknown> = {};
 
-        if (params.fornecedor_id !== undefined) updateData.fornecedor_id = params.fornecedor_id;
+        // Fornecedor OPCIONAL pelo NOME → find-or-create; se falhar, NÃO bloqueia.
+        if (params.fornecedor !== undefined && params.fornecedor.trim()) {
+          const fornecedorId = await findOrCreateFornecedor(empresaId, params.fornecedor);
+          if (fornecedorId) {
+            updateData.fornecedor_id = fornecedorId;
+          } else {
+            console.error("[useAtualizarContaPagar] fornecedor não resolvido; fornecedor_id mantido.");
+          }
+        } else if (params.fornecedor_id !== undefined) {
+          updateData.fornecedor_id = params.fornecedor_id;
+        }
+
         if (params.descricao !== undefined) updateData.descricao = params.descricao;
         if (params.valor !== undefined) updateData.valor = params.valor;
         if (params.data_vencimento !== undefined) updateData.data_vencimento = params.data_vencimento;
-        if (params.forma_pagamento !== undefined) updateData.forma_pagamento = params.forma_pagamento;
+        if (params.forma_pagamento !== undefined) {
+          updateData.forma_pagamento = formaPagamentoParaBanco(params.forma_pagamento);
+        }
         if (params.observacoes !== undefined) updateData.observacoes = params.observacoes;
         if (params.status !== undefined) updateData.status = params.status;
 

@@ -156,7 +156,7 @@ export function useFluxoCaixa(periodo: string) {
           ? supabase.from("me_cliente").select("id, nome_cliente").in("id", clienteIds).eq("empresa_id", empresaId)
           : Promise.resolve({ data: null, error: null }),
         fornecedorIds.length > 0
-          ? supabase.from("me_fornecedor").select("id, nome_fantasia").in("id", fornecedorIds).eq("empresa_id", empresaId)
+          ? supabase.from("me_fornecedor").select("id, nome_fornecedor, razao_social").in("id", fornecedorIds).eq("empresa_id", empresaId)
           : Promise.resolve({ data: null, error: null }),
       ]);
 
@@ -169,8 +169,8 @@ export function useFluxoCaixa(periodo: string) {
 
       const fornecedoresMap = new Map<string, string>();
       if (fornecedoresResult.data) {
-        for (const f of fornecedoresResult.data as { id: string; nome_fantasia: string }[]) {
-          fornecedoresMap.set(f.id, f.nome_fantasia);
+        for (const f of fornecedoresResult.data as { id: string; nome_fornecedor: string | null; razao_social: string | null }[]) {
+          fornecedoresMap.set(f.id, f.nome_fornecedor || f.razao_social || "Fornecedor");
         }
       }
 

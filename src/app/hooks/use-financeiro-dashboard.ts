@@ -49,7 +49,7 @@ function formatarMesAtual(): string {
 }
 
 function calcularDashboardMock(): FinanceiroDashboard {
-  const mesAtual = "2025-03";
+  const mesAtual = formatarMesAtual();
 
   const totalEntradas = movimentacoesMock
     .filter((m) => m.tipo === "entrada" && m.data.startsWith(mesAtual))
@@ -267,12 +267,12 @@ export function useFinanceiroDashboard() {
       if (fornecedorIdsProximos.length > 0) {
         const { data: fData } = await supabase
           .from("me_fornecedor")
-          .select("id, nome_fantasia")
+          .select("id, nome_fornecedor, razao_social")
           .in("id", fornecedorIdsProximos)
           .eq("empresa_id", empresaId);
         if (fData) {
-          for (const f of fData as { id: string; nome_fantasia: string }[]) {
-            fornecedoresMap.set(f.id, f.nome_fantasia);
+          for (const f of fData as { id: string; nome_fornecedor: string | null; razao_social: string | null }[]) {
+            fornecedoresMap.set(f.id, f.nome_fornecedor || f.razao_social || "Fornecedor");
           }
         }
       }
