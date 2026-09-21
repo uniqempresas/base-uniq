@@ -518,7 +518,12 @@ Decisão do fundador após validar na Vercel: **pedido que chega do n8n/WhatsApp
 
 **WHY:** a vitrine e o catálogo da Doceê vendem sem foto (placeholder de caixa); a esposa cadastra produtos sem anexar imagem. A foto do produto deve viver no Supabase Storage (decisão do fundador).
 
-**Status:** ⚡ WIRE **aprovado pelo fundador** (16/09/2026) — implementação delegada ao @fixer (task `unk-1` / `ses_f55fc7...`); ao terminar: reconciliação + build + **commit e push** para a Vercel validar no celular.
+**Status:** ✅ **CONCLUÍDO** — verificado por inspeção de código em 21/09/2026 (o TRACKING estava desatualizado, registrava "em andamento").
+- `src/app/hooks/use-upload-produto.ts:45` — upload para o bucket `uniq_me_produtos` (valida `image/*` e ≤ 5 MB) + `getPublicUrl`
+- `ProdutoFormModal.tsx:186` — seção "Foto do produto" (preview / enviar / remover); grava `fotoUrl` no editar (`:99`) e no criar (`:121`)
+- `ProdutosPage.tsx:113` (card do grid) e `ProdutoDetalhePage.tsx:402` (header) renderizam a foto, com fallback
+- `use-criar-produto.ts:60` e `use-atualizar-produto.ts:59` persistem `foto_url`
+- **Fluxo completo até a vitrine:** `use-loja-produtos.ts:37` e `use-loja-produto.ts:70` mapeiam `fotoUrl`; `LojaPage.tsx:247`, `ProdutoLojaPage.tsx:124` e `LojaSecaoHorizontal.tsx:35` exibem; `use-carrinho-loja.ts:85` leva a foto para o carrinho
 
 **Documentos:**
 - PRD: `tracking/plans/PRD-ImagemProduto.md` (D1–D5: bucket `uniq_me_produtos` · 1 foto v1 · upload no salvar · path `{empresaId}/{uuid}.{ext}` · máx 5 MB)
@@ -850,6 +855,45 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 
 ---
 
+## 🤖 ATENDENTE DOCEÊ — TRAVA DE ESCOPO (21/09/2026)
+
+**WHY:** a MEL respondia **qualquer assunto**. Numa conversa de teste, o cliente perguntou sobre **cursos** e a atendente seguiu o assunto em vez de trazer de volta ao cardápio. Risco: atendimento saindo do âmbito da Doceê, tempo perdido e impressão de amadorismo em conversa com cliente real.
+
+**Status:** ✅ CONCLUÍDO — aplicado no workflow **ativo** `atendente_Docee` (id `3IVutqEXVq8MtXkZ`).
+
+**Diagnóstico:** o `systemMessage` do nó **AI Agent** define persona, estilo, formatação de WhatsApp, ordem das perguntas do pedido e tratamento de erro — mas **não continha nenhuma regra de escopo**. Sem instrução explícita, o LLM (OpenRouter, `temperature 0.4`) com persona calorosa e `Postgres Chat Memory` simplesmente acompanha o assunto que o cliente abre. **Não era falha de fluxo nem de conexão: era lacuna de instrução.**
+
+**Correção — seção `# Escopo — REGRA INVIOLÁVEL` inserida logo após o `# Role`** (posição de maior saliência do prompt), +798 caracteres:
+
+- Escopo positivo declarado (doces, cardápio, preços, pedidos, pagamento, retirada/entrega, status do pedido)
+- Proibição explícita de responder/continuar assunto fora do escopo, com gatilhos nomeados (cursos, política, notícias, outras empresas, receitas, conselhos, assuntos pessoais, tema aleatório)
+- Redirecionamento em **UMA linha** + retorno ao cardápio
+- Insistência → handoff humano (*"Vou transferir você para nossa equipe! 🥰"*)
+- Nunca revelar que é IA nem explicar as regras
+
+**Verificação:**
+
+| Check | Resultado |
+|---|---|
+| Diff estrutural vs backup | **65 nós idênticos · conexões idênticas** → zero dano colateral |
+| `n8n_validate_workflow` | `valid: true` · **0 erros · 0 warnings** · 68 conexões válidas · 95 expressões |
+| Workflow | segue **ativo**, 65 nós |
+| Encoding do texto gravado | conferido **por code point** (Á, ê, á, ç, ó, em dash, 2 emojis) — o `�` no console era só encoding do terminal |
+
+**Rollback:** backup completo pré-alteração em `%TEMP%\opencode\atendente_Docee_backup_20260921.json` (224 KB). O histórico do n8n-mcp estava **vazio** antes; este save criou o **primeiro snapshot**.
+
+**🐞 Bug de ferramenta (n8n-mcp):** `patchNodeField` **falha no apply** com `Cannot read properties of undefined (reading 'map')` — com o **mesmo payload** que passa no `validateOnly`. Neste workflow, usar **`updateNode` + `__patch_find_replace`**.
+
+**⚠️ Limite conhecido:** trava por prompt **reduz** vazamento, não elimina. Escalada, se necessário: nó **classificador** antes do AI Agent, cortando assunto fora do escopo antes de chegar ao LLM. Não feito agora — adiciona nós e latência, e só se justifica se a trava de prompt se mostrar insuficiente.
+
+**⏳ Pendente de validação real (fundador):** testar no WhatsApp (a) pergunta fora do escopo → deve redirecionar sem responder; (b) **pedido normal completo** → o fluxo cardápio → pagamento → observação → retirada não pode ter quebrado. O prompt novo **já vale** para as próximas mensagens (workflow ativo).
+
+**🔧 Pré-requisito desta tarefa — MCP do n8n estava fora do ar para os agentes:** o config usava `npx -y n8n-mcp` **sem versão fixa**, o que obrigava consulta ao registro npm a cada arranque e estourava o **timeout padrão de MCP (5s)** — daí o sintoma *"abre uma vez e não sobe; depois de fechar duas vezes funciona"* (cache esquentando). Corrigido com `n8n-mcp@2.87.0` **instalado globalmente** + `command: ["n8n-mcp"]` + `timeout: 30000` em `~/.config/opencode/opencode.jsonc`. Verificado com `opencode mcp list` (`✓ n8n-mcp connected`) e `n8n_health_check` (`status: ok` · n8n `1.106.3`).
+
+**Reconciliação de pendência do TRACKING:** o item *"pendente: ativar `docee_criarpedido`"* (T2.2) **não é pendência real** — `docee_criarpedido` é **sub-workflow**, chamado pelo nó de tool dentro do `atendente_Docee`. Sub-workflow **não precisa estar ativo**; quem precisa é o pai. Verificado no n8n: `atendente_Docee` **ativo** (65 nós), `docee_criarpedido` inativo (**esperado**).
+
+---
+
 ### 🔎 Reconciliação das pendências A–I (17/09/2026)
 
 | # | Pendência | Resultado |
@@ -869,7 +913,7 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 - ✅ **RESOLVIDO (18/09/2026) — o gate de tipos estava QUEBRADO.** TypeScript **6.0.2** + `"baseUrl"` no `tsconfig.json` = erro `TS5101`, que **abortava a checagem antes de olhar os arquivos**: `npx tsc --noEmit` reportava **1 erro** em vez dos reais. **Foi o que escondeu os bugs F1 e F2.** **Correção (opção B, escolhida pelo fundador):** removidos `baseUrl` **e** o bloco `paths` — um grep provou que **nenhum arquivo importa via `@/`**, então era configuração morta. Agora `npx tsc --noEmit` roda **direto** e reporta os **8 erros reais**. Não alterou o build (o Vite usa o próprio `resolve.alias`).
 - ✅ **RESOLVIDO (18/09/2026) — `tsconfig.json` não estava no repositório.** O arquivo existia só localmente (untracked, e **não** estava no `.gitignore`) — um clone limpo não tinha como rodar a checagem de tipos. **Agora está versionado.**
   - **Lição para as próximas lanes:** usar `npx tsc --noEmit` **direto** (sem config de contorno). A linha de base agora é **8 erros** — nenhum novo pode aparecer.
-- 🔴 **2 migrations aplicadas em produção estão untracked:** `supabase/migrations/20260917220000_conversa_multi_tenant_por_empresa.sql` (grão multi-tenant das conversas — **já está em produção**) e `20260916212702_limpa_dados_teste.sql`.
+- ✅ **RESOLVIDO (21/09/2026) — as migrations estão versionadas.** Verificado no git: `supabase/migrations/` tem **7 arquivos no disco e 7 versionados**, zero faltando (`20260916212702_limpa_dados_teste.sql` e `20260917220000_conversa_multi_tenant_por_empresa.sql` **inclusive**). O `git status` está limpo. Nenhuma regra de `.gitignore` exclui migrations.
 - 🟡 **RPC `registrar_venda`:** resolve forma de pagamento com `WHERE nome ILIKE ... LIMIT 1` **sem filtrar empresa** e **sem `ORDER BY`** — e agora existem linhas globais (1–5) **e** do tenant `6257ebef` (20–22) com os mesmos nomes. Além disso o fallback é incoerente: o texto cai para `'PIX'` mas o id cai para `1` (**Dinheiro**).
 - ✅ **RESOLVIDO (18/09/2026) — n8n `Cria_Cliente` não gravava `origem`:** o nó inseria o cliente com `empresa_id`, `nome_cliente` e `telefone`, **sem `origem`**. Como `use-clientes.ts:68` / `use-cliente.ts:68` fazem `db.origem === "whatsapp" ? "whatsapp" : "manual"`, **todo cliente vindo do WhatsApp era exibido como "Manual"** no CRM (não só "sem badge"). Corrigido no workflow `atendente_Docee` (id `3IVutqEXVq8MtXkZ`) adicionando `origem = whatsapp` ao nó. Verificado: nó com 4 campos, workflow válido (65 nós · 68 conexões · 95 expressões · **0 erros, 0 warnings**). É uma dependência **externa ao repo** (workflow do fundador).
 
@@ -883,7 +927,7 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 | P2 | **GitHub + Vercel** confirmados (preview acessível) | Semana 1 | É como o fundador valida pelo celular |
 | P3 | **LGPD** (política, consentimento, retenção) | Semana 4 (4.5) | CEO + Fundador |
 | P4 | `DESIGN.md` restante (Voice & Tone, Imagery, Posture, seções duplicadas) | Semana 4 | Antes do funil |
-| P5 | **Revisão de segurança RLS** — 54 tabelas do Supabase oficial estão com Row Level Security desabilitado; definir políticas por empresa/usuário antes de dados reais de clientes | Semana 5 / pós-cadeia de demonstração | Levantado na correção do Supabase (08/09/2026); não bloqueia S1–S4, mas é crítico antes de produção com leads reais |
+| P5 | **Revisão de segurança RLS** — **medido em 21/09/2026: 68 de 88 tabelas** do schema `public` com RLS **desligado**, e **todas as 88** com grant para `anon` (`arwdDxtm` = SELECT/INSERT/UPDATE/DELETE/TRUNCATE). Inclui `me_cliente` (PII: nome/telefone/endereço) e `me_usuario` (e-mails). *(O número anterior de 54 estava subestimado.)* | **Sprint de Segurança dedicada** | ✅ **Decisão do fundador (21/09/2026): adiar.** O produto roda com **empresas internas**, sem cliente externo. Trabalho **mapeado e acionável** em **`tracking/BACKLOG_SEGURANCA.md`**. **Gatilho de urgência: o primeiro cliente externo real.** Em paralelo, a escrita de vendas recebeu correção curta (`PRD`/`SPEC-Seguranca-EscritaVendas.md`) — que é correção e preparação, **não** defesa enquanto o P5 estiver aberto |
 
 ---
 
@@ -926,4 +970,4 @@ Decision #0 (Supabase oficial) · Diagnóstico real · Plano de 5 semanas aprova
 
 ---
 
-*Kit de construção mantido pelo CEO. Atualizado em 12/09/2026. Fontes: `CONTEXTO_PROJETO.md`, `AGENTS.md`, `DESIGN.md`, schema real do Supabase.*
+*Kit de construção mantido pelo CEO. Atualizado em 21/09/2026. Fontes: `CONTEXTO_PROJETO.md`, `AGENTS.md`, `DESIGN.md`, schema real do Supabase.*
