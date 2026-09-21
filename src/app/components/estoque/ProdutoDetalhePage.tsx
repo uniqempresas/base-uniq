@@ -28,6 +28,7 @@ import {
   ToggleLeft,
   ToggleRight,
   RefreshCw,
+  type LucideIcon,
 } from "lucide-react";
 import {
   MOVIMENTACOES,
@@ -331,7 +332,14 @@ export function ProdutoDetalhePage() {
   const estoqueConfig = getEstoqueStatusConfig(produto.estoqueStatus);
   const catColors = corCategoria(produto.categoriaCor, produto.categoria);
 
-  const TABS = [
+  type TabItem = {
+    id: string;
+    label: string;
+    icon: LucideIcon;
+    badge?: number;
+  };
+
+  const TABS: TabItem[] = [
     { id: "geral", label: "Geral", icon: Package },
     { id: "estoque", label: "Estoque", icon: BarChart2 },
     ...(produto.possuiVariacoes ? [{ id: "variacoes", label: "Variações", icon: Layers }] : []),
@@ -487,7 +495,7 @@ export function ProdutoDetalhePage() {
                 style={{ color: isActive ? "white" : "#627271", borderBottomColor: isActive ? "#86cb92" : "transparent", background: isActive ? "rgba(255,255,255,0.05)" : "transparent", fontWeight: isActive ? 600 : 400 }}>
                 <Icon size={14} />
                 {tab.label}
-                {"badge" in tab && tab.badge > 0 && (
+                {tab.badge != null && tab.badge > 0 && (
                   <span className="w-5 h-5 rounded-full text-[10px] flex items-center justify-center"
                     style={{ background: isActive ? "#86cb92" : "rgba(255,255,255,0.1)", color: isActive ? "#1f2937" : "white", fontWeight: 700 }}>
                     {tab.badge}

@@ -840,18 +840,20 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 
 > ⚠️ **Anomalia observada (não é bug do código):** neste push o **webhook da Vercel demorou ~vários minutos** para disparar o deployment. No intervalo, a produção continuou servindo o build anterior (Wave 2) e o `state` da API ficou defasado (`INITIALIZING` mesmo com o deploy já servindo). **Lição:** após um push, **não confiar só no estado da API** — confirmar por **conteúdo servido** (hash do entry + marcador do chunk) e, se o deployment não aparecer, verificar em `vercel.com/.../base-uniq/deployments` antes de concluir que falhou.
 
-**Os 8 erros restantes da linha de base — TRIADOS em 18/09 (nenhum é bug ativo):**
+**Os erros da linha de base — TRIADOS em 18/09 (nenhum é bug ativo):**
+
+> ✅ **Atualização 21/09/2026 — 3 dos 8 foram corrigidos.** **A linha de base agora é 5 erros.** Os 5 restantes: `agenda/CompromissosPage:227`, `marketplace/CheckoutPage:171` e os 3 mocks órfãos de `lib/mocks/`.
 
 | Arquivo | Veredito após inspeção |
 |---|---|
 | `marketplace/CheckoutPage:171` | ✅ **Não é bug** — o `etapa !== 'sucesso'` é **código morto**: já existe um `return` antecipado que trata o sucesso, então o TS estreita o tipo e a condição fica sempre verdadeira. A tela de sucesso funciona |
-| `employees/ModuleCheckbox:13` | 🟡 **Cosmético** — `moduleConfig` não tem a chave `servicos`, e o render cai no fallback `config?.label \|\| module` → exibe **`servicos`** (chave técnica) em vez de **"Serviços"**. Correção: 1 linha |
+| `employees/ModuleCheckbox:13` | ✅ **RESOLVIDO (21/09/2026)** — adicionada a entrada `servicos: { label: 'Serviços', icon: Wrench }`. Era o nit cosmético: o fallback exibia a chave técnica `servicos` |
 | `agenda/CompromissosPage:227` | 🟡 **Latente** — `kpi.value > 0` com `value: string \| number`. O **único** KPI com `warn` (`Pendentes`) tem valor **numérico**, então funciona hoje; quebraria se alguém pusesse `warn` num KPI formatado em texto |
-| `estoque/ProdutoDetalhePage:490` | 🟡 `tab.badge` possivelmente `undefined` — é o **B7** do backlog (shapes inconsistentes no array `TABS`) |
-| `estoque/MovimentacoesPage:31` | 🟡 `"Doação"` não é membro de `MovMotivo` — tipo desatualizado em relação ao que a tela usa |
+| `estoque/ProdutoDetalhePage:490` | ✅ **RESOLVIDO (21/09/2026)** — tipo `TabItem` com `badge?: number` + guarda `tab.badge != null`. Era o **B7** do backlog. Comportamento preservado (a aba `movimentacoes` segue mostrando badge só quando `> 0`) |
+| `estoque/MovimentacoesPage:31` | ✅ **RESOLVIDO (21/09/2026)** — `"Doação"` adicionado ao union `MovMotivo` (o tipo estava desatualizado em relação à tela) |
 | `lib/mocks/{chatbot,employees,marketplace}.ts` | 🟡 **3 mocks órfãos** importando `../types/*` que não existem — prováveis arquivos mortos (o build não quebra, então não são alcançados) |
 
-> **Conclusão do triagem:** na linha de base **antiga**, 2 dos 13 erros eram **bugs reais** (F1/F2). Agora que o gate funciona, os 8 são **ruído de tipo de verdade** — com **1 nit cosmético** (`servicos` → "Serviços") e **1 risco latente** documentado. **Ganho real:** a partir de agora, qualquer erro NOVO é regressão de verdade.
+> **Conclusão do triagem:** na linha de base **antiga**, 2 dos 13 erros eram **bugs reais** (F1/F2). Os demais são **ruído de tipo de verdade** — resta **1 risco latente** documentado (`CompromissosPage`) e 3 mocks órfãos. **Ganho real:** a partir de agora, qualquer erro NOVO é regressão de verdade. **Estado em 21/09/2026: 5 erros** (eram 8; 3 corrigidos).
 
 ---
 
@@ -912,7 +914,7 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 
 - ✅ **RESOLVIDO (18/09/2026) — o gate de tipos estava QUEBRADO.** TypeScript **6.0.2** + `"baseUrl"` no `tsconfig.json` = erro `TS5101`, que **abortava a checagem antes de olhar os arquivos**: `npx tsc --noEmit` reportava **1 erro** em vez dos reais. **Foi o que escondeu os bugs F1 e F2.** **Correção (opção B, escolhida pelo fundador):** removidos `baseUrl` **e** o bloco `paths` — um grep provou que **nenhum arquivo importa via `@/`**, então era configuração morta. Agora `npx tsc --noEmit` roda **direto** e reporta os **8 erros reais**. Não alterou o build (o Vite usa o próprio `resolve.alias`).
 - ✅ **RESOLVIDO (18/09/2026) — `tsconfig.json` não estava no repositório.** O arquivo existia só localmente (untracked, e **não** estava no `.gitignore`) — um clone limpo não tinha como rodar a checagem de tipos. **Agora está versionado.**
-  - **Lição para as próximas lanes:** usar `npx tsc --noEmit` **direto** (sem config de contorno). A linha de base agora é **8 erros** — nenhum novo pode aparecer.
+  - **Lição para as próximas lanes:** usar `npx tsc --noEmit` **direto** (sem config de contorno). A linha de base agora é **5 erros** (eram 8; 3 corrigidos em 21/09/2026) — nenhum novo pode aparecer.
 - ✅ **RESOLVIDO (21/09/2026) — as migrations estão versionadas.** Verificado no git: `supabase/migrations/` tem **7 arquivos no disco e 7 versionados**, zero faltando (`20260916212702_limpa_dados_teste.sql` e `20260917220000_conversa_multi_tenant_por_empresa.sql` **inclusive**). O `git status` está limpo. Nenhuma regra de `.gitignore` exclui migrations.
 - 🟡 **RPC `registrar_venda`:** resolve forma de pagamento com `WHERE nome ILIKE ... LIMIT 1` **sem filtrar empresa** e **sem `ORDER BY`** — e agora existem linhas globais (1–5) **e** do tenant `6257ebef` (20–22) com os mesmos nomes. Além disso o fallback é incoerente: o texto cai para `'PIX'` mas o id cai para `1` (**Dinheiro**).
 - ✅ **RESOLVIDO (18/09/2026) — n8n `Cria_Cliente` não gravava `origem`:** o nó inseria o cliente com `empresa_id`, `nome_cliente` e `telefone`, **sem `origem`**. Como `use-clientes.ts:68` / `use-cliente.ts:68` fazem `db.origem === "whatsapp" ? "whatsapp" : "manual"`, **todo cliente vindo do WhatsApp era exibido como "Manual"** no CRM (não só "sem badge"). Corrigido no workflow `atendente_Docee` (id `3IVutqEXVq8MtXkZ`) adicionando `origem = whatsapp` ao nó. Verificado: nó com 4 campos, workflow válido (65 nós · 68 conexões · 95 expressões · **0 erros, 0 warnings**). É uma dependência **externa ao repo** (workflow do fundador).

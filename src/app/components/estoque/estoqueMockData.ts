@@ -9,6 +9,7 @@ export type MovMotivo =
   | "Venda"
   | "Inventário"
   | "Quebra"
+  | "Doação"
   | "Outro";
 
 export interface Variacao {

@@ -443,7 +443,7 @@ WHERE proname IN ('registrar_venda','fn_loja_criar_pedido');
 
 ### 9.3 Regressão
 
-- `npx tsc --noEmit` — a linha de base é **8 erros**; nenhum novo
+- `npx tsc --noEmit` — a linha de base é **5 erros** (eram 8; 3 corrigidos em 21/09/2026); nenhum novo
 - `npm run build` ✅
 - Fluxo de loja em produção após o deploy
 

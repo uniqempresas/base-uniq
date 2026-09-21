@@ -1,6 +1,6 @@
 import { Checkbox } from '../ui/checkbox';
 import { ModuleType } from '../../types/employees';
-import { Users, Package, ShoppingCart, Store, Calendar, Wallet, Settings } from 'lucide-react';
+import { Users, Package, ShoppingCart, Store, Calendar, Wallet, Settings, Wrench } from 'lucide-react';
 import { cn } from '../ui/utils';
 
 interface ModuleCheckboxProps {
@@ -18,6 +18,7 @@ const moduleConfig: Record<ModuleType, { label: string; icon: React.ComponentTyp
   appointments: { label: 'Agenda', icon: Calendar },
   finance: { label: 'Financeiro', icon: Wallet },
   settings: { label: 'Configurações', icon: Settings },
+  servicos: { label: 'Serviços', icon: Wrench },
 };
 
 export function ModuleCheckbox({ module, checked, onChange, disabled }: ModuleCheckboxProps) {
