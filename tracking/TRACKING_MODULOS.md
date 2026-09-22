@@ -489,6 +489,37 @@ Mas os dois lados **divergem**: o app diz **R$ 79**; o banco (`unq_modulos_siste
 
 É o que resolve o **D6** (enxuto por tenant em vez de global) e o **A2** (módulo desativado entra pela URL).
 
+### 10.6 📌 Consequência para OUTRAS empresas (documentado a pedido do fundador, 22/09/2026)
+
+O fundador notou, validando no celular, que o submenu **Minha Empresa ▸ Cadastros** deixou de mostrar **Serviços, Fornecedores e Colaboradores**. **Isso é efeito direto do filtro F7**, não um bug:
+
+| Item de Cadastros | `moduloCodigo` | Status no catálogo | Aparece? |
+|---|---|---|---|
+| Produtos | `estoque` | `trial` | ✅ |
+| **Serviços** | `servicos` | `nao_adquirido` | ❌ |
+| Clientes | `crm` | `ativo` | ✅ |
+| **Fornecedores** | `fornecedores` | `nao_adquirido` | ❌ |
+| **Colaboradores** | `colaboradores` | `nao_adquirido` | ❌ |
+
+> **Decisão do fundador (22/09/2026):** *"não precisa adicionar de novo, mas documenta isso pois para outras empresas vamos precisar; para o teste da Doceê está tranquilo."*
+
+**O que isso significa na prática:**
+
+1. **Para a Doceê, está correto** — ela não usa Serviços, Fornecedores nem Colaboradores. O menu enxuto é o objetivo.
+2. **Para outras empresas (Gráfica HQ, próximos co-founders), vai faltar** — quem vende serviço precisa de Serviços; quem compra de terceiros precisa de Fornecedores; quem tem equipe precisa de Colaboradores.
+3. **Nada foi removido do código.** As rotas `/servicos`, `/fornecedores` e `/configuracoes/colaboradores` **seguem vivas e acessíveis por URL**. As telas existem inteiras. Só o **link na subnav** está filtrado.
+4. **O que destrava isso é a Opção B** (D6): quando o status do módulo vier **por empresa** (`unq_empresa_modulos`, já populada) em vez do catálogo global hardcoded, cada tenant verá o seu conjunto. A Gráfica HQ já tem módulos ativados no banco — ela simplesmente ainda não é lida.
+
+**Como restaurar para um tenant específico hoje (se urgente):** marcar o item correspondente da seção `minha-empresa` **sem** `moduloCodigo` (`AppLayout.tsx`) — item sem marcação nunca é filtrado. É uma linha por item, mas **volta a vazar para todos os tenants** — por isso não é a solução definitiva.
+
+> ⚠️ **Não "consertar" isso antes da Opção B.** O filtro é o que faz o menu da Doceê ser enxuto. Reverter para agradar outro tenant desfaz o F7.
+
+### 10.7 O que sobrou da fila
+
+**Opção B** — ligar o app em `unq_empresa_modulos` + **guarda de rota** + unificação dos **3 vocabulários** de módulo (app 17 · banco 11 · `ModuleCheckbox` 7) + **seed da Doceê**.
+
+É o que resolve o **D6** (enxuto por tenant em vez de global), o **A2** (módulo desativado entra pela URL) e o **§10.6** (módulos que outras empresas precisam).
+
 ---
 
 *Análise produzida em 21/09/2026. Decisões do fundador em 22/09/2026 (§7). **Entregas da Loja/Vitrine e do Menu Enxuto em 22/09/2026 (§10)** — código alterado e deployado, ao contrário do que dizia a nota anterior. Achados A11 e A12 acrescentados em 22/09/2026.*
