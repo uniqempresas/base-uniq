@@ -1092,8 +1092,40 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 | ~~B6~~ | ~~**Completar SDD da T2.9**~~ | ✅ Resolvido (11/09/2026) — PRD e WIRE criados em `tracking/plans/` e `tracking/wireframe/`. | Fechado |
 | B7 | **Erro TS em `ProdutoDetalhePage.tsx:456` — `tab.badge` possivelmente `undefined`** | Arquivo da lane "Editar Produto" (trabalho paralelo, 12/09/2026). `TABS` (linhas 322–327) tem shapes inconsistentes: só a aba `movimentacoes` tem `badge` (as demais não); a guarda `{"badge" in tab && tab.badge > 0}` (linha 456) não estreita o tipo → LSP: `'tab.badge' is possibly 'undefined'`. **Fix sugerido:** tipar o elemento de `TABS` com `badge?: number` explícito e usar `tab.badge != null && tab.badge > 0` (ou `typeof tab.badge === "number"`). **Dono:** lane Editar Produto (não tocar por esta lane). | Média |
 | B8 | **~~"Contabilizar venda" envia `p_itens` sem `produto_id`/`servico_id`~~** | ✅ Resolvido (15/09/2026). Parte 1: `use-pedido.ts` busca `me_itens_venda` (+ `foto_url` via `me_produto`) e popula `itens` no detalhe — validação: venda `0c901c4a`, "Surpresa de Uva" ×2. Parte 2: `ItemPedido` ganhou `produtoId`/`tipoItem`; `ItemVenda` e `handleContabilizar` mandam payload canônico da RPC (`{tipo, id_referencia, nome, quantidade, preco_unitario}`). Commit `de7c86b` (parte 1). | Fechado |
-| B9 | **Categorias em Contas a Receber / Pagar** | O formulário de conta **não tem categoria** — por isso não dá para distinguir *compra de estoque/ingrediente* de *despesa operacional*, nem separar tributos por categoria. Isso **bloqueia o ajuste do DRE** que evita a **dupla contagem** entre o **CMV** (custo da mercadoria vendida, derivado da venda) e a **conta a pagar da compra** — ex.: comprar R$ 98 de chocolate lançado como conta a pagar **e** o CMV das trufas feitas com ele contariam 2×. Exige: campo de categoria no form (lendo `me_categoria_financeira`, hoje **vazia**) + classificar a conta + o DRE excluir as compras de estoque das Despesas Operacionais. ⚠️ **Enquanto isso, a linha de Impostos usa uma heurística por descrição** (`ehDespesaTributaria` em `use-dre.ts`), que deve ser substituída por `categoria_id` quando este item entrar. | Média |
+| ~~B9~~ | ~~**Categorias em Contas a Receber / Pagar**~~ | ✅ **FECHADO (22/09/2026)** — commit `dfdee00`. Categorias financeiras com 3 tipos, `categoria_id` gravado nos 4 hooks de escrita, select nos 2 formulários e o **DRE deixou de duplicar** (custo de mercadoria vem da compra real). Detalhe completo na seção **B9** abaixo. | **Fechado** |
 | B10 | **Sistema de módulos — unificar app ↔ banco** | 📄 Diagnóstico completo em **`tracking/TRACKING_MODULOS.md`**. Hoje o app **ignora** as tabelas de módulo (`unq_modulos_sistema` / `unq_empresa_modulos`) e usa `localStorage` + catálogo hardcoded (**17 códigos**), enquanto o banco tem **11 códigos diferentes**; `me_modulo_ativo` e `me_modulo_cargo` estão **vazias**; **não há guarda de rota** (módulo desativado entra pela URL); subnav não filtrada; `loja_virtual` e `marketplace` apontam para a mesma rota. Inclui: menu mínimo (Minha Empresa · Financeiro · Chatbot), alinhar `/meus-modulos` à decisão *"módulos ativados pela UNIQ"* e o módulo **Cardápio** (hoje produtos/categorias/banners moram dentro de "Estoque"). **✅ DECIDIDO em 22/09/2026 — ver `TRACKING_MODULOS.md` §7.** Fila: **Cardápio (C) → menu enxuto (A) → banco (B)**. O Cardápio é o 1º porque `estoque_atual` controla o "Esgotado" da vitrine: desligar Estoque antes dele faz a vitrine vender produto inexistente. | **Alta** |
+
+---
+
+## 💰 B9 — FECHADO: Categorias em Contas + DRE sem dupla contagem (22/09/2026)
+
+**Commit `dfdee00`** · deploy Vercel `READY` · verificado nos **chunks de produção**.
+
+**Docs:** `tracking/plans/PRD-CategoriasFinanceiras.md` · `tracking/specs/SPEC-CategoriasFinanceiras.md`
+**WIRE:** dispensado pelo fundador, com referência ao padrão do cadastro de produto (mesmo precedente do `PRD-CategoriasProduto`).
+
+**O problema que fechou:** o DRE somava o mesmo custo **duas vezes** — o **CMV derivado da venda** MAIS a **conta a pagar da compra**. Produto vendido por R$ 8 com insumo de R$ 4 contava **R$ 8** de custo.
+
+**O que foi entregue:**
+- **CRUD de categoria financeira** em `/financeiro/configuracoes`, com **3 tipos**: `operacional` · `mercadoria` · `receita`
+- Os **4 hooks** de escrita passaram a gravar `categoria_id` — antes **nenhum** gravava
+- Os **2 formulários** ganharam o select filtrado por tipo + botão "Configurar" no vazio
+- **DRE:** o custo de mercadoria vem da **compra real**; o CMV derivado **saiu do resultado**
+
+**Decisões do fundador:** o custo vem da compra real (não do CMV) · o tipo fica na **categoria**, não na conta · categorias nas contas a pagar **e** a receber · botão "Configurar" como referência · WIRE dispensado.
+
+**Decisões do agente (registradas no PRD):** terceiro tipo `receita` · conta sem categoria continua entrando como operacional (nada desaparece) · a heurística de tributos **fica** · `.eq("ativo", true)` na leitura do CRUD.
+
+> ⚠️ **Duas correções de erro de especificação — ambas pegas na execução, não depois:**
+>
+> 1. O **SPEC** escrevia `lucroLiquido = receitaLiquida − comprasMercadoria − impostos − despesasOperacionais`, mas `receitaLiquida` **já é** `receitaBruta − impostos` (`use-dre.ts:282`) — os impostos seriam contados **duas vezes**, exatamente o defeito que o B9 existe para eliminar. O agente **não seguiu o SPEC literalmente** e implementou o correto. PRD corrigido com os diagramas na ordem real.
+> 2. O **contrato** (`categoriaId?: string` + "só incluir quando `!== undefined`") **não permitia remover** uma categoria ao editar — o `undefined` significa "não mexe". Corrigido para `string | null` (`null` limpa) + `data.has("categoria")` nas páginas, para distinguir "campo ausente do form" de "campo vazio".
+
+**Pendências registradas:**
+- ⚠️ Migration `20260922180000_me_categoria_financeira_tipo.sql` **criada mas NÃO aplicada** — o **MCP do Supabase caiu** nesta sessão. Não é bloqueio: a tabela já existe no banco com as colunas necessárias.
+- ⚠️ **Roundtrip no banco não testado** (mesma causa) — a escrita foi validada por tipos e inspeção de código, não contra o banco real.
+- ⚠️ **Divergência esperada:** o **Fluxo de Caixa** e o **"Lucro do mês"** do dashboard **continuam** contando a compra — são **caixa**, não competência. **Não é bug**; o DRE é por competência.
+- 📌 **Novo item de backlog:** trocar a **heurística de tributos** por categoria (decisão D4 — não feito aqui para não zerar a linha de Impostos em contas antigas sem categoria).
 
 ---
 
