@@ -1,10 +1,10 @@
 # 🧩 TRACKING — Módulos da Base UNIQ (análise + decisões)
 
-> **Para o agente que pegar isto sem contexto:** leia este arquivo inteiro antes de tocar em qualquer coisa relacionada a módulos, catálogo de módulos, menu lateral (rail), `/meus-modulos`, planos ou permissões por colaborador. Ele descreve **como o sistema de módulos funciona hoje**, **por que ele não é o que parece**, e **quais decisões estão pendentes**.
+> **Para o agente que pegar isto sem contexto:** leia este arquivo inteiro antes de tocar em qualquer coisa relacionada a módulos, catálogo de módulos, menu lateral (rail), `/meus-modulos`, planos ou permissões por colaborador. Ele descreve **como o sistema de módulos funciona hoje**, **por que ele não é o que parece**, e **quais decisões já foram tomadas** (§7) — a fila de execução está no §8.
 >
 > **Documento pai:** `tracking/TRACKING.md` · **Contexto de negócio:** `tracking/CONTEXTO_PROJETO.md` (§ "Arquitetura de Módulos: default + vertical" e § "Módulos (ativados pela UNIQ, não escolhidos pelo cliente)")
 >
-> **Status:** 📖 ANÁLISE CONCLUÍDA (21/09/2026) — **nada foi alterado**. Aguarda decisão do fundador.
+> **Status:** ✅ **DECISÕES TOMADAS (22/09/2026)** — o fundador respondeu as 5 perguntas do §7. **Nenhum código foi alterado ainda.** Próximo passo: PRD → SPEC → WIRE (§8).
 > **Origem:** levantamento feito a pedido do fundador antes do teste final com a usuária da Doceê, que quer começar com o **mínimo de módulos** (Minha Empresa · Financeiro · Chatbot).
 
 ---
@@ -194,6 +194,8 @@ Telas de configuração (`src/app/components/configuracoes/`):
 | A8 | **Doceê com 0 módulos no banco** | 0 linhas nas 3 tabelas de ativação | Se algum dia ligarmos o banco, a Doceê veria **nada** — precisa de seed |
 | A9 | **Produtos/categorias do cardápio moram no módulo "Estoque"** | `/estoque/produtos`, `/estoque/configuracoes` | Desligar Estoque **tira da Doceê a capacidade de mexer no cardápio** (a vitrine pública `/loja/docee` continua no ar) |
 | A10 | **`ativarModulo` nunca é chamado** | Existe no contexto, grep = 0 usos | Código morto |
+| A11 | **"Chatbot" e "MEL" são canais diferentes** | `/chatbot` (`ChatbotPage.tsx`) = **inbox estilo WhatsApp com dados reais** (`useConversasReais` → `crm_chat_conversas`/`crm_chat_mensagens`) — é onde o parceiro lê as conversas dos **clientes dele** (passo 2 da cadeia de demonstração). `/mel` (`MelDashboardPage.tsx`) = a **consultora do próprio parceiro** ("Sou a MEL, sua consultora virtual"), hoje com dados demonstrativos | Não são duplicatas: Chatbot = cliente final · MEL = o parceiro. **Os dois se mantêm** — mas o rótulo "Chatbot" esconde que é o inbox real |
+| A12 | **`estoque_atual` controla "Esgotado" na vitrine** | `use-loja-produtos.ts:40` (`esgotado: estoque <= 0`), `use-carrinho-loja.ts:64` (bloqueia adicionar), `use-loja-criar-pedido.ts:52` (lê no pedido). O **único** lugar que edita o campo é `/estoque/produtos` (`use-atualizar-produto.ts:56`) | **Desligar Estoque hoje = a Doceê perde a capacidade de marcar produto esgotado → a vitrine vende o que ela não tem.** Torna o Cardápio (Opção C) **pré-requisito** de desligar Estoque, não sequência |
 
 ---
 
@@ -233,7 +235,7 @@ Confirmações:
 
 ---
 
-## 6. Caminhos possíveis (decisão pendente do fundador)
+## 6. Caminhos possíveis (✅ decidido em 22/09/2026 — ver §7)
 
 ### Opção A — Pragmático (rápido, sem banco)
 Ajustar `MODULOS_ATIVOS_INICIAIS` + `CORE_MODULES` para o mínimo desejado, remover a "Loja de Módulos" (alinhando à decisão "ativados pela UNIQ") e filtrar a subnav.
@@ -248,28 +250,109 @@ Ligar o app em `unq_empresa_modulos` (já populada), **unificar os códigos** co
 ### Opção C — Módulo **Cardápio** (independente de A/B)
 Criar o módulo que reúne *produtos + categorias + aparência/banners + link da vitrine*, tirando o cardápio de dentro do Estoque.
 
-**Recomendação registrada:** **A agora** (destrava o teste com a Doceê sem risco) e **especificar B + C na sequência**.
+**Recomendação registrada (21/09):** **A agora** (destrava o teste com a Doceê sem risco) e **especificar B + C na sequência**.
+
+**✅ Decisão do fundador (22/09/2026) — ordem invertida em relação à recomendação, por causa do A12:**
+
+O **Cardápio (C) vem ANTES** de desligar o Estoque (parte de A). Motivo: enquanto o toggle de disponibilidade não existir no Cardápio, desligar Estoque deixa a Doceê **sem como marcar produto esgotado** e a vitrine pública segue vendendo (A12).
+
+| Ordem | O que | Depende de |
+|---|---|---|
+| 1º | **C — Módulo Cardápio** (produtos + categorias + **disponibilidade** + aparência/banners + link da vitrine) | PRD/SPEC/WIRE |
+| 2º | **A — Menu enxuto** (catálogo/`CORE_MODULES`, `/meus-modulos` somente leitura, subnav filtrada) | C entregar o toggle de disponibilidade |
+| 3º | **B — Ligar em `unq_empresa_modulos`** + guarda de rota + unificação de códigos + seed da Doceê | A estabilizado |
 
 ---
 
-## 7. Perguntas abertas para o fundador
+## 7. ✅ Decisões tomadas (fundador, 22/09/2026)
 
-1. O menu mínimo é **exatamente** Minha Empresa · Financeiro · Chatbot? E o **Dashboard ("Visão Geral")** e a **Agenda** entram ou saem?
-2. **MEL** é `core` no código — mantém sempre visível, ou deve virar módulo desligável?
-3. A tela **`/meus-modulos`** deve continuar existindo para o cliente (com "Loja de Módulos" e trial) ou vira **somente leitura** ("o que você tem"), já que a decisão é "módulos ativados pela UNIQ"?
-4. O módulo **Cardápio** substitui a exposição de **Estoque** para a Doceê, ou Estoque continua ativo?
-5. **Estoque** fica ligado para a Doceê (ela tem `estoque_atual` nos produtos)?
+| # | Pergunta | **Decisão** | Base |
+|---|---|---|---|
+| 1 | O menu mínimo é exatamente Minha Empresa · Financeiro · Chatbot? | **SIM — os 3.** O **Dashboard ("Visão Geral") sai do rail** e vira sub-item dentro de Minha Empresa (já era o pedido do fundador em 11/09 — `USO_REAL_DOCEE.md` item 10). A **Agenda sai** por ora; volta se ela começar a receber encomendas com data. | `USO_REAL_DOCEE.md` item 10 · `CONTEXTO_PROJETO.md:338-342` |
+| 2 | MEL é `core` — mantém sempre visível? | **SIM, MEL continua `core`** (nunca desligável). MEL é a consultora do parceiro — é o produto. Trocar o conteúdo demonstrativo por dados reais é **tarefa separada**, não muda o status de core. | `CONTEXTO_PROJETO.md:338-342` ("3. Vê a Melissa e conversa com ela") |
+| 3 | `/meus-modulos` continua com loja/trial/cancelar? | **NÃO — vira SOMENTE LEITURA.** Remove Loja de Módulos, trial de 14 dias, cancelar e comparador de planos. Passa a mostrar "o que está ativo" + "o que será ativado". Mata de tabela o `ASSINATURA_MOCK` (Business R$ 149), que contradiz o pricing fechado (R$ 297 → R$ 197). | `CONTEXTO_PROJETO.md:344` e `:528` ("o parceiro não escolhe ou configura") |
+| 4 | Criar o módulo Cardápio? | **REVISADO em 22/09/2026 — NÃO criar módulo novo: COMPLETAR o `loja_virtual` que já existe.** Ele passa a ser dono de *produtos + categorias + disponibilidade + aparência/banners + link da vitrine*, com **"Cardápio" apenas como label vertical**. Continua exigindo PRD/SPEC/WIRE. **Revisão da resposta original ("criar o módulo Cardápio") — ver §7.1.** | §5 · A12 · `moduloRoutes.ts:13` |
+| 5 | Estoque fica ligado para a Doceê? | **NÃO — desligar, mas só DEPOIS da Loja/Vitrine.** Enquanto o módulo não tiver o toggle de disponibilidade, desligar Estoque deixa a vitrine vendendo produto que ela não tem (A12). | A12 |
+
+### ✅ Rodapé hardcoded — DECIDIDO (22/09/2026): **fica como está**
+
+O "mínimo de **3**" resulta em **6 entradas de navegação** — e isso é **aceito**:
+
+- **Rail (4):** Minha Empresa · Financeiro · Chatbot · **MEL** — MEL é forçado por `CORE_MODULES` (`AppLayout.tsx:218`) e não pode ser escondido.
+- **Rodapé (2):** Meus Módulos · Configurações — **hardcoded** (`AppLayout.tsx:414-441`), ignoram qualquer filtro de módulo.
+
+> **Decisão do fundador (22/09/2026):** o rodapé **permanece** — *"esses módulos serão para todos mesmo"*. `Meus Módulos` (agora somente leitura, §7 item 3) e `Configurações` são **de todos os parceiros**, não um vazamento do filtro de módulos. **Nada a fazer no `AppLayout` quanto a isso.**
+>
+> Consequência: o "mínimo de 3" era sobre **módulos operacionais**, não sobre o número de entradas do menu. As duas coisas foram confundidas na análise original — está resolvido.
+
+### 7.1 ✅ Decisões da Loja/Vitrine (22/09/2026 — **REVISAM** o item 4)
+
+> ⚠️ **Estas decisões revisam a resposta original do item 4.** A primeira resposta foi *"criar o módulo Cardápio"*. Depois de o fundador descrever o modelo mental dos dois módulos, ficou claro que **o módulo já existe** — é o `loja_virtual`. **Não criar módulo duplicado.**
+
+| Tema | **Decisão** | Observação |
+|---|---|---|
+| **É módulo novo?** | **NÃO — é o `loja_virtual` que já existe no catálogo.** O trabalho é **completá-lo**. | Evita duplicata. `moduloRoutes.ts:13` já registra `loja_virtual`. |
+| **Responsabilidade** | **Aparência + catálogo:** produtos, categorias, **disponibilidade**, aparência/banners (onde fica o banner, formato do menu, quantos itens por linha) e link da vitrine. | Complementa o Estoque, que fica com **quantidades** (entradas, saídas, movimentações). |
+| **Nome** | **`loja_virtual` é o módulo default** (serve qualquer microempresa). **"Cardápio" é o label vertical** para negócios de comida — incluindo a Doceê. | Segue a regra `CRM` → `CRM_OTICA` (`CONTEXTO_PROJETO.md:194`). "Cardápio" falharia na **Gráfica HQ**, tenant real. |
+| **Rota — precisa corrigir** | Hoje `loja_virtual` → **`/marketplace`**, que é o **marketplace multi-lojista** — lugar errado. A rota final deve ser a da loja/configuração **do próprio parceiro**. | Achado A6, agora com consequência prática. **Rota final: decidir no PRD.** |
+| **Produtos e categorias** | Acessíveis de **ambos** os módulos (`/estoque/produtos` e Loja/Vitrine), **sempre pelo mesmo modal**. | Sem risco de divergência — ver abaixo. |
+| **Tabelas** | Reaproveita `me_produto`, `me_categoria` e `me_empresa.appearance`. **Não cria schema novo.** | |
+| **`marketplace/` multi-lojista** | **Sai do caminho.** O `marketplace/` (`LojistaGrid`, `VendedorDashboardPage`, `useMarketplace` com mocks) é de outra ideia/produto. **Deixa de ser destino do módulo.** | Decisão do fundador (22/09/2026). |
+| **Onde mora o modal** | **Mover `ProdutoFormModal` para um lugar compartilhado** (ex.: `components/produto/`) e ajustar os imports. Nenhum módulo é "dono" do modal de outro. | Hoje vive em `components/estoque/` e importa de `./estoqueMockData`. |
+
+#### ✅ O risco de divergência NÃO EXISTE — esclarecido pelo fundador (22/09/2026)
+
+**Modelo mental do fundador para os dois módulos:**
+
+| Módulo | Responsabilidade |
+|---|---|
+| **Loja / Vitrine** | **Aparência** — onde fica o banner, formato do menu, quantos itens por linha |
+| **Estoque** | **Quantidades** — entradas, saídas, movimentações |
+
+**O ponto que mata o risco:** o cadastro/edição de produto usa **UM ÚNICO modal compartilhado**. Independente da página ou do módulo, todos chamam o mesmo componente — então **não há dois formulários para divergir**.
+
+**Verificado no código (22/09/2026):** o modal já existe e já é único — `src/app/components/estoque/ProdutoFormModal.tsx` (585 linhas, wizard de 3 passos: `Informações · Preços · Estoque`). Hoje é chamado por `ProdutosPage.tsx` (3× — criar/editar/duplicar) e `ProdutoDetalhePage.tsx` (2×). E ele **já cobre os dois olhares**:
+
+- **inventário:** `estoque`, `estoqueMinimo`, `precoCusto`, `codigoBarras`
+- **vitrine:** `nome`, `precoVenda`, `descricao`, `foto`, `categoriaId`, `unidade`
+
+> ❌ **Tabela de donos de campo — DESCARTADA.** Era mitigação para um problema que não existe. Não há dois formulários, logo não há campos para divergir.
+>
+> ✅ **O que sobrava era uma decisão de ONDE o modal mora — e ela já foi tomada:** **mover `ProdutoFormModal` para um lugar compartilhado** (ex.: `components/produto/`) e ajustar os 5 pontos de chamada. ⚠️ Atenção: hoje ele também importa de `./estoqueMockData`, então a mudança **arrasta essa dependência junto** — o PRD precisa resolver isso, não só o caminho do arquivo.
 
 ---
 
-## 8. Próximos passos (quando decidido)
+## 8. Próximos passos (decisão tomada — 22/09/2026)
 
 > ⚠️ **REGRA DE OURO (`AGENTS.md`):** mudança de tela/módulo exige **PRD → SPEC → WIRE** aprovado antes de qualquer código.
 
-1. Fundador responde §7.
-2. PRD + SPEC + WIRE do caminho escolhido (`tracking/plans/`, `tracking/specs/`, `tracking/wireframe/`).
-3. Só então implementar — de preferência em lanes paralelas (ex.: `ModulosContext`↔banco numa lane, guarda de rota em outra, tela de módulos em outra), com **contrato de dados congelado** e donos de arquivo explícitos.
-4. Verificação: `npx tsc --noEmit` (linha de base = **5 erros**, zero novos) + `npm run build` + smoke de runtime do rail.
+1. ~~Fundador responde §7.~~ ✅ **Feito em 22/09/2026.**
+2. **PRD + SPEC + WIRE da Loja/Vitrine** (1º da fila) — **completar o `loja_virtual`, não criar módulo** (§7.1). Em `tracking/plans/`, `tracking/specs/`, `tracking/wireframe/`. O PRD **não pode deixar implícito**:
+   - **O editor de aparência** (banner, formato do menu, itens por linha) — é a peça que **não existe**; os componentes que o consomem já existem (`LojaBannerCarousel`, `LojaCategoriaBar`, `LojaHeaderTenant`, `LojaSecaoHorizontal`);
+   - **Toggle de disponibilidade** — destrava o item 5 do §7 e permite desligar o Estoque depois;
+   - **A rota final do módulo** — hoje `loja_virtual` → `/marketplace`, que é o marketplace multi-lojista (errado);
+   - **Mover o `ProdutoFormModal`** para lugar compartilhado + ajustar os 5 pontos de chamada (`ProdutosPage` 3×, `ProdutoDetalhePage` 2×);
+   - **"Cardápio" como label vertical** do módulo default `loja_virtual`.
+3. Depois da Loja/Vitrine implementada: **menu enxuto** (Opção A) — catálogo/`CORE_MODULES`, `/meus-modulos` somente leitura, subnav filtrada. *(O rodapé hardcoded **já foi decidido**: fica como está.)*
+4. Só então **Opção B** (ligar em `unq_empresa_modulos` + guarda de rota + unificação dos 3 vocabulários + seed da Doceê).
+5. Implementar em **lanes paralelas** onde não houver sobreposição de arquivo, com **contrato de dados congelado** e donos de arquivo explícitos.
+6. **Verificação:** `npx tsc --noEmit` + `npm run build` + smoke de runtime do rail.
+
+> ✅ **Linha de base do `tsc` — `npx tsc --noEmit` = 0 erros (22/09/2026).** O valor **13** registrado em `TRACKING.md` (`:660`, `:688`) estava **desatualizado** (era verdadeiro naquelas sessões). O valor medido no início desta sessão era **5** — e os **5 foram corrigidos no mesmo dia**:
+>
+> | Arquivo | Erro | Causa | Status |
+> |---|---|---|---|
+> | `lib/mocks/chatbot.ts(13,8)` | TS2307 | caminho `'../types/chatbot'` não existe | ✅ corrigido |
+> | `lib/mocks/employees.ts(1,44)` | TS2307 | caminho `'../types/employees'` não existe | ✅ corrigido |
+> | `lib/mocks/marketplace.ts(5,61)` | TS2307 | caminho `'../types/marketplace'` não existe | ✅ corrigido |
+> | `agenda/CompromissosPage.tsx(227,39)` | TS2365 | `>` entre `string \| number` e `number` | ✅ corrigido |
+> | `marketplace/CheckoutPage.tsx(171,8)` | TS2367 | comparação sem sobreposição (código morto) | ✅ corrigido |
+>
+> **O que eram os 3 TS2307:** um único defeito. Os mocks vivem em `src/app/lib/mocks/`, então `'../types/X'` resolvia para `src/app/lib/types/X` — diretório que **não existe**. O correto era `'../../types/X'`, que os mocks irmãos (`clientes.ts`/`metricas.ts`/`suppliers.ts`/`servicos.ts`) já usavam.
+>
+> **O que eram os 2 restantes:** **nenhum era bug de lógica.** `CompromissosPage` misturava `string` (`formatCurrency`) e `number` no mesmo campo `value` e escondia o problema com `(kpi as any)`; o `kpi.value > 0` era **redundante** com o `warn` já calculado. `CheckoutPage` tinha uma condição **sempre verdadeira** (código morto) por causa do early return da linha 124. As duas correções **não mudam comportamento** e **removeram** um `any`.
+>
+> ✅ **GATE CONGELADO: `npx tsc --noEmit` = 0 erros. `npm run build` passa.** **Critério de aceite das próximas lanes: `tsc` continua em 0 — qualquer erro novo é regressão.**
 
 ---
 
@@ -327,4 +410,4 @@ rg "useModulosAtivos|useModulosContext" src/
 
 ---
 
-*Análise produzida em 21/09/2026. Nenhum arquivo de código foi alterado.*
+*Análise produzida em 21/09/2026. Decisões do fundador registradas em 22/09/2026 (§7) — **nenhum arquivo de código foi alterado** até aqui. Achados A11 e A12 acrescentados em 22/09/2026.*

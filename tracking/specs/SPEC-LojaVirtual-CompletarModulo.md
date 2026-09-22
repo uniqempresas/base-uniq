@@ -1,0 +1,312 @@
+# SPEC — Loja Virtual: Completar o Módulo (editor de aparência + catálogo)
+
+> **PRD:** `tracking/plans/PRD-LojaVirtual-CompletarModulo.md`
+> **WIRE:** `tracking/wireframe/WIRE-LojaVirtual-CompletarModulo.md`
+> **Status:** 🔶 Rascunho técnico — aguarda WIRE aprovado para implementar
+> **Regra de ouro:** sem WIRE aprovado, não se escreve código de tela.
+> **Base:** recon de 22/09/2026 (todas as referências `arquivo:linha` verificadas)
+
+---
+
+## 1. Arquivos
+
+### Novos
+
+| Arquivo | Papel |
+|---|---|
+| `src/app/hooks/use-atualizar-aparencia-loja.ts` | **Write** em `me_empresa.appearance` + `store_config` com **merge seguro** |
+| `src/app/hooks/use-loja-virtual-produtos.ts` | Catálogo do módulo (reusa `use-produtos`; só adapta filtros/estado) |
+| `src/app/components/loja-virtual/LojaVirtualHubPage.tsx` | Hub do módulo: estado da loja, atalhos, **link da vitrine** |
+| `src/app/components/loja-virtual/AparenciaPage.tsx` | Página do editor (compõe os 3 blocos) |
+| `src/app/components/loja-virtual/ProdutosLojaPage.tsx` | Lista de produtos do módulo (abre o modal compartilhado) |
+| `src/app/components/loja-virtual/editor/BannerLista.tsx` | Lista ordenável de banners + ações |
+| `src/app/components/loja-virtual/editor/BannerFormModal.tsx` | Form de 1 banner (upload desktop/mobile, textos, botão, destino) |
+| `src/app/components/loja-virtual/editor/CarrosselConfig.tsx` | Autoplay + intervalo (mín. 2000ms) |
+| `src/app/components/loja-virtual/editor/TemaConfig.tsx` | As **4 chaves** de `theme` |
+| `src/app/components/loja-virtual/editor/IdentidadeConfig.tsx` | `store_config`: slogan · descrição · ramo |
+| `src/app/components/produto/ProdutoFormModal.tsx` | **Movido** de `components/estoque/` (D3) |
+
+### Alterados
+
+| Arquivo | Mudança |
+|---|---|
+| `src/app/lib/moduloRoutes.ts:9` | `loja_virtual: '/marketplace'` → **`'/loja-virtual'`** |
+| `src/app/components/layout/AppLayout.tsx:69` | label `"Marketplace"` → **`"Loja Virtual"`**, path → `/loja-virtual` |
+| `src/app/routes.tsx` | +4 rotas do módulo (§6) |
+| `src/app/components/estoque/ProdutosPage.tsx` | import do modal (`:36`) + **3 chamadores** (`:413`, `:424`, `:436`) |
+| `src/app/components/estoque/ProdutoDetalhePage.tsx` | import do modal (`:44`) + **2 chamadores** (`:368`, `:381`) |
+| `src/app/hooks/use-produtos.ts` | expor `exibir_vitrine` e `unidade` no mapper |
+| `src/app/hooks/use-criar-produto.ts:44-65` | gravar `exibir_vitrine`, `preco_varejo`, `unidade` |
+| `src/app/hooks/use-atualizar-produto.ts:49-67` | gravar `exibir_vitrine`, `preco_varejo`, `unidade` |
+| `src/app/types/loja.ts` | tipos do editor (reusa `BannerLoja`, `TemaLoja`) |
+
+### Intocados (não regredir)
+
+`LojaPage.tsx` (ambas as variantes) · `LojaBannerCarousel` · `LojaCategoriaBar` · `LojaHeaderTenant` · `LojaSecaoHorizontal` · `use-loja-appearance.ts` (leitura) · `use-loja-produtos.ts` · `use-loja-categorias.ts` · `use-loja-criar-pedido.ts` · `use-carrinho-loja.ts` · `CheckoutPage` · `ProdutoLojaPage` · `use-categorias.ts` (CRUD já entregue).
+
+> **Regra:** este SPEC **não altera a vitrine pública**. Ela já funciona e atende cliente real. Toda mudança é no lado admin + nos hooks de escrita.
+
+---
+
+## 2. Contrato de dados (real — verificado)
+
+### 2.1 `me_empresa.appearance` (jsonb)
+
+```jsonc
+{
+  "theme": { "fontFamily": "Poppins", "borderRadius": "8px",
+             "primaryColor": "#86cb92", "secondaryColor": "#1f2937" },
+  "hero": {
+    "type": "carousel", "autoplay": true, "interval": 5000,
+    "banners": [{
+      "id": "banner-<timestamp>",
+      "title": "...", "subtitle": "...",
+      "desktop_url": "...", "mobile_url": "...",
+      "button_text": "Ver mais", "button_color": "#00ccf5",
+      "text_color": "#001933", "button_position": "bottom-left",
+      "link_type": "product", "link_value": "..."
+    }]
+  }
+}
+```
+
+| Campo | Tipo | Regra |
+|---|---|---|
+| `button_position` | `"bottom-left" \| "bottom-right"` | default `bottom-left` |
+| `link_type` | `"product" \| "external" \| "category" \| "grid"` | qualquer outro → `null` (`use-loja-appearance.ts:30-56`) |
+| `link_value` | string | `"#"` é descartado como placeholder histórico (`:53-54`) |
+| `desktop_url` / `mobile_url` | string | preencher **um** é válido — o outro usa o mesmo arquivo |
+| `interval` | number | **mínimo 2000** (forçado em `use-loja-appearance.ts:116`) |
+| `autoplay` | boolean | exige **2+ banners** para ter efeito (`LojaBannerCarousel.tsx:67`) |
+
+**Defaults que o editor deve exibir quando vazio** (`use-loja-appearance.ts:5-10`):
+`primaryColor #86cb92` · `secondaryColor #1f2937` · `borderRadius 8px` · `fontFamily Poppins`.
+
+### 2.2 `me_empresa.store_config` (jsonb)
+
+```jsonc
+{ "slogan": "...", "description": "...", "ramoAtuacao": "...", "whatsapp_contact": "..." }
+```
+Lido em `use-loja-tenant.ts:60`, tipado em `types/loja.ts:4-10`. Consumido por `LojaHeaderTenant.tsx:41-45` (subtítulo) e `use-loja-appearance.ts:66-71` (subtítulo do banner gerado).
+
+### 2.3 `me_produto` — campos que passam a ter escrita
+
+| Coluna | Existe? | Estado hoje | Ação |
+|---|---|---|---|
+| `exibir_vitrine` | ✅ (filtro em `use-loja-produtos.ts:70`) | **nunca escrita** | gravar + expor + toggle |
+| `preco_varejo` | ✅ | escrito só por fora | ligar ao "Preço promocional" |
+| `unidade` | ❓ **verificar** | coletada e perdida | ver §2.4 |
+
+### 2.4 Schema verificado no Supabase oficial (22/09/2026)
+
+Consulta: `information_schema.columns` em `me_produto` (projeto `krrkfgvdwhpelxtrdtla`).
+
+| Coluna | Tipo | Default | Nulo | Consequência |
+|---|---|---|---|---|
+| **`exibir_vitrine`** | boolean | **`false`** | sim | ⚠️ **Produto criado pelo app nasce INVISÍVEL na vitrine** |
+| **`unidade`** | — | — | — | ❌ **NÃO EXISTE** → exige migration aditiva |
+| `preco_varejo` | numeric | `null` | sim | ok — é onde o "Preço promocional" grava |
+| `ativo` | boolean | `true` | sim | ok |
+| `estoque_atual` | integer | `0` | sim | ok |
+| `tipo` | text | `'simples'` | sim | **não** usar para categoria |
+| `opcoes_config` | jsonb | `'[]'` | sim | alternativa para `unidade` (**não** recomendada) |
+
+**Estado real dos dados, por empresa:**
+
+| Empresa | `exibir_vitrine` | `ativo` | produtos |
+|---|---|---|---|
+| **Doceê** | true | true | **16** |
+| Gráfica HQ | true | false | 4 |
+| Loja Teste01 | false | true | 1 |
+| UNIQ Empresas | false | true | 2 |
+| UNIQ Empresas | true | false | 3 |
+
+**Leitura honesta:** a Doceê **não está quebrada hoje** — os 16 produtos dela estão `exibir_vitrine = true` (configurados por fora do app). Os 3 produtos `ativo = true` invisíveis são da **Loja Teste01** e **UNIQ Empresas**, não dela.
+
+**Mas o bug é latente com disparo garantido:** o default é `false` e **o modal não escreve a coluna**. Ou seja, **o próximo produto que a Doceê cadastrar pela interface nasce invisível na loja — e não existe UI para corrigir**. É a diferença entre "funciona hoje" e "funciona amanhã".
+
+### 2.5 Ações de schema obrigatórias (decidir antes de codar)
+
+1. **`unidade`** — `ALTER TABLE me_produto ADD COLUMN unidade text;` (nullable, zero risco).
+2. **`exibir_vitrine` no insert** — o cadastro deve enviar **`true` explícito** (o default é `false`).
+3. **Alinhar o default do banco à intenção** — `ALTER TABLE me_produto ALTER COLUMN exibir_vitrine SET DEFAULT true;`. Racional: produto novo deve **aparecer** na loja por padrão, e o parceiro **desmarca** se não quiser. Hoje o comportamento é o inverso do esperado.
+   > ⚠️ **Decisão do fundador.** É a opção recomendada, mas mexe no default de uma coluna existente.
+
+---
+
+## 3. O write hook — `use-atualizar-aparencia-loja.ts`
+
+> ⚠️ **Este é o ponto mais perigoso do SPEC.** O JSON é compartilhado: sobrescrever inteiro apaga chaves que o editor não conhece (ex.: `hero.type`, `whatsapp_contact`).
+
+```ts
+type PatchAparencia = {
+  appearance?: {
+    hero?: Partial<{ type: string; autoplay: boolean; interval: number; banners: BannerLoja[] }>;
+    theme?: Partial<TemaLoja>;
+  };
+  storeConfig?: Partial<StoreConfigLoja>;
+};
+
+// 1. LÊ o estado atual (nunca confia no que veio da tela)
+const { data } = await supabase
+  .from("me_empresa")
+  .select("appearance, store_config")
+  .eq("id", empresaId)
+  .single();
+
+// 2. MERGE em dois níveis — preserva chaves irmãs desconhecidas
+const atual = (data?.appearance ?? {}) as Record<string, unknown>;
+const novoAppearance = {
+  ...atual,
+  ...(patch.appearance ?? {}),
+  hero:  patch.appearance?.hero  ? { ...(atual.hero  as object ?? {}), ...patch.appearance.hero  } : atual.hero,
+  theme: patch.appearance?.theme ? { ...(atual.theme as object ?? {}), ...patch.appearance.theme } : atual.theme,
+};
+
+// 3. GRAVA (só o que mudou)
+await supabase.from("me_empresa")
+  .update({ appearance: novoAppearance, store_config: { ...(data?.store_config ?? {}), ...(patch.storeConfig ?? {}) } })
+  .eq("id", empresaId);
+```
+
+**Contrato do retorno:** `{ salvar, loading, error, success }`.
+
+**Regras invioláveis:**
+1. **Nunca** `update` com o JSON vindo da tela — sempre ler → merge → gravar.
+2. **Nunca** gravar `appearance` de outra empresa — o `empresaId` vem do `AuthContext`.
+3. `banners` é **array substituído inteiro** (a tela é dona da ordem) — mas dentro do `hero`, então `type`/`autoplay`/`interval` sobrevivem.
+4. Validar antes de gravar: `interval >= 2000`; `button_position` na lista; `link_type` na lista.
+5. Erro de RLS/policy → mensagem clara, **não** silenciosa.
+
+---
+
+## 4. Modal compartilhado (D3)
+
+**Movimento:** `src/app/components/estoque/ProdutoFormModal.tsx` → `src/app/components/produto/ProdutoFormModal.tsx`.
+
+**Dependência a resolver:** `ProdutoFormModal.tsx:4` importa de `./estoqueMockData`:
+```ts
+import { formatCurrency, calcMargem, type Produto } from "./estoqueMockData";
+```
+Plano: mover o **tipo `Produto`** para `src/app/types/produto.ts` e manter `formatCurrency`/`calcMargem` onde estiverem (importar por caminho relativo novo). **Não** criar cópia — o tipo é contrato único.
+
+**Chamadores a atualizar (5):**
+`estoque/ProdutosPage.tsx:36` (import) + `:413`, `:424`, `:436` · `estoque/ProdutoDetalhePage.tsx:44` (import) + `:368`, `:381`.
+
+**Novos campos no modal:**
+| Campo | Passo | Destino | Nota |
+|---|---|---|---|
+| **"Mostrar na vitrine"** (toggle) | 1 (Informações) | `exibir_vitrine` | default = `true` |
+| **"Preço promocional"** (ligar) | 2 (Preços) | `preco_varejo` | o input existe morto em `:449-462`; validação: **`> preco`** senão não faz sentido |
+| **`unidade`** (já existe) | 1 | `unidade` | hoje coletada e perdida |
+
+**Campos a remover:** "Localização no depósito" (`:494-503`) · "Fornecedor padrão" (`:504-515`).
+
+---
+
+## 5. Rotas
+
+```tsx
+// routes.tsx — dentro do AppLayout (área autenticada)
+{ path: "/loja-virtual",                     lazy: ... "LojaVirtualHubPage" },
+{ path: "/loja-virtual/aparencia",           lazy: ... "AparenciaPage" },
+{ path: "/loja-virtual/produtos",            lazy: ... "ProdutosLojaPage" },
+{ path: "/loja-virtual/categorias",          element: <Navigate to="/estoque/configuracoes" replace /> },
+```
+
+> **`/loja-virtual/categorias` redireciona** para o CRUD já existente (`PRD-CategoriasProduto.md` entregou). Não duplicar tela. Se o fundador quiser espelho próprio, vira item de backlog.
+
+**Não mexer** nas rotas públicas `/loja/*` nem nas do `/marketplace` (o módulo apenas deixa de apontar para lá).
+
+---
+
+## 6. Estados obrigatórios (regra do projeto)
+
+Toda tela/lista nova: **loading (skeleton) · vazio · erro + retry · sucesso.**
+
+Específicos deste SPEC:
+- **Aparência, sem `appearance`:** formulários em branco com os **defaults** visíveis + aviso de que a loja usa o **banner gerado** hoje.
+- **Upload de imagem:** preview antes de salvar · erro de tipo/tamanho · remover imagem.
+- **Salvar:** botão com estado `salvando` · toast de sucesso · erro visível (nunca silencioso).
+- **Produtos, lista vazia:** CTA para o cadastro.
+- **Banner com só um arquivo:** válido — o outro lado usa o mesmo.
+
+---
+
+## 7. Ordem de implementação sugerida (lanes)
+
+| Lane | Escopo | Depende de |
+|---|---|---|
+| **L1** | Verificação de schema (§2.4) + migration de `unidade` se preciso | — |
+| **L2** | Mover o modal + atualizar 5 chamadores + tipo `Produto` | L1 |
+| **L3** | `exibir_vitrine` / `preco_varejo` / `unidade` nos 3 hooks + toggle/campo no modal | L2 |
+| **L4** | `use-atualizar-aparencia-loja` (write com merge) | — (paralela) |
+| **L5** | Rotas + `moduloRoutes` + `AppLayout` (label/path) | — (paralela) |
+| **L6** | Telas do editor (hub, aparência, produtos) | L3, L4, L5 |
+
+L4 e L5 podem rodar em paralelo com L1–L3 (sem sobreposição de arquivo).
+
+---
+
+## 8. Checklist de verificação
+
+- [ ] Schema verificado; `column_default` de `exibir_vitrine` anotado
+- [ ] `unidade`: migration aplicada **ou** coluna já existente confirmada
+- [ ] `ProdutoFormModal` movido; **5 chamadores** compilando
+- [ ] Tipo `Produto` em `types/produto.ts`; **sem** import de `estoqueMockData` no modal
+- [ ] `exibir_vitrine` exposto em `use-produtos` e gravado em criar + atualizar
+- [ ] Toggle "Mostrar na vitrine" desmarca → produto some de `/loja/:slug` (teste real)
+- [ ] "Preço promocional" grava `preco_varejo`; selo "de/por" aparece quando maior
+- [ ] `unidade` salva e volta no form
+- [ ] Campos mortos removidos (localização, fornecedor)
+- [ ] `use-atualizar-aparencia-loja`: **merge** preserva `hero.type` e `whatsapp_contact` (testar com o `appearance` da **Gráfica HQ**, que tem dados)
+- [ ] Nunca lê/grava `appearance` de outra empresa
+- [ ] `interval` mínimo 2000 respeitado; `link_type`/`button_position` validados
+- [ ] Banner salvo aparece em `/loja/docee` no celular (desktop + mobile)
+- [ ] Módulo abre em `/loja-virtual`; rail diz "Loja Virtual"
+- [ ] Link da vitrine exibido no hub
+- [ ] Vitrine pública, demo `/loja`, checkout e pedidos **não regridem**
+- [ ] `npx tsc --noEmit` = **0 erros** · `npm run build` ✅ · Vercel `READY`
+- [ ] `tracking/TRACKING.md` + `TRACKING_MODULOS.md` atualizados
+
+---
+
+## 9. Fora de escopo (registrado para não virar dívida silenciosa)
+
+- **Cor de categoria na vitrine** — `me_categoria.cor` existe e é lida no Estoque, mas `LojaCategoriaBar` renderiza só `nome`.
+- **Curadoria de "Destaques"** — hoje `!esgotado` ordenado por preço (`LojaPage.tsx:349-356`); exigiria coluna nova.
+- **Assimetria `use-loja-produto.ts:53`** — a página do produto não lê `preco_varejo`/`categoria_id` nem filtra `exibir_vitrine`. **Bug real**, mas fora do caminho crítico deste PRD.
+- **`store_config.whatsapp_contact`** — tipado (`types/loja.ts:8`) e nunca lido; o WhatsApp exibido vem de `me_empresa.telefone`.
+- **Global de categoria** (`empresa_id IS NULL`) — segue somente-leitura.
+
+---
+
+## 10. Decisões sobre as lacunas levantadas no WIRE (22/09/2026)
+
+O WIRE (`WIRE-LojaVirtual-CompletarModulo.md` §12) levantou 10 pontos que o SPEC não fechava. Resolução:
+
+| # | Lacuna | **Decisão** |
+|---|---|---|
+| 1 | Confirmação ao remover banner | **Aceito** — dialog de confirmação, padrão do CRUD de categorias. |
+| 2 | UX de reordenar | **Aceito** — setas ↑↓ (acessíveis, funcionam no toque) **e** drag. |
+| 3 | **`text_color` não exposto** | **EXPOR.** Está no contrato (`use-loja-appearance.ts:30-56`) e é o que garante legibilidade do título sobre a imagem. Campo novo no form de banner, ao lado de `button_color`. Sem ele, banner novo nasce sem cor de texto e depende do fallback da vitrine. |
+| 4 | Seletor de destino do clique | **Aceito** — `product` → select de produtos ativos · `external` → input URL · `category` → select de categorias · `grid` → oculto (é a âncora interna). |
+| 5 | **Paleta: livre ou restrita ao `DESIGN.md`?** | **Livre, com os tokens do `DESIGN.md` como default.** Ver abaixo — **precisa de aval do fundador**. |
+| 6 | `fontFamily` / `borderRadius` | **Aceito** — select de fontes · input numérico com sufixo `px`. |
+| 7 | Salvar por página × por bloco | **Aceito: um único botão de página.** Coerente com o hook único de merge (D7); evita gravações parciais inconsistentes. |
+| 8 | Conteúdo do hub | **Aceito** — 2 cards de contador (produtos na vitrine · banners) + card do link. |
+| 9 | Posição do toggle "Mostrar na vitrine" | **Aceito** — seção própria "Vitrine" no passo 1, após Código de barras. |
+| 10 | `column_default` de `exibir_vitrine` | ✅ **RESOLVIDO COM DADO REAL** — ver §2.4/§2.5. O default é **`false`**. |
+
+### 10.1 A lacuna 5 precisa do fundador — é a única
+
+A decisão consolidada diz que **`DESIGN.md` é a fonte oficial de paleta**. A pergunta é se isso se estende à **vitrine do parceiro**.
+
+**Recomendação: paleta livre, com os tokens do `DESIGN.md` como default.**
+
+Racional:
+- Banner e tema são **marca do parceiro**, não identidade da UNIQ.
+- **Evidência:** o `appearance` real da **Gráfica HQ** já usa `primary_color: #4f9ef3` e `secondary_color: #ff6600` — cores que **não existem** no `DESIGN.md`. Restringir a paleta **quebraria o que já está em produção**.
+- A distinção que resolve: **`DESIGN.md` governa a UI do produto** (a Base UNIQ que a UNIQ opera) · **`appearance` governa a loja do parceiro** (a marca dele).
+
+> ⚠️ **Confirmar com o fundador.** Se ele preferir paleta restrita, o SPEC muda (vira seletor de tokens, não color picker) e o `appearance` da HQ precisa ser revisto.
