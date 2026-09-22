@@ -7,6 +7,7 @@ import {
 } from '../lib/modulos';
 
 const AGENDA_INCLUSA_MIGRATION_KEY = 'uniq-agenda-inclusa-v1';
+const LOJA_VIRTUAL_ATIVA_MIGRATION_KEY = 'uniq-loja-virtual-ativa-v1';
 
 type ModulosContextValue = {
   modulos: Modulo[];
@@ -46,6 +47,19 @@ function carregarModulos(): Modulo[] {
         : modulo);
       localStorage.setItem(AGENDA_INCLUSA_MIGRATION_KEY, 'true');
     }
+
+    // Loja Virtual (22/09/2026): o módulo passou a 'ativo' no catálogo, mas quem
+    // já usava o app tem o status antigo ('nao_adquirido') salvo no localStorage
+    // — e o merge acima dá prioridade ao valor salvo. Sem esta migração, o
+    // módulo fica invisível no rail justamente em quem já conhece o sistema.
+    // Só converte 'nao_adquirido': 'cancelado' é definitivo e não é ressuscitado.
+    if (!localStorage.getItem(LOJA_VIRTUAL_ATIVA_MIGRATION_KEY)) {
+      resultado = resultado.map((modulo) => modulo.codigo === 'loja_virtual' && modulo.status === 'nao_adquirido'
+        ? { ...modulo, status: 'ativo' as ModuloStatus }
+        : modulo);
+      localStorage.setItem(LOJA_VIRTUAL_ATIVA_MIGRATION_KEY, 'true');
+    }
+
     return resultado;
   } catch {
     return MODULOS_ATIVOS_INICIAIS;
