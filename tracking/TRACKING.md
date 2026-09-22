@@ -1013,9 +1013,16 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 - SPEC: `tracking/specs/SPEC-LojaVirtual-CompletarModulo.md`
 - WIRE: `tracking/wireframe/WIRE-LojaVirtual-CompletarModulo.md`
 
-### ✅ IMPLEMENTADO (22/09/2026) — commit `29885d2` · deploy Vercel `READY`
+### ✅ VALIDADO PELO FUNDADOR (22/09/2026) — commits `29885d2` · `3e2b0b0` · `6b80da9` · deploy Vercel `READY`
 
-**⏳ Aguarda validação do fundador no celular.**
+**O fundador validou no celular:** *"Loja validada. Ficou ótimo."*
+
+> 🔧 **Três furos corrigidos depois do primeiro deploy** — todos só apareceram na validação real. Detalhe completo no SPEC (§1, callouts):
+> 1. **`loja_virtual` estava `nao_adquirido`** no catálogo → o módulo nasceria **invisível no rail**, sem erro e sem aviso.
+> 2. **O `localStorage` vence o catálogo** (`ModulosContext.tsx:34-35`) → trocar o catálogo para `ativo` **não bastava** para quem já usava o app; exigiu a migração `uniq-loja-virtual-ativa-v1`.
+> 3. **O `SUBNAV_SECTIONS` não foi trocado** → o rail dizia "Loja Virtual" mas o submenu ao lado ainda levava ao Marketplace antigo. **Reportado pelo fundador.**
+>
+> **Regra registrada para o próximo agente:** um módulo novo no rail precisa de **três** amarrações — `RAIL_ITEMS`, **`SUBNAV_SECTIONS`** (seção com o mesmo `railId`) e `moduloRoutes`. Faltar uma faz o módulo parecer quebrado.
 
 **O que foi entregue:** o **editor de aparência** (a lacuna real — até então trocar banner exigia subir arquivo no bucket e escrever JSON à mão), o **`exibir_vitrine`** ligado ponta a ponta com o toggle "Mostrar na vitrine", **"Preço promocional" → `preco_varejo`** (destrava o selo "de/por" que a vitrine **já sabia** desenhar), **`unidade` persistida**, a **rota do módulo** corrigida (`/marketplace` → `/loja-virtual`, rail volta a dizer "Loja Virtual") e o **`ProdutoFormModal` movido** para `components/produto/` — modal único compartilhado entre Estoque e Loja.
 
