@@ -410,4 +410,85 @@ rg "useModulosAtivos|useModulosContext" src/
 
 ---
 
-*Análise produzida em 21/09/2026. Decisões do fundador registradas em 22/09/2026 (§7) — **nenhum arquivo de código foi alterado** até aqui. Achados A11 e A12 acrescentados em 22/09/2026.*
+## 10. ✅ ENTREGAS (22/09/2026)
+
+Duas entregas fechadas neste dia — pipeline SDD completo, deploy verificado.
+
+### 10.1 Loja/Vitrine — entregue e **VALIDADA** pelo fundador
+
+| | |
+|---|---|
+| Docs | `PRD-LojaVirtual-CompletarModulo.md` · `SPEC-…` · `WIRE-…` |
+| Commits | `29885d2` (feature) · `3e2b0b0` · `6b80da9` (correções pós-validação) |
+| Validação | *"Loja validada. Ficou ótimo."* |
+
+Entregou o **editor de aparência** (a lacuna real — trocar banner exigia SQL manual), `exibir_vitrine` ponta a ponta, "Preço promocional" → `preco_varejo`, `unidade` persistida, a rota do módulo corrigida e o `ProdutoFormModal` movido para `components/produto/`.
+
+**Três furos corrigidos pós-deploy** — todos só apareceram na validação real:
+
+1. `loja_virtual` estava `nao_adquirido` → o módulo nasceria **invisível no rail**.
+2. O **`localStorage` vence o catálogo** → exigiu a migração `uniq-loja-virtual-ativa-v1`.
+3. O **`SUBNAV_SECTIONS` não foi trocado** → o rail dizia "Loja Virtual" mas o submenu ao lado levava ao Marketplace antigo.
+
+> **Regra para o próximo agente:** um módulo novo no rail precisa de **três** amarrações — `RAIL_ITEMS`, **`SUBNAV_SECTIONS`** (seção com o mesmo `railId`) e `moduloRoutes`. Faltar uma faz o módulo parecer quebrado.
+
+### 10.2 Menu Enxuto (Opção A) — entregue e **verificado no ar**
+
+| | |
+|---|---|
+| Docs | `PRD-MenuEnxuto.md` · `SPEC-MenuEnxuto.md` · `WIRE-MenuEnxuto.md` |
+| Commit | `1f4ccf3` |
+| Verificação | `tsc` = **0** · build OK · **chunks de produção inspecionados** |
+
+**Rail: 12 → 7 entradas** (5 visíveis + 2 no rodapé):
+
+```
+Minha Empresa · Financeiro · Chatbot · Loja Virtual · MEL
+──── rodapé (intacto) ────
+Meus Módulos · Configurações · Sair
+```
+
+Saíram: Dashboard (vira sub-item de Minha Empresa), Agenda, Vendas & PDV, CRM, Métricas.
+
+**Subnav filtrada por status** (`SubNavItem.moduloCodigo` + helper aplicado **nos dois** renders). Serviços, Fornecedores e Colaboradores somem (`nao_adquirido`) — antes a subnav vazava módulo desligado.
+
+**`/meus-modulos` somente leitura: 884 → 521 linhas.** Saíram a loja de módulos, o trial, o cancelar, o comparador, o card de plano, o header de fatura, a barra de abas e os filtros de status. Entrou uma seção **"Em breve"** inerte.
+
+**Terceiro dado de plano falso removido:** *"Status do Plano · UNIQ Pro Enterprise · 75% da cota usada"*, em **dois** lugares do `AppLayout`. Com o `ASSINATURA_MOCK` (Business R$ 149) e o `PLANOS_COMPARATIVO`, é a **3ª instância do mesmo defeito**.
+
+> 📌 **Se aparecer um 4º, vale uma varredura global** por dado de pricing inventado no front.
+
+### 10.3 🟡 Decisões tomadas por autonomia (fundador ausente) — **REVISAR**
+
+O fundador autorizou seguir sozinho (*"pode seguir com o que achar melhor até entregar o menu mais enxuto"*) e saiu para dirigir. **Estas são minhas, não dele:**
+
+| # | Decisão | Racional |
+|---|---|---|
+| **D1** | **Loja Virtual PERMANECE no rail** (5 itens, não 4) | Desvio explícito da lista literal. Ela foi decidida **antes** de o módulo existir — quando ainda apontava para o marketplace aposentado. Hoje é o canal de venda da Doceê e foi **validada** no mesmo dia. Tirá-la tornaria **inalcançável** o que ele acabou de aprovar. **Se discordar, é uma linha.** |
+| **D2** | Rotas órfãs continuam acessíveis, **sem guarda** | Guarda é Opção B; seria **segurança de fachada** sobre estado que vive no `localStorage`. |
+| **D3** | Rail curado **removendo entradas de `RAIL_ITEMS`**, não mudando status no catálogo | Evita uma migração de `localStorage` **por módulo**. Por isso **nenhuma migração nova** nesta entrega. |
+| **D4** | `SubNavItem.moduloCodigo` + filtro nos **dois** renders | Sem isso a subnav continua vazando módulo desligado. |
+| **D5** | Fallback do `activeRailId`: `"dashboard"` → `"minha-empresa"` | Não existe seção de subnav com `railId: "dashboard"` — o fallback antigo já caía em `SUBNAV_SECTIONS[0]`. |
+| **D6** | O enxuto é **global**, não por tenant | Limitação conhecida da Opção A. **Afeta também a Gráfica HQ.** Resolvido pela Opção B. |
+| **D7** | `EscolhaPlanoPage` fica órfã, **não removida** | Já era órfã antes (nenhum `navigate()` apontava para ela). Remover é limpeza, não escopo. |
+| **D8** | Mantido o `ModalDetalhesModulo`, sem o botão "Adquirir" | Dá profundidade útil sem devolver a loja de módulos. |
+
+### 10.4 ⚠️ Sinalizado para o fundador decidir (não decidi)
+
+**Preço do módulo no modal de detalhes** — a linha *"Preço: R$ 79/mês"*.
+
+**Mantive**, porque a distinção importa: **não é plano inventado** (como "UNIQ Pro Enterprise"), é **campo de catálogo** — e não existe decisão fechada sobre preço de módulo.
+
+Mas os dois lados **divergem**: o app diz **R$ 79**; o banco (`unq_modulos_sistema.preco_mensal`) diz **0.00** para a maioria e **49.90 / 99.90** para dois. **Nenhum dos dois é autoritativo.**
+
+**Decisão do fundador:** mostrar, corrigir ou remover?
+
+### 10.5 O que sobrou da fila
+
+**Opção B** — ligar o app em `unq_empresa_modulos` + **guarda de rota** + unificação dos **3 vocabulários** de módulo (app 17 · banco 11 · `ModuleCheckbox` 7) + **seed da Doceê**.
+
+É o que resolve o **D6** (enxuto por tenant em vez de global) e o **A2** (módulo desativado entra pela URL).
+
+---
+
+*Análise produzida em 21/09/2026. Decisões do fundador em 22/09/2026 (§7). **Entregas da Loja/Vitrine e do Menu Enxuto em 22/09/2026 (§10)** — código alterado e deployado, ao contrário do que dizia a nota anterior. Achados A11 e A12 acrescentados em 22/09/2026.*

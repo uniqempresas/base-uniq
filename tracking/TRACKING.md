@@ -1042,7 +1042,25 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 
 **Verificação:** `npx tsc --noEmit` = **0 erros** · `npm run build` OK (3594 módulos) · Vercel **`READY`**.
 
-**Próximo da fila:** o **menu enxuto** (Opção A) — **ainda sem PRD/SPEC/WIRE**. Não entra antes de ter pipeline próprio.
+### ✅ MENU ENXUTO (Opção A) — IMPLEMENTADO (22/09/2026) · commit `1f4ccf3` · **verificado no ar**
+
+**Docs:** `tracking/plans/PRD-MenuEnxuto.md` · `tracking/specs/SPEC-MenuEnxuto.md` · `tracking/wireframe/WIRE-MenuEnxuto.md`
+
+**Rail: 12 → 7 entradas** — `Minha Empresa · Financeiro · Chatbot · Loja Virtual · MEL`, com o rodapé intacto (Meus Módulos · Configurações · Sair). Saíram: Dashboard (vira sub-item de Minha Empresa), Agenda, Vendas & PDV, CRM, Métricas.
+
+**Subnav filtrada por status** (`SubNavItem.moduloCodigo` + helper aplicado nos **dois** renders) — antes ela vazava link de módulo desligado. Serviços, Fornecedores e Colaboradores somem (`nao_adquirido`).
+
+**`/meus-modulos` somente leitura: 884 → 521 linhas.** Saíram loja de módulos, trial, cancelar, comparador, card de plano, header de fatura, barra de abas e filtros.
+
+**3º dado de plano falso removido:** *"Status do Plano · UNIQ Pro Enterprise · 75% da cota usada"*, em **2** lugares do `AppLayout`.
+
+**Verificação:** `tsc` = 0 · build OK · **chunks de produção inspecionados** (o MCP da Vercel está em 401 — a verificação foi pelo bundle real, que é evidência mais forte).
+
+> 🟡 **8 decisões tomadas por autonomia** — o fundador autorizou seguir sozinho e saiu. **REVISAR** em `TRACKING_MODULOS.md` §10.3. A principal: **D1 — a Loja Virtual permanece no rail** (5 itens, não 4), porque tirá-la tornaria **inalcançável** o que ele validou no mesmo dia. Se discordar, é uma linha.
+>
+> ⚠️ **1 item sinalizado, não decidido:** o preço do módulo no modal de detalhes (*"R$ 79/mês"*). O app diz R$ 79, o banco diz 0.00 — nenhum é autoritativo (`TRACKING_MODULOS.md` §10.4).
+
+**Próximo da fila:** **Opção B** — ligar o app em `unq_empresa_modulos` + guarda de rota + unificação dos 3 vocabulários de módulo + seed da Doceê.
 
 **Backlog:** registrado como **B10**.
 
