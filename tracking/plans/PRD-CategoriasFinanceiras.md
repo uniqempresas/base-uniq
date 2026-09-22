@@ -98,27 +98,54 @@ O `ProdutoFormModal` tem um botão **"Configurar"** (`:349-361`) que, quando nã
 
 ## 5. O DRE antes e depois
 
+**Estrutura real da tela** — que é a ordem padrão de um DRE (Impostos antes da Receita Líquida). **Este PRD desenhou errado na primeira versão; ver §5.1.**
+
 **Antes:**
 ```
 Receita Bruta
-(−) Custos (CMV derivado da venda)      ← conta 1
+(−) Impostos                              ← heurística por descrição
+= Receita Líquida
+(−) Custos (CMV derivado da venda)        ← conta 1
 = Lucro Bruto
-(−) Impostos (heurística)
-(−) Despesas Operacionais (contas a pagar)  ← conta 2 (o mesmo insumo!)
+(−) Despesas Operacionais (contas a pagar) ← conta 2 (o mesmo insumo!)
 = Lucro Líquido
 ```
 
 **Depois:**
 ```
 Receita Bruta
-(−) Custo de Mercadoria      ← contas a pagar com categoria tipo `mercadoria` (compra REAL)
+(−) Impostos                    ← heurística (mantida — D4)
+= Receita Líquida
+(−) Custo de Mercadoria         ← contas a pagar com categoria tipo `mercadoria` (compra REAL)
 = Lucro Bruto
-(−) Impostos (heurística — mantida)
-(−) Despesas Operacionais    ← categoria tipo `operacional` OU sem categoria, não-tributárias
+(−) Despesas Operacionais       ← categoria `operacional` OU sem categoria (D3)
 = Lucro Líquido
 ```
 
 Com o exemplo do fundador (vende 8, insumo 4 lançado como conta a pagar): **8 − 4 = 4**. Contado **uma vez**, pelo valor que ele **realmente pagou**.
+
+### 5.1 ⚠️ Correção de uma fórmula ERRADA neste PRD (22/09/2026)
+
+A primeira versão deste PRD desenhou os **Impostos depois do Lucro Bruto** e escreveu:
+
+> `lucroLiquido = receitaLiquida − comprasMercadoria − impostos − despesasOperacionais` ❌
+
+**Errado em dois níveis:**
+
+1. **A ordem da tela é `Impostos → Receita Líquida`** — padrão de DRE, e é o que a UI **já fazia**. O desenho deste PRD contrariava a tela real.
+2. **`receitaLiquida` já é `receitaBruta − impostos`** (`use-dre.ts:282`). Seguindo a fórmula ao pé da letra, os **impostos seriam subtraídos duas vezes** — o exato defeito que este PRD existe para eliminar.
+
+**Quem pegou:** o agente da lane C, que **não seguiu o SPEC literalmente** e implementou o correto:
+
+```ts
+const receitaLiquida = receitaBruta - impostos;             // :282 (já existia)
+const lucroBruto     = receitaLiquida - comprasMercadoria;  // :285
+const lucroLiquido   = lucroBruto - despesasOperacionais;   // :286
+```
+
+→ `receitaBruta − impostos − comprasMercadoria − despesasOperacionais`. **Cada saída subtraída exatamente uma vez.** ✅
+
+> 📌 **Para quem for conferir:** use **esta** versão corrigida, não o texto anterior do SPEC §5.1 item 7. O SPEC estava errado; a implementação está certa.
 
 ---
 
