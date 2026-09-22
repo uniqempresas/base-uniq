@@ -32,7 +32,10 @@
 |---|---|
 | `src/app/lib/moduloRoutes.ts:9` | `loja_virtual: '/marketplace'` → **`'/loja-virtual'`** |
 | `src/app/lib/modulos.ts:31` | ⚠️ **`loja_virtual`: status `nao_adquirido` → `ativo`** — **furo corrigido em 22/09/2026**, ver abaixo |
-| `src/app/components/layout/AppLayout.tsx:69` | label `"Marketplace"` → **`"Loja Virtual"`**, path → `/loja-virtual` |
+| `src/app/components/layout/AppLayout.tsx:70` | label `"Marketplace"` → **`"Loja Virtual"`**, path → `/loja-virtual` |
+| `src/app/components/layout/AppLayout.tsx:137-145` | ⚠️ **`SUBNAV_SECTIONS`, seção `railId: "loja"`** — ainda descrevia o Marketplace. **Furo corrigido em 22/09/2026**, ver abaixo |
+| `src/app/components/layout/AppLayout.tsx:205` | removido o link `m-marketplace` → `/marketplace` do subnav "Módulos" |
+| `src/app/contexts/ModulosContext.tsx` | ⚠️ migração `uniq-loja-virtual-ativa-v1` — **furo corrigido em 22/09/2026**, ver abaixo |
 | `src/app/routes.tsx` | +4 rotas do módulo (§6) |
 | `src/app/components/estoque/ProdutosPage.tsx` | import do modal (`:36`) + **3 chamadores** (`:413`, `:424`, `:436`) |
 | `src/app/components/estoque/ProdutoDetalhePage.tsx` | import do modal (`:44`) + **2 chamadores** (`:368`, `:381`) |
@@ -46,6 +49,22 @@
 > `loja_virtual` está no catálogo como **`nao_adquirido`** (`lib/modulos.ts:31`). O `visibleRailItems` (`AppLayout.tsx:259-265`) **esconde** tudo que é `nao_adquirido` ou `cancelado`.
 >
 > Sem trocar o status para **`ativo`**, o módulo seria construído por inteiro — rotas, telas, hooks — e **não apareceria no rail**. Sem erro, sem aviso: apenas invisível. Este SPEC originalmente **não previa essa troca**; ela é obrigatória para o módulo ser alcançável.
+
+> ⚠️ **Segundo furo — `SUBNAV_SECTIONS`** (encontrado pelo fundador em 22/09/2026, validando no celular).
+>
+> Trocar o item do rail **não bastava**. O submenu é casado por `railId` (`AppLayout.tsx:255-256`), e a seção `railId: "loja"` continuava descrevendo o **Marketplace** — "Lojistas", "Pedidos do vendedor", "Dashboard do vendedor", todos em `/marketplace`.
+>
+> Resultado: o rail dizia "Loja Virtual", mas o submenu ao lado levava ao módulo aposentado. **Este SPEC não previa o `SUBNAV_SECTIONS`**: ele lista as rotas do módulo (§5), mas não os itens de submenu do layout.
+>
+> **Regra para o próximo agente:** um módulo novo no rail precisa de **três** amarrações, não duas — `RAIL_ITEMS` (label/path), **`SUBNAV_SECTIONS`** (seção com o mesmo `railId`) e `moduloRoutes`.
+
+> ⚠️ **Terceiro furo — o `localStorage` vence o catálogo.**
+>
+> O status dos módulos vive em `uniq-modulos-ativos`, e `carregarModulos()` (`ModulosContext.tsx:34-35`) faz `existentes.get(modulo.id) || modulo` — **o valor SALVO ganha** do catálogo do código.
+>
+> Como `loja_virtual` tem `id: '7'` e qualquer navegador que já abriu o app tem essa entrada salva como `nao_adquirido`, **trocar o catálogo para `ativo` não bastava**: o item seguiria escondido, justamente em quem já conhece o sistema.
+>
+> Corrigido com o padrão que o projeto já usava para a Agenda: chave `uniq-loja-virtual-ativa-v1`, convertendo `nao_adquirido` → `ativo` uma única vez. **`cancelado` não é ressuscitado** — o cancelamento segue definitivo, conforme a regra registrada no próprio arquivo.
 
 ### Intocados (não regredir)
 

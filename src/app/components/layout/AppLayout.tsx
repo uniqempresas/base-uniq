@@ -19,6 +19,7 @@ import {
   Scissors,
   MessageCircle,
   Store,
+  Palette,
   LayoutGrid,
   Building2,
   Search,
@@ -135,12 +136,13 @@ const SUBNAV_SECTIONS: SubNavSection[] = [
   },
   {
     railId: "loja",
-    title: "Marketplace",
-    subtitle: "Gestão de venda em múltiplos canais",
+    title: "Loja Virtual",
+    subtitle: "Catálogo e aparência da sua loja",
     items: [
-      { id: "mk-dashboard", label: "Lojistas", path: "/marketplace", icon: Store },
-      { id: "mk-pedidos", label: "Pedidos do vendedor", path: "/marketplace/vendedor/pedidos", icon: ShoppingCart },
-      { id: "mk-dashboard-vendedor", label: "Dashboard do vendedor", path: "/marketplace/vendedor", icon: LayoutDashboard },
+      { id: "lv-hub", label: "Visão geral", path: "/loja-virtual", icon: Store },
+      { id: "lv-aparencia", label: "Aparência", path: "/loja-virtual/aparencia", icon: Palette },
+      { id: "lv-produtos", label: "Produtos", path: "/loja-virtual/produtos", icon: Package },
+      { id: "lv-categorias", label: "Categorias", path: "/estoque/configuracoes", icon: LayoutGrid },
     ],
   },
   {
@@ -200,7 +202,6 @@ const SUBNAV_SECTIONS: SubNavSection[] = [
     subtitle: "Gerencie seus módulos",
     items: [
       { id: "m-meus", label: "Meus Módulos", path: "/meus-modulos", icon: LayoutGrid },
-      { id: "m-marketplace", label: "Marketplace", path: "/marketplace", icon: Store },
     ],
   },
   {
