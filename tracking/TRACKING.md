@@ -966,6 +966,21 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 
 ---
 
+## 🧾 DRE — dois achados corrigidos (21/09/2026)
+
+**Status:** ✅ CONCLUÍDO — só `src/app/hooks/use-dre.ts` (a `DREPage` não foi tocada). `tsc` **5** (zero novos) · `npm run build` ✅.
+
+| # | Achado | Diagnóstico | Correção |
+|---|---|---|---|
+| 1 | Venda cancelada na receita | A query de receita filtrava só `deletado_em`, **não** `status_venda`. Cancelar pelo fluxo normal de status (`use-atualizar-status-pedido`) grava `status_venda='cancelado'` e **não** preenche `deletado_em` → a venda (e o CMV dela, via `vendaIds`) contava como receita | filtro no **cliente** `status_venda !== 'cancelado'`, antes de `receitaBruta` e antes de montar `vendaIds`. **Não** usar `.neq` do PostgREST: em SQL `NULL != 'cancelado'` é `NULL` → descartaria vendas com status NULL |
+| 2 | "(-) Impostos" sempre R$ 0,00 | `impostos` era hardcoded `0`. O DAS lançado como conta a pagar caía em Despesas Operacionais e a linha de Impostos ficava zerada (o modo **demo** mostrava R$ 124,28 e o **real** R$ 0 — a inconsistência visível) | helper `ehDespesaTributaria(descricao)` (ponte até existir categoria — ver **B9**) soma as contas tributárias **pagas + em aberto**; essas contas **saem** de `despesasOperacionais` e do gráfico (anti-dupla-contagem) |
+
+**⚠️ Correção de registro (honestidade):** o alerta anterior afirmava que a venda cancelada `32f88d3f` da Doceê (R$ 15,00) estava somando na receita. **Era falso** — ela já tinha `deletado_em = 18/09/2026 22:48` (foi "excluída", não apenas cancelada), então o filtro existente já a descartava. O achado **continua válido como bug latente**: cancelar pelo fluxo de status não preenche `deletado_em`, e essa venda contaria.
+
+**Heurística de imposto (ponte provisória):** termos fortes (`imposto`, `tributo`, `darf`, `icms`, `iss`, `irpj`, `csll`, `cofins`, `pis`, `simples nacional`, `guia de recolhimento`) casam com **fronteira de palavra**; `DAS` casa **só no início** da descrição (`/^\s*das\b/i`) — a preposição "das" no meio da frase nunca casa (ex.: "Aluguel das lojas" → `false`). 30/30 casos testados. **Substituir por `categoria_id` quando o B9 entrar.**
+
+---
+
 ## ➕ PENDÊNCIAS QUE DEPENDEM DO FUNDADOR
 
 | # | Item | Necessário antes de | Observação |
@@ -992,6 +1007,7 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 | ~~B6~~ | ~~**Completar SDD da T2.9**~~ | ✅ Resolvido (11/09/2026) — PRD e WIRE criados em `tracking/plans/` e `tracking/wireframe/`. | Fechado |
 | B7 | **Erro TS em `ProdutoDetalhePage.tsx:456` — `tab.badge` possivelmente `undefined`** | Arquivo da lane "Editar Produto" (trabalho paralelo, 12/09/2026). `TABS` (linhas 322–327) tem shapes inconsistentes: só a aba `movimentacoes` tem `badge` (as demais não); a guarda `{"badge" in tab && tab.badge > 0}` (linha 456) não estreita o tipo → LSP: `'tab.badge' is possibly 'undefined'`. **Fix sugerido:** tipar o elemento de `TABS` com `badge?: number` explícito e usar `tab.badge != null && tab.badge > 0` (ou `typeof tab.badge === "number"`). **Dono:** lane Editar Produto (não tocar por esta lane). | Média |
 | B8 | **~~"Contabilizar venda" envia `p_itens` sem `produto_id`/`servico_id`~~** | ✅ Resolvido (15/09/2026). Parte 1: `use-pedido.ts` busca `me_itens_venda` (+ `foto_url` via `me_produto`) e popula `itens` no detalhe — validação: venda `0c901c4a`, "Surpresa de Uva" ×2. Parte 2: `ItemPedido` ganhou `produtoId`/`tipoItem`; `ItemVenda` e `handleContabilizar` mandam payload canônico da RPC (`{tipo, id_referencia, nome, quantidade, preco_unitario}`). Commit `de7c86b` (parte 1). | Fechado |
+| B9 | **Categorias em Contas a Receber / Pagar** | O formulário de conta **não tem categoria** — por isso não dá para distinguir *compra de estoque/ingrediente* de *despesa operacional*, nem separar tributos por categoria. Isso **bloqueia o ajuste do DRE** que evita a **dupla contagem** entre o **CMV** (custo da mercadoria vendida, derivado da venda) e a **conta a pagar da compra** — ex.: comprar R$ 98 de chocolate lançado como conta a pagar **e** o CMV das trufas feitas com ele contariam 2×. Exige: campo de categoria no form (lendo `me_categoria_financeira`, hoje **vazia**) + classificar a conta + o DRE excluir as compras de estoque das Despesas Operacionais. ⚠️ **Enquanto isso, a linha de Impostos usa uma heurística por descrição** (`ehDespesaTributaria` em `use-dre.ts`), que deve ser substituída por `categoria_id` quando este item entrar. | Média |
 
 ---
 

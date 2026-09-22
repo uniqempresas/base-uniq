@@ -61,6 +61,42 @@ function truncarDescricao(desc: string | null): string {
   return palavras.slice(0, 2).join(" ");
 }
 
+// Ponte provisória: as contas a pagar ainda não têm categoria_id — o formulário
+// não possui o campo. Enquanto isso, identificamos o imposto pela descrição.
+// Quando as categorias existirem, isso será substituído por um filtro por categoria
+// (ex.: `categoria_id` da "Impostos").
+const TERMOS_TRIBUTARIOS = [
+  "imposto",
+  "impostos",
+  "tributo",
+  "tributos",
+  "darf",
+  "icms",
+  "iss",
+  "irpj",
+  "csll",
+  "cofins",
+  "pis",
+  "simples nacional",
+  "guia de recolhimento",
+];
+
+/**
+ * Reconhece se a descrição de uma conta a pagar é um tributo (DAS, impostos, guias).
+ * - Termos fortes casam com fronteira de palavra, case-insensitive.
+ * - "DAS" casa APENAS no início da descrição (`/^\s*das\b/i`) — a preposição "das"
+ *   no meio da frase (ex.: "Aluguel das lojas") NUNCA é considerada imposto, porque
+ *   não é precedida de início de string.
+ */
+export function ehDespesaTributaria(descricao: string): boolean {
+  const texto = descricao.trim();
+  if (/^\s*das\b/i.test(texto)) return true;
+  return TERMOS_TRIBUTARIOS.some((termo) => {
+    const escape = termo.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+    return new RegExp(`\\b${escape}\\b`, "i").test(texto);
+  });
+}
+
 export function useDRE(periodo: string) {
   const { empresa, session, loading: authLoading } = useAuth();
   const [dre, setDre] = useState<DREData | null>(null);
@@ -99,7 +135,7 @@ export function useDRE(periodo: string) {
       const [vendasResult, pagasResult, pendentesResult] = await Promise.all([
         supabase
           .from("me_venda")
-          .select("id, valor_total")
+          .select("id, valor_total, status_venda")
           .eq("empresa_id", empresaId)
           .is("deletado_em", null)
           .gte("criado_em", inicio)
@@ -126,7 +162,14 @@ export function useDRE(periodo: string) {
       if (pagasResult.error) throw pagasResult.error;
       if (pendentesResult.error) throw pendentesResult.error;
 
-      const vendas = (vendasResult.data ?? []) as { id: string; valor_total: number | null }[];
+      // Exclui vendas canceladas da receita. O filtro é feito NO CLIENTE (e não com
+      // `.neq("status_venda", "cancelado")`) porque, em SQL, `NULL != 'cancelado'`
+      // avalia para `NULL` — um `.neq` postgREST descartaria vendas sem status.
+      const vendas = ((vendasResult.data ?? []) as {
+        id: string;
+        valor_total: number | null;
+        status_venda: string | null;
+      }[]).filter((v) => v.status_venda !== "cancelado");
       const receitaBruta = vendas.reduce((s, v) => s + (Number(v.valor_total) || 0), 0);
 
       // CMV: tentar buscar itens de venda + preco_custo
@@ -182,13 +225,22 @@ export function useDRE(periodo: string) {
         ...contasEmAberto.map((c) => ({ descricao: c.descricao, valor: Number(c.valor ?? 0) })),
       ];
 
-      const despesasOperacionais = despesasComValor.reduce((s, c) => s + Number(c.valor || 0), 0);
+      // Impostos: contas a pagar tributárias (ex.: "DAS - Simples Nacional"),
+      // reconhecidas pela descrição enquanto não houver categoria_id.
+      // Contam tanto pagas quanto em aberto, coerente com o resto do DRE.
+      const despesasTributarias = despesasComValor.filter((c) => ehDespesaTributaria(c.descricao ?? ""));
+      const impostos = despesasTributarias.reduce((s, c) => s + Number(c.valor || 0), 0);
 
-      // Agrupar despesas por categoria (proxy: primeiras 2 palavras da descrição)
-      const categoriasDespesas = agruparDespesasPorCategoria(despesasComValor);
+      // Despesas operacionais excluem os impostos (evita dupla contagem: o mesmo
+      // valor não pode aparecer na linha de Impostos E em Despesas Operacionais).
+      const despesasNaoTributarias = despesasComValor.filter((c) => !ehDespesaTributaria(c.descricao ?? ""));
+      const despesasOperacionais = despesasNaoTributarias.reduce((s, c) => s + Number(c.valor || 0), 0);
+
+      // Agrupar despesas por categoria (proxy: primeiras 2 palavras da descrição) —
+      // o pie reflete Despesas Operacionais, portanto também exclui as tributárias.
+      const categoriasDespesas = agruparDespesasPorCategoria(despesasNaoTributarias);
 
       // Cálculos
-      const impostos = 0;
       const receitaLiquida = receitaBruta - impostos;
       const lucroBruto = receitaLiquida - custos;
       const lucroLiquido = lucroBruto - despesasOperacionais;
