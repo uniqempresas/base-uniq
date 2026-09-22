@@ -1008,18 +1008,34 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 - **Modal de produto:** é **único e compartilhado** (`ProdutoFormModal`) — Estoque e Loja/Vitrine chamam o mesmo. Vai para lugar compartilhado (hoje mora em `components/estoque/`).
 - **`marketplace/` multi-lojista:** sai do caminho — é outra ideia/produto. Hoje ele ocupa a rota do `loja_virtual` (`/marketplace`), que é o lugar errado.
 
-**📄 Documentos do 1º item da fila (Loja/Vitrine) — pipeline SDD completo, aguardando aprovação do fundador:**
+**📄 Documentos do 1º item da fila (Loja/Vitrine) — pipeline SDD completo e ✅ APROVADO:**
 - PRD: `tracking/plans/PRD-LojaVirtual-CompletarModulo.md`
 - SPEC: `tracking/specs/SPEC-LojaVirtual-CompletarModulo.md`
 - WIRE: `tracking/wireframe/WIRE-LojaVirtual-CompletarModulo.md`
 
-**O que eles entregam:** o **editor de aparência** (a lacuna real — hoje trocar banner exige SQL manual), o **`exibir_vitrine`** ligado ponta a ponta, **"Preço promocional" → `preco_varejo`**, `unidade` persistida, a **rota do módulo** corrigida para `/loja-virtual` e o `ProdutoFormModal` movido para lugar compartilhado.
+### ✅ IMPLEMENTADO (22/09/2026) — commit `29885d2` · deploy Vercel `READY`
 
-> ⚠️ **Achado verificado no banco (22/09/2026):** `me_produto.exibir_vitrine` tem **default `false`** e o modal **não escreve a coluna** → **o próximo produto cadastrado pela Doceê nasce invisível na loja, sem UI para corrigir.** Os 16 produtos dela estão `true` porque foram configurados por fora do app. Não é bug ativo — é latente com disparo garantido.
->
-> ⚠️ **Duas ações de schema pendentes** (SPEC §2.5): `ALTER TABLE me_produto ADD COLUMN unidade text` e alinhar o default de `exibir_vitrine` para `true` (**precisa de aval do fundador**).
->
-> ⚠️ **Uma decisão aberta** (SPEC §10.1): paleta do editor **livre** (com defaults do `DESIGN.md`) ou **restrita** ao `DESIGN.md`? A recomendação é livre — a `appearance` real da Gráfica HQ já usa cores fora do `DESIGN.md`.
+**⏳ Aguarda validação do fundador no celular.**
+
+**O que foi entregue:** o **editor de aparência** (a lacuna real — até então trocar banner exigia subir arquivo no bucket e escrever JSON à mão), o **`exibir_vitrine`** ligado ponta a ponta com o toggle "Mostrar na vitrine", **"Preço promocional" → `preco_varejo`** (destrava o selo "de/por" que a vitrine **já sabia** desenhar), **`unidade` persistida**, a **rota do módulo** corrigida (`/marketplace` → `/loja-virtual`, rail volta a dizer "Loja Virtual") e o **`ProdutoFormModal` movido** para `components/produto/` — modal único compartilhado entre Estoque e Loja.
+
+**Migration aplicada** — `supabase/migrations/20260922120000_me_produto_unidade_e_exibir_vitrine_default.sql`:
+- `me_produto.unidade` (text, nullable) — **aditiva, zero risco**
+- `me_produto.exibir_vitrine` default `false` → **`true`** (afeta só linhas novas)
+
+**As duas decisões pendentes foram resolvidas pelo fundador (22/09/2026):**
+- ✅ **`exibir_vitrine` default → `true`** — produto novo aparece na loja; o parceiro desmarca se não quiser.
+- ✅ **Paleta LIVRE** (com os defaults do `DESIGN.md`). Motivo registrado: a `appearance` real da **Gráfica HQ** já usa `#4f9ef3`/`#ff6600`, cores que **não existem** no `DESIGN.md`. A distinção que resolve: **`DESIGN.md` = UI do produto · `appearance` = marca do parceiro**.
+
+> 🔎 **O achado que motivou a correção:** `me_produto.exibir_vitrine` tinha default **`false`** e o modal **não escrevia a coluna** → o próximo produto cadastrado pela Doceê nasceria **invisível na loja, sem UI para corrigir**. Os 16 produtos dela estavam `true` porque foram configurados **por fora do app**. Não era bug ativo — era **latente com disparo garantido**.
+
+> ⚠️ **Furo corrigido no SPEC durante a implementação:** `loja_virtual` estava no catálogo como **`nao_adquirido`**, e o `visibleRailItems` (`AppLayout.tsx:259-265`) esconde tudo que é `nao_adquirido`. Sem trocar para **`ativo`**, o módulo seria construído por inteiro e ficaria **invisível no rail** — sem erro e sem aviso. Corrigido em `lib/modulos.ts`.
+
+> ⚠️ **Armadilha evitada:** o SPEC tipava `banners: BannerLoja[]` (camelCase), mas a vitrine pública lê o jsonb cru em **snake_case** (`desktop_url`, `button_text`…). O hook de escrita faz a conversão. Sem ela, **todo banner salvo seria descartado** no `mapBanner` e a loja cairia no banner gerado — falha silenciosa contra o critério de aceite "banner salvo aparece em `/loja/docee`".
+
+**Verificação:** `npx tsc --noEmit` = **0 erros** · `npm run build` OK (3594 módulos) · Vercel **`READY`**.
+
+**Próximo da fila:** o **menu enxuto** (Opção A) — **ainda sem PRD/SPEC/WIRE**. Não entra antes de ter pipeline próprio.
 
 **Backlog:** registrado como **B10**.
 
