@@ -1,4 +1,4 @@
-import { Employee, Role, ModuleType } from '../types/employees';
+import { Employee, Role, ModuleType } from '../../types/employees';
 
 // Módulos disponíveis no sistema
 export const mockModules: ModuleType[] = [

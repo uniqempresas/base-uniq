@@ -10,7 +10,7 @@ import type {
   FAQItem,
   PalavraChave,
   ChatbotConfig
-} from '../types/chatbot';
+} from '../../types/chatbot';
 
 // ============================================
 // HELPERS

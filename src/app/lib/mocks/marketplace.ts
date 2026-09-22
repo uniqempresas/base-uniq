@@ -2,7 +2,7 @@
  * Mock Data para o módulo Marketplace
  */
 
-import type { Lojista, Produto, Pedido, PedidoStatus } from '../types/marketplace';
+import type { Lojista, Produto, Pedido, PedidoStatus } from '../../types/marketplace';
 
 // ============================================
 // LOJISTAS (5 lojistas)

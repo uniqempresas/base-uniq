@@ -168,16 +168,14 @@ export function CheckoutPage() {
   return (
     <div className="container mx-auto py-6">
       {/* Botão Voltar */}
-      {etapa !== 'sucesso' && (
-        <Button
-          variant="ghost"
-          className="mb-4 gap-2"
-          onClick={() => navigate('/marketplace/carrinho')}
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Voltar ao Carrinho
-        </Button>
-      )}
+      <Button
+        variant="ghost"
+        className="mb-4 gap-2"
+        onClick={() => navigate('/marketplace/carrinho')}
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Voltar ao Carrinho
+      </Button>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Formulário */}

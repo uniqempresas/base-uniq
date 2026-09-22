@@ -18,6 +18,7 @@ import {
   Scissors,
   AlertTriangle,
   TrendingUp,
+  type LucideIcon,
 } from "lucide-react";
 import {
   AGENDAMENTOS,
@@ -142,6 +143,20 @@ export function CompromissosPage() {
   const confirmados = filtered.filter((a) => a.status === "confirmado").length;
   const concluidos = filtered.filter((a) => a.status === "concluido").length;
 
+  const kpis: {
+    label: string;
+    value: string | number;
+    icon: LucideIcon;
+    color: string;
+    bg: string;
+    warn?: boolean;
+  }[] = [
+    { label: "Faturamento previsto", value: formatCurrency(totalFaturamento), icon: TrendingUp, color: "#1f2937", bg: "#efefef" },
+    { label: "Pendentes", value: pendentes, icon: Clock, color: "#F59E0B", bg: "#FFFBEB", warn: pendentes > 0 },
+    { label: "Confirmados", value: confirmados, icon: CheckCircle2, color: "#3B82F6", bg: "#EFF6FF" },
+    { label: "Concluídos", value: concluidos, icon: CheckCircle2, color: "#16A34A", bg: "#efefef" },
+  ];
+
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto">
       {/* Toast */}
@@ -211,12 +226,7 @@ export function CompromissosPage() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-        {[
-          { label: "Faturamento previsto", value: formatCurrency(totalFaturamento), icon: TrendingUp, color: "#1f2937", bg: "#efefef" },
-          { label: "Pendentes", value: pendentes, icon: Clock, color: "#F59E0B", bg: "#FFFBEB", warn: pendentes > 0 },
-          { label: "Confirmados", value: confirmados, icon: CheckCircle2, color: "#3B82F6", bg: "#EFF6FF" },
-          { label: "Concluídos", value: concluidos, icon: CheckCircle2, color: "#16A34A", bg: "#efefef" },
-        ].map((kpi) => {
+        {kpis.map((kpi) => {
           const Icon = kpi.icon;
           return (
             <div key={kpi.label} className="bg-white rounded-2xl p-4 shadow-sm border border-[#efefef]">
@@ -224,7 +234,7 @@ export function CompromissosPage() {
                 <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: kpi.bg }}>
                   <Icon size={15} style={{ color: kpi.color }} />
                 </div>
-                {(kpi as any).warn && kpi.value > 0 && (
+                {kpi.warn && (
                   <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
                 )}
               </div>
