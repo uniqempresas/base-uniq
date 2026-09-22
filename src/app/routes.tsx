@@ -93,6 +93,12 @@ export const router = createBrowserRouter([
       { path: "/estoque/produtos/:id", lazy: pagina(() => import("./components/estoque/ProdutoDetalhePage"), "ProdutoDetalhePage") },
       { path: "/estoque/movimentacoes", lazy: pagina(() => import("./components/estoque/MovimentacoesPage"), "MovimentacoesPage") },
       { path: "/estoque/configuracoes", lazy: pagina(() => import("./components/estoque/ConfiguracoesProdutosPage"), "ConfiguracoesProdutosPage") },
+      // Loja Virtual — módulo: catálogo + aparência da loja (SPEC-LojaVirtual-CompletarModulo §5)
+      { path: "/loja-virtual", lazy: pagina(() => import("./components/loja-virtual/LojaVirtualHubPage"), "LojaVirtualHubPage") },
+      { path: "/loja-virtual/aparencia", lazy: pagina(() => import("./components/loja-virtual/AparenciaPage"), "AparenciaPage") },
+      { path: "/loja-virtual/produtos", lazy: pagina(() => import("./components/loja-virtual/ProdutosLojaPage"), "ProdutosLojaPage") },
+      // Categorias: o CRUD já existe no Estoque (PRD-CategoriasProduto) — não duplicar tela
+      { path: "/loja-virtual/categorias", element: <Navigate to="/estoque/configuracoes" replace /> },
       // Fornecedores
       { path: "/fornecedores", lazy: pagina(() => import("./components/fornecedores/FornecedoresPage"), "FornecedoresPage") },
       { path: "/fornecedores/novo", lazy: pagina(() => import("./components/fornecedores/FornecedorNovoPage"), "FornecedorNovoPage") },

@@ -15,6 +15,12 @@ export interface CriarProdutoParams {
   descricao?: string;
   fotoUrl?: string;
   tags?: string[]; // nomes das tags → me_produto.opcoes_config (jsonb array de strings)
+  /** `me_produto.exibir_vitrine` — default true (banco alinhado na migration) */
+  exibirVitrine?: boolean;
+  /** `me_produto.preco_varejo` — preço "de" da vitrine; null limpa */
+  precoPromocional?: number | null;
+  /** `me_produto.unidade` — coluna aditiva (SPEC §2.5) */
+  unidade?: string | null;
 }
 
 export interface CriarProdutoResult {
@@ -60,6 +66,9 @@ export function useCriarProduto() {
             foto_url: params.fotoUrl || null,
             opcoes_config: params.tags?.length ? params.tags : [],
             ativo: true,
+            exibir_vitrine: params.exibirVitrine ?? true,
+            preco_varejo: params.precoPromocional ?? null,
+            unidade: params.unidade ?? null,
           })
           .select("id")
           .single();

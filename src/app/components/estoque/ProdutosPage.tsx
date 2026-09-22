@@ -33,7 +33,7 @@ import { useProdutos } from "../../hooks/use-produtos";
 import { useAtualizarProduto } from "../../hooks/use-atualizar-produto";
 import { getTagPalette } from "../../hooks/use-tags";
 import { useCategorias } from "../../hooks/use-categorias";
-import { ProdutoFormModal } from "./ProdutoFormModal";
+import { ProdutoFormModal } from "../produto/ProdutoFormModal";
 
 /**
  * Cor do chip de categoria de um produto.

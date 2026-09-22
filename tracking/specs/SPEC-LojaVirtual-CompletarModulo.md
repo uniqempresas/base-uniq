@@ -31,6 +31,7 @@
 | Arquivo | Mudança |
 |---|---|
 | `src/app/lib/moduloRoutes.ts:9` | `loja_virtual: '/marketplace'` → **`'/loja-virtual'`** |
+| `src/app/lib/modulos.ts:31` | ⚠️ **`loja_virtual`: status `nao_adquirido` → `ativo`** — **furo corrigido em 22/09/2026**, ver abaixo |
 | `src/app/components/layout/AppLayout.tsx:69` | label `"Marketplace"` → **`"Loja Virtual"`**, path → `/loja-virtual` |
 | `src/app/routes.tsx` | +4 rotas do módulo (§6) |
 | `src/app/components/estoque/ProdutosPage.tsx` | import do modal (`:36`) + **3 chamadores** (`:413`, `:424`, `:436`) |
@@ -39,6 +40,12 @@
 | `src/app/hooks/use-criar-produto.ts:44-65` | gravar `exibir_vitrine`, `preco_varejo`, `unidade` |
 | `src/app/hooks/use-atualizar-produto.ts:49-67` | gravar `exibir_vitrine`, `preco_varejo`, `unidade` |
 | `src/app/types/loja.ts` | tipos do editor (reusa `BannerLoja`, `TemaLoja`) |
+
+> ⚠️ **Furo encontrado em 22/09/2026 — o módulo ia nascer invisível.**
+>
+> `loja_virtual` está no catálogo como **`nao_adquirido`** (`lib/modulos.ts:31`). O `visibleRailItems` (`AppLayout.tsx:259-265`) **esconde** tudo que é `nao_adquirido` ou `cancelado`.
+>
+> Sem trocar o status para **`ativo`**, o módulo seria construído por inteiro — rotas, telas, hooks — e **não apareceria no rail**. Sem erro, sem aviso: apenas invisível. Este SPEC originalmente **não previa essa troca**; ela é obrigatória para o módulo ser alcançável.
 
 ### Intocados (não regredir)
 

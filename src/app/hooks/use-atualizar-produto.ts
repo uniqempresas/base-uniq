@@ -17,6 +17,12 @@ export interface AtualizarProdutoParams {
   fotoUrl?: string;
   ativo?: boolean;
   tags?: string[]; // nomes das tags → me_produto.opcoes_config (jsonb array de strings)
+  /** `me_produto.exibir_vitrine` — toggle da vitrine */
+  exibirVitrine?: boolean;
+  /** `me_produto.preco_varejo` — preço "de" da vitrine; null limpa */
+  precoPromocional?: number | null;
+  /** `me_produto.unidade` — coluna aditiva (SPEC §2.5) */
+  unidade?: string | null;
 }
 
 export interface AtualizarProdutoResult {
@@ -59,6 +65,9 @@ export function useAtualizarProduto() {
         if (campos.fotoUrl !== undefined) updateData.foto_url = campos.fotoUrl;
         if (campos.ativo !== undefined) updateData.ativo = campos.ativo;
         if (campos.tags !== undefined) updateData.opcoes_config = campos.tags;
+        if (campos.exibirVitrine !== undefined) updateData.exibir_vitrine = campos.exibirVitrine;
+        if (campos.precoPromocional !== undefined) updateData.preco_varejo = campos.precoPromocional;
+        if (campos.unidade !== undefined) updateData.unidade = campos.unidade;
 
         const { error: updateError } = await supabase
           .from("me_produto")

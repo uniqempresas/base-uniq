@@ -66,7 +66,7 @@ const RAIL_ITEMS: NavRailItem[] = [
   { id: "minha-empresa", label: "Minha Empresa", icon: Fingerprint, path: "/configuracoes/empresa", moduloCodigo: "minha_empresa" },
   { id: "vendas", label: "Vendas \u0026 PDV", icon: ShoppingCart, path: "/vendas", moduloCodigo: "vendas" },
   { id: "crm", label: "CRM", icon: Users, path: "/crm/dashboard", moduloCodigo: "crm" },
-  { id: "loja", label: "Marketplace", icon: Store, path: "/marketplace", moduloCodigo: "loja_virtual" },
+  { id: "loja", label: "Loja Virtual", icon: Store, path: "/loja-virtual", moduloCodigo: "loja_virtual" },
   { id: "financeiro", label: "Financeiro", icon: DollarSign, path: "/financeiro", moduloCodigo: "financeiro" },
   { id: "agenda", label: "Agenda", icon: Calendar, path: "/agenda", moduloCodigo: "agenda" },
   { id: "metricas", label: "Métricas", icon: BarChart3, path: "/metricas", moduloCodigo: "metricas" },

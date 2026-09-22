@@ -21,6 +21,7 @@ interface DBProduto {
   categoria_id: number | null;
   ativo: boolean | null;
   unidade_medida_id: number | null;
+  unidade: string | null;
   tipo: string | null;
   descricao: string | null;
   codigo_barras: string | null;
@@ -56,12 +57,16 @@ function mapProduto(db: DBProduto): Produto {
     categoria: db.me_categoria?.nome_categoria || "Sem categoria",
     categoriaId: db.categoria_id ?? null,
     categoriaCor: db.me_categoria?.cor ?? null,
-    unidade: "un", // padrão
+    unidade: db.unidade || "un",
     precoVenda: Number(db.preco) || 0,
+    // preco_varejo → precoPromocional ("Preço promocional" / preço "de" da vitrine)
+    precoPromocional: db.preco_varejo ?? undefined,
     precoCusto: Number(db.preco_custo) || 0,
     estoque,
     estoqueMinimo,
     status: (db.ativo ? "ativo" : "inativo") as ProdutoStatus,
+    // exibir_vitrine — toggle "Mostrar na vitrine" (SPEC §2.3)
+    exibirVitrine: db.exibir_vitrine ?? false,
     estoqueStatus: calcEstoqueStatus(estoque, estoqueMinimo),
     possuiVariacoes: false,
     descricaoCurta: db.descricao || undefined,

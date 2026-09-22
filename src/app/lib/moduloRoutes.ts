@@ -6,7 +6,7 @@ export const MODULO_ROUTES: Record<string, string> = {
   crm: '/crm/dashboard',
   estoque: '/estoque/dashboard',
   vendas: '/vendas',
-  loja_virtual: '/marketplace',
+  loja_virtual: '/loja-virtual',
   agenda: '/agenda',
   financeiro: '/financeiro/dashboard',
   metricas: '/metricas/dashboard',

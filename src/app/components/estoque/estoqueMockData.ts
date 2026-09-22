@@ -1,5 +1,15 @@
-export type EstoqueStatus = "ok" | "baixo" | "zerado";
-export type ProdutoStatus = "ativo" | "inativo" | "rascunho";
+// Tipos `Produto`/`EstoqueStatus`/`ProdutoStatus`/`Variacao` e utilitários
+// `formatCurrency`/`calcMargem` mudaram para contractos compartilhados (SPEC §4 — D3):
+//   - `src/app/types/produto.ts`
+//   - `src/app/lib/produto-utils.ts`
+// Importados aqui (o mock consome os próprios dados) e re-exportados para
+// zero quebra nos demais consumidores existentes.
+import { formatCurrency, calcMargem } from "../../lib/produto-utils";
+import type { Produto, Variacao, ProdutoStatus, EstoqueStatus } from "../../types/produto";
+
+export { formatCurrency, calcMargem };
+export type { Produto, Variacao, ProdutoStatus, EstoqueStatus };
+
 export type MovTipo = "entrada" | "saida";
 export type MovMotivo =
   | "Compra"
@@ -11,48 +21,6 @@ export type MovMotivo =
   | "Quebra"
   | "Doação"
   | "Outro";
-
-export interface Variacao {
-  id: string;
-  nome: string;
-  sku: string;
-  estoque: number;
-  preco?: number;
-  codigoBarras?: string;
-  ativo: boolean;
-}
-
-export interface Produto {
-  id: string;
-  nome: string;
-  sku: string;
-  codigoBarras?: string;
-  categoria: string;
-  /** `me_produto.categoria_id` — usado para pré-selecionar no formulário */
-  categoriaId?: number | null;
-  /** `me_categoria.cor` — cor real da categoria (antes vinha de um mapa mock) */
-  categoriaCor?: string | null;
-  marca?: string;
-  unidade: string;
-  precoVenda: number;
-  precoCusto: number;
-  precoPromocional?: number;
-  estoque: number;
-  estoqueMinimo: number;
-  estoqueMaximo?: number;
-  status: ProdutoStatus;
-  estoqueStatus: EstoqueStatus;
-  possuiVariacoes: boolean;
-  variacoes?: Variacao[];
-  localizacao?: string;
-  fornecedor?: string;
-  descricaoCurta?: string;
-  dataCadastro: string;
-  ultimaMovimentacao: string;
-  foto?: string;
-  totalVendido: number;
-  tags?: string[]; // nomes das tags (persistido em me_produto.opcoes_config)
-}
 
 export interface Movimentacao {
   id: string;
@@ -462,15 +430,6 @@ export const MOVIMENTACOES: Movimentacao[] = [
     cancelada: false,
   },
 ];
-
-export function formatCurrency(value: number): string {
-  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
-
-export function calcMargem(custo: number, venda: number): number {
-  if (venda === 0) return 0;
-  return Math.round(((venda - custo) / venda) * 100);
-}
 
 export function getEstoqueStatusConfig(status: EstoqueStatus) {
   switch (status) {

@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { X, CheckCircle2, Loader2, Barcode, Camera, Trash2, Package, Settings } from "lucide-react";
-import { formatCurrency, calcMargem, type Produto } from "./estoqueMockData";
+import { formatCurrency, calcMargem } from "../../lib/produto-utils";
+import type { Produto } from "../../types/produto";
+import { Switch } from "../ui/switch";
 import { useCriarProduto } from "../../hooks/use-criar-produto";
 import { useAtualizarProduto } from "../../hooks/use-atualizar-produto";
 import { getTagPalette } from "../../hooks/use-tags";
@@ -41,6 +43,11 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, onClose, on
       unidade: base?.unidade || "Peça",
       precoCusto: base ? String(base.precoCusto ?? 0) : "",
       precoVenda: base ? String(base.precoVenda ?? 0) : "",
+      // "Preço promocional" = me_produto.preco_varejo (o preço "de" da vitrine).
+      // Persiste só quando > preço de venda; vazio → null.
+      precoPromocional: base?.precoPromocional ? String(base.precoPromocional) : "",
+      // "Mostrar na vitrine" = me_produto.exibir_vitrine. Default true (banco alinhado).
+      exibirVitrine: base?.exibirVitrine ?? true,
       estoque: produtoBase ? "0" : base ? String(base.estoque ?? 0) : "",
       estoqueMinimo: base ? String(base.estoqueMinimo ?? 0) : "5",
       codigoBarras: base?.codigoBarras || "",
@@ -53,6 +60,7 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, onClose, on
   );
   const [fotoRemovida, setFotoRemovida] = useState(false);
   const [erroFoto, setErroFoto] = useState("");
+  const [erroPromocional, setErroPromocional] = useState("");
 
   const base = produtoBase || produto || null;
   const navigate = useNavigate();
@@ -69,6 +77,19 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, onClose, on
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setErro("");
+
+    // "Preço promocional" (→ me_produto.preco_varejo): vazio grava null; se
+    // preenchido, precisa ser MAIOR que o preço de venda — a vitrine só mostra
+    // o selo "de/por" quando preco_varejo > preco (use-loja-produtos.ts).
+    const precoVendaNum = parseFloat(form.precoVenda) || 0;
+    const precoPromocional =
+      form.precoPromocional.trim() === "" ? null : parseFloat(form.precoPromocional);
+    if (precoPromocional !== null && Number.isFinite(precoPromocional) && precoPromocional <= precoVendaNum) {
+      setErroPromocional("O preço promocional precisa ser maior que o preço de venda.");
+      setStep(2);
+      return;
+    }
+    setErroPromocional("");
 
     // Upload primeiro: produto só salva se a foto subir (regra 1 do PRD).
     let fotoUrlFinal: string | undefined;
@@ -97,6 +118,9 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, onClose, on
         codigoBarras: form.codigoBarras || undefined,
         descricao: form.descricao || undefined,
         fotoUrl: fotoUrlFinal,
+        exibirVitrine: form.exibirVitrine,
+        precoPromocional,
+        unidade: form.unidade,
       });
 
       if (resultado.success) {
@@ -119,6 +143,9 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, onClose, on
       descricao: form.descricao || undefined,
       // No duplicar, herda a URL da foto original; no criar sem foto, undefined → hook grava null.
       fotoUrl: fotoUrlFinal !== undefined ? fotoUrlFinal : base?.foto,
+      exibirVitrine: form.exibirVitrine,
+      precoPromocional,
+      unidade: form.unidade,
     });
 
     if (resultado.success) {
@@ -378,6 +405,28 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, onClose, on
                   />
                 </div>
               </div>
+
+              {/* Vitrine — me_produto.exibir_vitrine (SPEC §4.3) */}
+              <div>
+                <p className="block text-[#1f2937] text-xs mb-1.5" style={{ fontWeight: 500 }}>
+                  Vitrine
+                </p>
+                <div className="flex items-center justify-between rounded-xl border border-[#efefef] p-4">
+                  <div>
+                    <p className="text-[#1f2937] text-xs" style={{ fontWeight: 600 }}>
+                      Mostrar na vitrine
+                    </p>
+                    <p className="text-[#627271] text-[11px] mt-0.5">
+                      Desligue se o produto não deve aparecer na loja virtual.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={form.exibirVitrine}
+                    onCheckedChange={(checked) => setForm((f) => ({ ...f, exibirVitrine: checked }))}
+                    aria-label="Mostrar na vitrine"
+                  />
+                </div>
+              </div>
               </>
           )}
 
@@ -411,7 +460,10 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, onClose, on
                       type="number"
                       step="0.01"
                       value={form.precoVenda}
-                      onChange={(e) => setForm((f) => ({ ...f, precoVenda: e.target.value }))}
+                      onChange={(e) => {
+                        setForm((f) => ({ ...f, precoVenda: e.target.value }));
+                        setErroPromocional("");
+                      }}
                       placeholder="0,00"
                       className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92]"
                       required
@@ -455,10 +507,20 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, onClose, on
                   <input
                     type="number"
                     step="0.01"
+                    value={form.precoPromocional}
+                    onChange={(e) => {
+                      setForm((f) => ({ ...f, precoPromocional: e.target.value }));
+                      setErroPromocional("");
+                    }}
                     placeholder="0,00"
                     className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92]"
                   />
                 </div>
+                {erroPromocional && (
+                  <p className="mt-1.5 text-xs text-red-600" style={{ fontWeight: 500 }}>
+                    {erroPromocional}
+                  </p>
+                )}
               </div>
             </>
           )}
@@ -490,28 +552,6 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, onClose, on
                     className="w-full px-3.5 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92]"
                   />
                 </div>
-              </div>
-              <div>
-                <label className="block text-[#1f2937] text-xs mb-1.5" style={{ fontWeight: 500 }}>
-                  Localização no depósito
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ex: Prateleira A-1, Vitrine 2..."
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92]"
-                />
-              </div>
-              <div>
-                <label className="block text-[#1f2937] text-xs mb-1.5" style={{ fontWeight: 500 }}>
-                  Fornecedor padrão
-                </label>
-                <select className="w-full px-3.5 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92] appearance-none bg-white">
-                  <option value="">Selecionar fornecedor...</option>
-                  <option>Distribuidora Têxtil SP</option>
-                  <option>Tech Distribuidora</option>
-                  <option>Cosméticos Nacionais</option>
-                  <option>FastStep Distribuidora</option>
-                </select>
               </div>
               <div>
                 <label className="block text-[#1f2937] text-xs mb-1.5" style={{ fontWeight: 500 }}>
