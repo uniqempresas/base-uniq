@@ -142,6 +142,7 @@ Criar um helper dentro de `AppLayout` que:
 | CTAs "Explorar loja" / "Adquirir" / "Cancelar" | `:286-288`, `:206-212`, `:235-240`, `:244-252`, `:266-268` |
 | Botão "Adquirir módulo" no detalhe | `:520-521` |
 | **Barra de abas** | `:689-693` — com uma aba só, a barra perde sentido |
+| **Badge "Trial: 14 dias grátis"** no card | `:238` — **L1**: sem trial, o badge mente. Remover junto com o `ModalAdquirirModulo` |
 
 ### 4.2 Manter
 
@@ -245,3 +246,37 @@ L1 e L2 tocam o **mesmo arquivo** — **sequencial**. L3 é arquivo diferente e 
 - **Remover `marketplace/` e suas rotas** — o módulo já não aponta para lá; a limpeza do código morto fica para depois.
 - **`EscolhaPlanoPage` órfã** — D7.
 - **Desligar o Estoque** (`TRACKING_MODULOS.md` §7 item 5) — a condição era "depois do Cardápio", e o Cardápio foi entregue. **Mas** isso mexe em quem é dono de produtos/categorias, e o próprio Loja Virtual aponta "Categorias" para `/estoque/configuracoes`. **Decisão separada, não executar aqui.**
+
+---
+
+## 10. Decisões sobre as lacunas do WIRE (22/09/2026)
+
+O WIRE (`WIRE-MenuEnxuto.md` §10) levantou 8 pontos. Resolução:
+
+| # | Lacuna | Decisão |
+|---|---|---|
+| **L1** | Badge "Trial: 14 dias grátis" no card fica morto | **REMOVER** (junto com o `ModalAdquirirModulo`). Sem trial, o badge mente. **Adicionado ao §4.1.** |
+| **L2** | Estados loading/erro de `/meus-modulos` sem gatilho real (fonte síncrona, `localStorage`) | **MANTER.** `AGENTS.md` exige os 4 estados em toda lista. Ficam prontos para a **Opção B** — quando o estado virar assíncrono (vindo do banco), passam a ter gatilho real. |
+| **L3** | "Limpar filtros" do `EmptyStateBusca` impreciso sem os filtros de status | O botão limpa **só a busca**. |
+| **L4** | **Card "Status do Plano" (UNIQ Pro Enterprise · 75%) no rodapé** | **REMOVER** — nos **dois** layouts. **Achado novo, fora do escopo original.** Ver §10.1. |
+| **L5** | "Usar módulo" mantido no card | **MANTER.** Navegar até o módulo não é ação de escrita — é útil numa lista somente leitura. |
+| **L6** | Busca filtra as duas seções ("Em breve" incluída) | **ACEITO.** |
+| **L7** | Header de fatura removido por implicação | **ACEITO** — depende do `ASSINATURA_MOCK`, que sai. |
+| **L8** | `/catalogo → /agenda/novo` da vitrine pública | **ACEITO** — a rota segue viva (D2). Já registrado no PRD §7. |
+
+### 10.1 L4 — a **terceira** instância do mesmo problema
+
+O WIRE achou **mais um** dado de plano falso, agora no **layout**:
+
+| Onde | Linha | Conteúdo |
+|---|---|---|
+| Desktop | `AppLayout.tsx:548-553` | "Status do Plano" · **UNIQ Pro Enterprise** · **75% da cota usada** |
+| Mobile | `AppLayout.tsx:760-767` | idem |
+
+**É o mesmo defeito do `ASSINATURA_MOCK`** (`MeusModulosPage.tsx:82-85`), que o fundador já mandou remover: dado de plano **inventado**, contradizendo o pricing fechado (R$ 297 → R$ 197) e a decisão *"módulos ativados pela UNIQ"*.
+
+**"UNIQ Pro Enterprise" não existe** como plano em nenhum lugar do projeto. "75% da cota usada" é número inventado.
+
+**Remover nos dois layouts.** O rodapé hardcoded (Meus Módulos · Configurações · Sair) **permanece** (F6) — só o card de plano sai.
+
+> 📌 **Padrão a vigiar:** este é o 3º dado de plano falso encontrado (`ASSINATURA_MOCK`, `PLANOS_COMPARATIVO`, este card). Se aparecer um 4º, vale uma varredura global por dado de pricing mockado no front.
