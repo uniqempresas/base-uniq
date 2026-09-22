@@ -132,6 +132,57 @@ Consulta: `information_schema.columns` em `me_produto` (projeto `krrkfgvdwhpelxt
 3. **Alinhar o default do banco à intenção** — `ALTER TABLE me_produto ALTER COLUMN exibir_vitrine SET DEFAULT true;`. Racional: produto novo deve **aparecer** na loja por padrão, e o parceiro **desmarca** se não quiser. Hoje o comportamento é o inverso do esperado.
    > ⚠️ **Decisão do fundador.** É a opção recomendada, mas mexe no default de uma coluna existente.
 
+### 2.6 Especificação de assets do banner (herdada de `SPEC-LojaVirtual-VitrineModerna.md:176-234`)
+
+> ⚠️ **Lacuna corrigida em 22/09/2026.** O SPEC antecessor documentava isto em detalhe; **este SPEC não tinha carregado** a especificação de assets. Sem ela, o editor não orienta o parceiro e a arte chega em proporção errada.
+
+O banner tem **altura fixa e largura variável**, com `object-cover` (preenche e corta).
+
+| Slot | Faixa | Largura exibida | Altura | Imagem recomendada |
+|---|---|---|---|---|
+| Desktop | ≥ 1024px | até 1120px (`max-w-6xl` − `px-4`) | 240px (`h-60`) | **1600 × 340** (retina **2240 × 480**) |
+| Tablet | 640–1023px | até ~991px | 192px (`h-48`) | **1500 × 290** |
+| Mobile | < 640px | até ~607px | 160px (`h-40`) | **1080 × 480** |
+
+- **Proporções:** desktop **4,67:1** · mobile **2,25:1**.
+- **A proporção varia com a largura do aparelho** (2,24:1 num phone de 390px → 3,79:1 num de 600px). Por isso o assunto essencial deve ficar no **centro vertical**.
+- **Área segura:** título, subtítulo e botão ficam à **esquerda**, sobre o véu escuro. Assunto principal à **direita**.
+- **Formato:** JPG (foto) ou WebP · **alvo ≤ 300 KB** · PNG só com transparência.
+
+#### Sobre subir uma arte única em 22:9
+
+**22:9 (2,44:1) não é nenhum dos dois slots.** Fica próximo do **mobile** (2,25:1) e **muito distante do desktop** (4,67:1).
+
+| Uso | Efeito |
+|---|---|
+| Como `mobile_url` | ✅ funciona bem — 2,44 vs 2,25 deixa um corte vertical pequeno |
+| Como `desktop_url` | ⚠️ **corta ~48% da altura** — o slot é quase 2× mais largo que a arte |
+
+**Recomendação:** gerar em **21:9** e exportar **dois recortes** da mesma arte:
+- `mobile_url`: **1080 × 480**
+- `desktop_url`: **2240 × 480** (recorte central)
+
+Se a ferramenta só gerar 16:9 (1,78:1): gerar **2240 × 1260** e recortar a **faixa central de 480px** — só ~38% da altura sobrevive, então o assunto tem de estar rigorosamente no centro.
+
+**Duas estratégias de arte (ambas suportadas):**
+
+| | Arte | Texto | Véu |
+|---|---|---|---|
+| **A (recomendada)** | imagem limpa | escrito pelo dado do banner (título/subtítulo/botão) | aplicado à esquerda para legibilidade |
+| **B** | flyer pronto, com texto embutido | deixar `title`/`subtitle` **vazios** | **não** aplicado — a arte fica intacta |
+
+O `VeuBanner` decide pelo conteúdo: sem imagem → superfície grafite · com imagem e texto → véu · com imagem e **sem** texto → sem véu.
+
+#### O que o editor precisa mostrar (vira requisito do WIRE)
+
+O editor **não pode ser um upload mudo**. Cada campo de imagem deve exibir:
+
+1. A **dimensão recomendada** do slot (`desktop_url` → 1600 × 340 · `mobile_url` → 1080 × 480);
+2. O aviso de **assunto centralizado na vertical** (a proporção é fluida);
+3. Que **preencher só um** dos dois é válido — o outro usa o mesmo arquivo.
+
+**Fora da v1:** validação automática de dimensão, recorte no navegador, conversão de formato.
+
 ---
 
 ## 3. O write hook — `use-atualizar-aparencia-loja.ts`

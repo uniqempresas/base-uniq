@@ -17,7 +17,7 @@
 | 2 | **Hub · atalhos** | Aparência · Produtos · Categorias | rotas internas do módulo | Categorias **redireciona** → `/estoque/configuracoes` (SPEC §5) |
 | 3 | **Hub · link da vitrine** | Descobrir e abrir a própria loja | `me_empresa.slug` → `/loja/:slug` | sempre; botões copiar (URL completa) e abrir |
 | 4 | **Aparência · Banners** | Lista ordenável + CRUD da lista | `me_empresa.appearance.hero.banners[]` | vazio → aviso "banner gerado"; reordenar com salvar |
-| 5 | **Aparência · Form de banner (modal)** | Upload desktop + mobile, textos, botão, destino do clique | `banners[].{desktop_url, mobile_url, title, subtitle, button_text, button_color, button_position, link_type, link_value}` | preview antes de salvar · erro tipo/tamanho · **um arquivo só é válido** |
+| 5 | **Aparência · Form de banner (modal)** | Upload desktop + mobile (**com orientação de dimensão**), textos, botão (cor da ação + **cor do texto**), destino do clique | `banners[].{desktop_url, mobile_url, title, subtitle, button_text, button_color, text_color, button_position, link_type, link_value}` | preview antes de salvar · erro tipo/tamanho · **um arquivo só é válido** · orientação de assets (SPEC §2.6) |
 | 6 | **Aparência · Carrossel** | Autoplay + intervalo | `appearance.hero.autoplay` · `appearance.hero.interval` | intervalo **mín. 2000ms**; sem dado → 5000 + autoplay on |
 | 7 | **Aparência · Tema** | As 4 chaves | `appearance.theme.{primaryColor, secondaryColor, borderRadius, fontFamily}` | vazio → **defaults visíveis** (Poppins · 8px · `#86cb92` · `#1f2937`) |
 | 8 | **Aparência · Identidade** | Slogan · descrição · ramo | `store_config.{slogan, description, ramoAtuacao}` | vazio → inputs vazios + placeholder; merge preserva `whatsapp_contact` |
@@ -197,19 +197,30 @@ Editor de coluna única (mobile-first). Cada bloco tem seu próprio estado de ca
 │  Novo banner                  ✕      │
 │                                      │
 │  Imagem — desktop                    │
+│  _recomendado 1600 × 340 (4,67:1)    │
+│  _retina 2240 × 480                  │
 │  ┌────────────────────────────────┐  │
 │  │      ( preview ou ícone )      │  │
 │  │                                │  │
 │  │     [ Escolher imagem ]        │  │
-│  │   JPG, PNG ou WebP · máx 5 MB  │  │
 │  └────────────────────────────────┘  │
 │  [ Remover imagem ]                  │  ← só com preview
 │                                      │
 │  Imagem — mobile (opcional)          │
+│  _recomendado 1080 × 480 (2,25:1)    │
 │  ┌────────────────────────────────┐  │
 │  │     [ Escolher imagem ]        │  │
-│  │   ✔ Vazio: usa a desktop       │  │
 │  └────────────────────────────────┘  │
+│                                      │
+│  Orientação do upload                │
+│  ✔ 1 imagem basta — o outro lado     │
+│    usa o mesmo arquivo.              │
+│  ⚠ A proporção varia com o aparelho  │
+│    (2,24:1 a 3,79:1). Mantenha o     │
+│    assunto no centro vertical.       │
+│  ✔ JPG ou WebP · alvo ≤ 300 KB.      │
+│  ✔ Área segura: textos à esquerda    │
+│    (sobre o véu); assunto à direita. │
 │                                      │
 │  Título *                            │
 │  [ Natal na Doceê______________ ]    │
@@ -217,8 +228,9 @@ Editor de coluna única (mobile-first). Cada bloco tem seu próprio estado de ca
 │  [ Trufas e kits para presentear ]   │
 │                                      │
 │  Botão                               │
-│  Texto   [ Ver mais____________ ]    │
-│  Cor     [ ● #00ccf5___________]     │
+│  Texto    [ Ver mais___________ ]    │
+│  Cor ação[ ● #00ccf5___________]     │
+│  Cor texto[● #001933___________]     │  ← 🆕 text_color
 │  Posição                             │
 │  (●) bottom-left   ( ) bottom-right  │
 │                                      │
@@ -239,24 +251,30 @@ Editor de coluna única (mobile-first). Cada bloco tem seu próprio estado de ca
 │  Novo banner                                        ✕        │
 │  ┌────────────────────────┐  ┌─────────────────────────────┐ │
 │  │ Imagem — desktop       │  │ Título *                    │ │
-│  │ ┌────────────────────┐ │  │ [ Natal na Doceê________]   │ │
-│  │ │     ( preview )    │ │  │ Subtítulo                   │ │
-│  │ │  [ Escolher ]      │ │  │ [ Trufas e kits_______]    │ │
-│  │ └────────────────────┘ │  │                             │ │
-│  │ [Remover imagem]       │  │ Botão  Texto [Ver mais____] │ │
-│  │                        │  │        Cor   [● #00ccf5___] │ │
-│  │ Imagem — mobile        │  │ Posição: (●) bottom-left    │ │
-│  │ ┌────────────────────┐ │  │          ( ) bottom-right   │ │
-│  │ │  [ Escolher ]      │ │  │                             │ │
-│  │ │  ✔ vazio: usa a    │ │  │ Destino: (●) Produto        │ │
-│  │ │    desktop         │ │  │          ( ) Link externo   │ │
+│  │ _1600×340 · 4,67:1     │  │ [ Natal na Doceê________]   │ │
+│  │ _retina 2240×480_      │  │ Subtítulo                   │ │
+│  │ ┌────────────────────┐ │  │ [ Trufas e kits_______]    │ │
+│  │ │     ( preview )    │ │  │                             │ │
+│  │ │  [ Escolher ]      │ │  │ Botão  Texto [Ver mais____] │ │
+│  │ └────────────────────┘ │  │        Cor ação [●#00ccf5]  │ │
+│  │ [Remover imagem]       │  │        Cor texto [●#001933] │ │
+│  │                        │  │ Posição: (●) bottom-left    │ │
+│  │ Imagem — mobile        │  │          ( ) bottom-right   │ │
+│  │ _1080×480 · 2,25:1     │  │                             │ │
+│  │ ┌────────────────────┐ │  │ Destino: (●) Produto        │ │
+│  │ │  [ Escolher ]      │ │  │          ( ) Link externo   │ │
 │  │ └────────────────────┘ │  │          ( ) Categoria      │ │
 │  └────────────────────────┘  │          ( ) Vitrine        │ │
 │                              │  Valor: [ Produto ▼ ]       │ │
-│  ✔ 1 imagem basta: o outro   │                             │ │
-│  lado usa o mesmo arquivo.   │        [Cancelar] [Salvar]  │ │
-│  JPG, PNG ou WebP · máx 5MB  │                             │ │
-│  (ajuda permanente)          │                             │ │
+│  Orientação do upload        │                             │ │
+│  ✔ 1 imagem basta — o outro  │        [Cancelar] [Salvar]  │ │
+│  lado usa o mesmo arquivo.   │                             │ │
+│  ⚠ proporção varia 2,24:1 a  │                             │ │
+│  3,79:1 — assunto no centro  │                             │ │
+│  vertical.                   │                             │ │
+│  ✔ JPG ou WebP · alvo≤300KB  │                             │ │
+│  ✔ textos à esquerda (véu),  │                             │ │
+│  assunto à direita.          │                             │ │
 │  ✔ id gerado no salvar:      │                             │ │
 │  banner-<timestamp>          │                             │ │
 └──────────────────────────────────────────────────────────────┘
@@ -273,16 +291,21 @@ Editor de coluna única (mobile-first). Cada bloco tem seu próprio estado de ca
 
 **Regras de validação do form (SPEC §2.1):**
 - Pelo menos **1 imagem** (desktop **ou** mobile) — sem imagem o banner não é salvo.
-- `título` obrigatório; `subtítulo` opcional; botão: `texto` + `cor` + `posição` opcionais (fallback da vitrine).
+- `título` obrigatório; `subtítulo` opcional; botão: `texto` + `cor` (ação) + **cor do texto** + `posição` opcionais (fallback da vitrine).
 - `button_position` → somente `bottom-left` | `bottom-right`.
 - `link_type` → somente os 4 aceitos; valor do clique obrigatório quando `link_type` for `product`/`external`/`category`.
 
+**Orientação de assets (SPEC §2.6)** — *textual, sem impor*:
+- Cada campo de imagem exibe a **dimensão recomendada do slot** (`desktop_url` → 1600 × 340, retina 2240 × 480 · `mobile_url` → 1080 × 480), com a proporção (4,67:1 / 2,25:1).
+- O bloco de orientação (uma vez, entre os uploads e o formulário) lembra: um arquivo só é válido · proporção fluida (2,24:1 a 3,79:1) → assunto no **centro vertical** · **JPG ou WebP · alvo ≤ 300 KB** · área segura (textos à esquerda sobre o véu, assunto à direita).
+- ⚠️ **Fora da v1:** validação automática de dimensão, recorte no navegador e conversão de formato — **não** implementar.
+
 **Interação de upload (SPEC §6):**
 - Escolher arquivo → **preview imediato** no componente (object URL, sem salvar ainda).
-- Tipo inválido → erro inline: *"Envie uma imagem (JPG, PNG ou WebP)."*
-- Acima de 5 MB → erro inline: *"Imagem muito grande. Envie até 5 MB."*
+- Tipo inválido → erro inline: *"Envie uma imagem (JPG ou WebP)."*
+- Acima do alvo → erro inline: *"Imagem muito grande — o alvo é ≤ 300 KB."*
 - "Remover imagem" → limpa o preview e o arquivo (presente só quando há preview).
-- **1 arquivo só:** válido — o lado vazio usa o mesmo arquivo na vitrine (ajuda permanente no modal).
+- **1 arquivo só:** válido — o lado vazio usa o mesmo arquivo na vitrine (consta no bloco de orientação).
 
 ### 4.4 Bloco Carrossel
 
@@ -472,7 +495,7 @@ Passos: **1 Informações · 2 Preços · 3 Estoque** (`STEPS` atual, inalterado
 ```
 
 **Regras do modal (SPEC §4):**
-- Toggle "Mostrar na vitrine" grava `exibir_vitrine` em **criar e atualizar**; se o `column_default` do banco for `false`, o **cadastro envia `true` explícito** (produto novo nasce visível — novo produto some da loja seria inexplicável).
+- Toggle "Mostrar na vitrine" grava `exibir_vitrine` em **criar e atualizar**. **Fato verificado (SPEC §2.4): o `column_default` é `false`** → o **cadastro envia `true` explícito**, senão o produto novo nasce invisível na loja. O SPEC §2.5 propõe ainda alinhar o default do banco para `true` — **decisão do fundador**.
 - "Preço promocional" grava `preco_varejo`; o selo "de/por" da vitrine já existe e usa `preco_varejo > preco` — nada muda nela.
 - `unidade` é enviada e volta preenchida na edição (hoje é coletada e perdida — bug silencioso).
 - Os 5 chamadores do Estoque (2 imports + 3+2 usos) passam a importar de `components/produto/` — **sem duplicata de formulário**.
@@ -520,28 +543,29 @@ Regra do projeto: toda tela/bloco novo tem **loading (skeleton) · vazio · erro
 
 ```
 │  Imagem — desktop                     │
+│  _recomendado 1600 × 340 (4,67:1)_   │
 │  ┌────────────────────────────────┐  │
 │  │  ( preview da imagem nova )    │  │  ← antes de salvar
 │  │  [ Escolher outra ]            │  │
 │  └────────────────────────────────┘  │
 │  [ Remover imagem ]                  │
-│  ✕ Envie uma imagem (JPG, PNG ou     │  ← erro de tipo
-│    WebP).                            │
-│  (ou) ✕ Imagem muito grande. Envie   │  ← erro de tamanho
-│    uma foto de até 5 MB.             │
+│  ✕ Envie uma imagem (JPG ou WebP).   │  ← erro de tipo
+│  (ou) ✕ Imagem muito grande — o     │  ← erro de tamanho
+│    alvo é ≤ 300 KB.                  │
 ```
 
 ### 6.3 Banner com só um arquivo — válido
 
 ```
 │  Imagem — mobile (opcional)           │
+│  _recomendado 1080 × 480 (2,25:1)_   │
 │  ┌────────────────────────────────┐  │
 │  │  [ Escolher imagem ]           │  │
 │  │  ✔ vazio: usa a desktop        │  │
 │  └────────────────────────────────┘  │
 ```
 
-> E o inverso: só mobile preenchido → a desktop usa o arquivo mobile. A vitrine renderiza o que existe (SPEC §2.1: *"preencher um é válido — o outro usa o mesmo arquivo"*).
+> E o inverso: só mobile preenchido → a desktop usa o arquivo mobile. A vitrine renderiza o que existe (SPEC §2.1: *"preencher um é válido — o outro usa o mesmo arquivo"*). A orientação completa de formatos/dimensões/área segura mora **uma única vez** no modal (§4.3, bloco "Orientação do upload").
 
 ### 6.4 Salvar — estados (SPEC §6)
 
@@ -596,7 +620,7 @@ Regra do projeto: toda tela/bloco novo tem **loading (skeleton) · vazio · erro
 └──────────────────────────────────────┘
 ```
 
-> (Vide §12 Lacunas — o SPEC não define confirmação de remoção; assumi o padrão das categorias.)
+> (Aprovado no SPEC §10 — lacuna 1: dialog de confirmação, padrão do CRUD de categorias.)
 
 ---
 
@@ -609,9 +633,11 @@ Regra do projeto: toda tela/bloco novo tem **loading (skeleton) · vazio · erro
 | Hub · link | "Link da sua loja" + copiar confirma "Link copiado" |
 | Banners vazio | "Nenhum banner ainda. Adicione o primeiro para personalizar o topo da loja." |
 | Aparência vazio (aviso) | ⓘ "Sua loja está usando o **banner gerado**: nome + slogan/ramo + botão 'Ver o cardápio'. Ele é do seu próprio tenant — nunca de outra empresa." |
-| Upload tipo inválido | "Envie uma imagem (JPG, PNG ou WebP)." |
-| Upload grande | "Imagem muito grande. Envie uma foto de até 5 MB." |
-| Upload ajuda fixa | "✔ 1 imagem basta — o outro lado usa o mesmo arquivo. JPG, PNG ou WebP · máx 5 MB." |
+| Upload · desktop (dica de dimensão) | "Recomendado: **1600 × 340** (proporção 4,67:1) · retina **2240 × 480**." |
+| Upload · mobile (dica de dimensão) | "Recomendado: **1080 × 480** (proporção 2,25:1)." |
+| Upload · orientação (bloco fixo) | "✔ Preencher só um é válido — o outro lado usa o mesmo arquivo. · ⚠ A proporção varia com a largura do aparelho (2,24:1 a 3,79:1) — mantenha o assunto principal no centro vertical. · ✔ JPG ou WebP · alvo ≤ 300 KB. · ✔ Área segura: textos à esquerda (sobre o véu); assunto principal à direita." |
+| Upload tipo inválido | "Envie uma imagem (JPG ou WebP)." |
+| Upload grande | "Imagem muito grande — o alvo é ≤ 300 KB." |
 | Carrossel | "ℹ️ Autoplay só tem efeito com 2+ banners." · "mínimo 2000" |
 | Intervalo inválido | "O intervalo mínimo é de 2000ms." |
 | Tema vazio | "ℹ️ Vazios = padrão da UNIQ. Sua loja usa estes valores até você mudar." |
@@ -661,23 +687,24 @@ Regra do projeto: toda tela/bloco novo tem **loading (skeleton) · vazio · erro
 | 2 | Atalho Categorias redireciona ao CRUD existente | §2, §3 | ✅ |
 | 3 | Editor com 4 blocos (banners · carrossel · tema · identidade) | §4 | ✅ |
 | 4 | Banners: lista ordenável + adicionar/editar/remover/reordenar | §4.2 | ✅ |
-| 5 | Form de banner: upload desktop+mobile, título, subtítulo, texto/cor do botão, posição, destino + valor condicional | §4.3 | ✅ |
-| 6 | Carrossel: autoplay on/off + intervalo mín. 2000 | §4.4 | ✅ |
-| 7 | Tema: as 4 chaves exatas do contrato | §4.5 | ✅ |
-| 8 | Identidade: slogan · descrição · ramo (`store_config`) | §4.6 | ✅ |
-| 9 | Salvar: merge, estado salvando, toast sucesso, erro visível | §4.7, §6.4 | ✅ |
-| 10 | Aparência sem dados: defaults visíveis + aviso do banner gerado | §6.1 | ✅ |
-| 11 | Upload: preview antes de salvar · erro tipo/tamanho · remover | §6.2 | ✅ |
-| 12 | Banner com 1 arquivo: válido, outro lado usa o mesmo | §6.3 | ✅ |
-| 13 | Produtos: lista do módulo + modal compartilhado | §5.1 | ✅ |
-| 14 | Modal: 3 passos Informações · Preços · Estoque | §5.2 | ✅ |
-| 15 | Toggle "Mostrar na vitrine" novo no passo 1 (`exibir_vitrine`) | §5.2 | ✅ |
-| 16 | "Preço promocional" funcional no passo 2 (`preco_varejo`) | §5.2 | ✅ |
-| 17 | `unidade` persiste (passo 1) | §5.2 | ✅ |
-| 18 | Removidos: "Localização no depósito" e "Fornecedor padrão" | §5.2 | ✅ |
-| 19 | Loading · vazio · erro+retry · sucesso em toda tela/bloco | §6 | ✅ |
-| 20 | Mobile-first com desktop desenhado onde difere | §8 | ✅ |
-| 21 | Sem inventar campos/componentes fora do SPEC | §12 (lacunas registradas) | ✅ |
+| 5 | Form de banner: upload desktop+mobile, título, subtítulo, texto/cor do botão, **cor do texto (`text_color`)**, posição, destino + valor condicional | §4.3 | ✅ |
+| 6 | Orientação de assets (SPEC §2.6): dimensão recomendada por slot (1600×340 · 1080×480), proporção fluida, área segura, JPG ou WebP ≤ 300 KB — **só texto**, sem validação automática/recorte/conversão | §4.3, §6.3, §7 | ✅ |
+| 7 | Carrossel: autoplay on/off + intervalo mín. 2000 | §4.4 | ✅ |
+| 8 | Tema: as 4 chaves exatas do contrato | §4.5 | ✅ |
+| 9 | Identidade: slogan · descrição · ramo (`store_config`) | §4.6 | ✅ |
+| 10 | Salvar: merge, estado salvando, toast sucesso, erro visível | §4.7, §6.4 | ✅ |
+| 11 | Aparência sem dados: defaults visíveis + aviso do banner gerado | §6.1 | ✅ |
+| 12 | Upload: preview antes de salvar · erro tipo/tamanho · remover | §6.2 | ✅ |
+| 13 | Banner com 1 arquivo: válido, outro lado usa o mesmo | §6.3 | ✅ |
+| 14 | Produtos: lista do módulo + modal compartilhado | §5.1 | ✅ |
+| 15 | Modal: 3 passos Informações · Preços · Estoque | §5.2 | ✅ |
+| 16 | Toggle "Mostrar na vitrine" novo no passo 1 (`exibir_vitrine`, default `true`) | §5.2 | ✅ |
+| 17 | "Preço promocional" funcional no passo 2 (`preco_varejo`) | §5.2 | ✅ |
+| 18 | `unidade` persiste (passo 1) | §5.2 | ✅ |
+| 19 | Removidos: "Localização no depósito" e "Fornecedor padrão" | §5.2 | ✅ |
+| 20 | Loading · vazio · erro+retry · sucesso em toda tela/bloco | §6 | ✅ |
+| 21 | Mobile-first com desktop desenhado onde difere | §8 | ✅ |
+| 22 | Sem inventar campos/componentes fora do SPEC | §12 (lacunas conferidas no SPEC §10) | ✅ |
 
 ---
 
@@ -687,22 +714,28 @@ Regra do projeto: toda tela/bloco novo tem **loading (skeleton) · vazio · erro
 |---|---|
 | **Mensagem "banner do próprio tenant"** | O aviso do banner gerado diz explicitamente "nunca de outra empresa" (§6.1) — o editor não introduz leitura cruzada |
 | **Merge nunca sobrescreve** | A seção Identidade avisa que chaves desconhecidas são preservadas (§4.6); o salvar é único hook com merge |
-| **`exibir_vitrine` default desconhecido** | Toggle com default `true`; o SPEC manda anotar o `column_default` antes de codar (SPEC §2.4) |
+| **`exibir_vitrine` default `false` no banco** | **Verificado (SPEC §2.4):** cadastro envia `true` explícito + toggle com default `true` na UI. Alinhar o default do banco para `true` é decisão do fundador (SPEC §2.5) |
 | **Vitrine pública não regride** | Nenhuma tela deste WIRE toca `/loja/*` — apenas o hub abre o link em nova aba |
 
 ---
 
-## 12. Lacunas no SPEC (decisões assumidas — confirmar com o dono)
+## 12. Lacunas do WIRE — resolução (SPEC §10)
 
-| # | Lacuna | O que assumi no WIRE | Precisa decidir? |
+As 10 lacunas levantadas na versão anterior deste WIRE foram **decididas no SPEC §10** (22/09/2026). Status: **✅ resolvido** × **⚠️ aguarda o fundador**.
+
+| # | Lacuna (original) | Resolução (SPEC §10) | Status |
 |---|---|---|---|
-| 1 | **Confirmação ao remover banner** — o SPEC lista a ação "remover" mas não define o fluxo | Dialog de confirmação (padrão do WIRE de categorias) | Confirmar manter; alternativa: remover direto com undo no toast |
-| 2 | **UX de reordenar banners** — SPEC diz "lista ordenável" sem mecanismo | Setas ↑ ↓ (sempre) + drag & drop (onde suportar) | Se quiser só drag, avisar (ruim no celular) |
-| 3 | **`text_color` não exposto** — existe no contrato (`banners[].text_color`) mas o PRD §5.2 não lista "cor do texto" como campo do editor | Campo **não** incluído; merge preserva em banners existentes; banner novo nasce sem `text_color` (a vitrine tem fallback próprio — não verificado) | Decidir se entra como campo ou fica fora (merge cuida) |
-| 4 | **Seletor de destino `product`/`category`** — SPEC não diz como o valor do link é escolhido | Select de produtos ativos / select de categorias / input de URL; `grid` sem valor | Confirmar as fontes dos selects |
-| 5 | **Inputs de cor** — SPEC não especifica o componente (chip + hex vs paleta fechada) | Chip de cor + hex editável | Confirmar se a paleta é livre ou restrita ao DESIGN.md |
-| 6 | **`fontFamily` / `borderRadius`** — SPEC não define o controle | Select de fontes (Poppins + alternativas) / input numérico com `px` | A lista de fontes permitidas é decisão de marca |
-| 7 | **Botão salvar: página inteira × por bloco** | **Um** botão de página inteira (um único fluxo de gravação, D7) | Se preferir salvar por bloco, o hook precisa ganhar granularidade |
-| 8 | **Conteúdo do hub "estado da loja"** — PRD/SPEC citam sem detalhar os cards | 2 cards (produtos na vitrine · status da aparência) + card do link | O que exibir nos contadores (sugestão acima) |
-| 9 | **Posição do toggle no modal** — SPEC fixa "passo 1" sem local | Seção própria "Vitrine" após "Código de barras" | Aceitar posição ou trazer para cima (perto do nome) |
-| 10 | **`column_default` de `exibir_vitrine`** — SPEC §2.4 manda verificar antes de codar | Se `false`, cadastro envia `true` explícito (produto novo nasce visível) | Verificação no Supabase é pré-requisito de implementação |
+| 1 | Confirmação ao remover banner | Dialog de confirmação, padrão do CRUD de categorias (§6.7) | ✅ resolvido |
+| 2 | UX de reordenar banners | Setas ↑↓ (acessíveis, funcionam no toque) **e** drag (§4.2) | ✅ resolvido |
+| 3 | `text_color` não exposto | **EXPOR** — campo novo no form, ao lado de `button_color` (§4.3) | ✅ resolvido |
+| 4 | Seletor de destino do clique | `product` → select de produtos ativos · `external` → URL · `category` → select de categorias · `grid` → oculto | ✅ resolvido |
+| 5 | Paleta livre ou restrita ao `DESIGN.md` | **Livre, com os tokens do `DESIGN.md` como default** — o `appearance` real da Gráfica HQ usa `#4f9ef3`/`#ff6600`, cores fora da paleta UNIQ; restringir quebraria o que já está em produção | ⚠️ **aguarda o fundador** |
+| 6 | `fontFamily` / `borderRadius` | Select de fontes · input numérico com sufixo `px` | ✅ resolvido |
+| 7 | Salvar por página × por bloco | **Um único botão de página** — coerente com o hook único de merge (D7) | ✅ resolvido |
+| 8 | Conteúdo do hub | 2 cards de contador (produtos na vitrine · banners) + card do link | ✅ resolvido |
+| 9 | Posição do toggle no modal | Seção própria "Vitrine" no passo 1, após Código de barras | ✅ resolvido |
+| 10 | `column_default` de `exibir_vitrine` | **Dado real (SPEC §2.4): o default é `false`** → cadastro envia `true` explícito | ✅ resolvido (fato) · ⚠️ **aguarda o fundador** o alinhamento do default do banco para `true` (SPEC §2.5) |
+
+**Pendências que seguem abertas para o fundador:**
+1. **Lacuna 5 — paleta da loja do parceiro** (livre com defaults do `DESIGN.md` × restrita aos tokens).
+2. **Default de `exibir_vitrine` no banco** — alinhar para `true` via `ALTER TABLE`? (SPEC §2.5, opção recomendada).
