@@ -126,6 +126,7 @@ export const router = createBrowserRouter([
       { path: "/financeiro/contas-pagar", lazy: pagina(() => import("./components/financeiro/ContasPagarPage"), "ContasPagarPage") },
       { path: "/financeiro/contas-receber", lazy: pagina(() => import("./components/financeiro/ContasReceberPage"), "ContasReceberPage") },
       { path: "/financeiro/dre", lazy: pagina(() => import("./components/financeiro/DREPage"), "DREPage") },
+      { path: "/financeiro/configuracoes", lazy: pagina(() => import("./components/financeiro/ConfiguracoesFinanceirasPage"), "ConfiguracoesFinanceirasPage") },
       // MEL
       { path: "/mel", lazy: pagina(() => import("./components/mel/MelDashboardPage"), "MelDashboardPage") },
       { path: "/mel/conversa/:conversationId", lazy: pagina(() => import("./components/mel/MelDashboardPage"), "MelDashboardPage") },

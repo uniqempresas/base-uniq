@@ -10,11 +10,13 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Settings,
   Trash2,
   Wallet,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router";
 import {
   calcularStatus,
   ContaPagarInput,
@@ -42,6 +44,7 @@ import {
 import { useContasPagar } from "../../hooks/use-contas-pagar";
 import { useCriarContaPagar } from "../../hooks/use-criar-conta-pagar";
 import { useAtualizarContaPagar } from "../../hooks/use-atualizar-conta-pagar";
+import { useCategoriasFinanceiras } from "../../hooks/use-categorias-financeiras";
 
 const STATUS_CHIP_OPTIONS: StatusMovimentacao[] = ["pendente", "vencido", "pago", "cancelado"];
 
@@ -52,6 +55,8 @@ export function ContasPagarPage() {
 
   const { criarConta } = useCriarContaPagar();
   const { atualizarConta, pagarConta, loading: atualizando } = useAtualizarContaPagar();
+  const navigate = useNavigate();
+  const { categorias } = useCategoriasFinanceiras();
 
   const [statusFiltros, setStatusFiltros] = useState<StatusMovimentacao[]>([]);
   const [busca, setBusca] = useState("");
@@ -60,6 +65,11 @@ export function ContasPagarPage() {
   const [salvando, setSalvando] = useState(false);
 
   const esEdicao = modal === "editar" && selecionada !== null;
+
+  const categoriasPagar = useMemo(
+    () => categorias.filter((c) => c.tipo === "operacional" || c.tipo === "mercadoria"),
+    [categorias]
+  );
 
   // Status calculado (vencido quando a data passou e não foi pago/cancelado)
   const comStatus = useMemo(
@@ -120,6 +130,9 @@ export function ContasPagarPage() {
       forma_pagamento: String(data.get("forma") || "pix"),
       observacoes: String(data.get("observacoes") || "").trim() || undefined,
     };
+    const categoriaId = data.has("categoria")
+      ? String(data.get("categoria") || "").trim() || null
+      : undefined;
 
     if (!params.descricao) return toast.error("Informe a descrição.");
     if (!(params.valor > 0)) return toast.error("Informe um valor válido.");
@@ -129,7 +142,7 @@ export function ContasPagarPage() {
     let sucesso = false;
 
     if (selecionada) {
-      const result = await atualizarConta({ id: selecionada.id, ...params });
+      const result = await atualizarConta({ id: selecionada.id, ...params, categoriaId });
       if (result.success) {
         sucesso = true;
         toast.success("Conta atualizada com sucesso.");
@@ -137,7 +150,7 @@ export function ContasPagarPage() {
         toast.error(result.error || "Não foi possível atualizar a conta.");
       }
     } else {
-      const result = await criarConta(params);
+      const result = await criarConta({ ...params, categoriaId });
       if (result.success) {
         sucesso = true;
         toast.success("Conta criada com sucesso.");
@@ -521,6 +534,39 @@ export function ContasPagarPage() {
               className={campoFormSheet}
             />
           </label>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-[#1f2937]">
+              Categoria (opcional)
+            </label>
+            {categoriasPagar.length > 0 ? (
+              <select
+                name="categoria"
+                defaultValue={selecionada?.categoriaId || ""}
+                className={campoFormSheet}
+              >
+                <option value="">Sem categoria</option>
+                {categoriasPagar.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.nome}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="mt-1 flex items-center justify-between gap-3 rounded-xl border border-[#efefef] bg-[#FAFAFA] px-3.5 py-3">
+                <p className="text-xs text-[#627271]">Nenhuma categoria cadastrada ainda.</p>
+                <button
+                  type="button"
+                  onClick={() => navigate("/financeiro/configuracoes")}
+                  className="flex shrink-0 items-center gap-1.5 rounded-xl border border-[#efefef] bg-white px-3 py-2 text-xs text-[#1f2937] transition-colors hover:bg-[#efefef]"
+                  style={{ fontWeight: 500 }}
+                >
+                  <Settings size={13} />
+                  Configurar
+                </button>
+              </div>
+            )}
+          </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="text-sm font-medium text-[#1f2937]">

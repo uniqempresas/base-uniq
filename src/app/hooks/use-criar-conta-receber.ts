@@ -14,6 +14,7 @@ import { formaPagamentoParaBanco } from "../components/financeiro/mockData";
 export interface CriarContaReceberParams {
   cliente?: string;
   cliente_id?: string;
+  categoriaId?: string | null;
   descricao: string;
   valor: number;
   data_vencimento: string;
@@ -127,6 +128,7 @@ export function useCriarContaReceber() {
           .insert({
             empresa_id: empresaId,
             cliente_id: clienteId,
+            categoria_id: params.categoriaId ?? null,
             descricao: params.descricao,
             valor: params.valor,
             data_vencimento: params.data_vencimento,

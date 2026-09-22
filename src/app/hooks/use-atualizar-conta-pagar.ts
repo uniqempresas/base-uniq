@@ -9,6 +9,8 @@ export interface AtualizarContaPagarParams {
   /** Nome do fornecedor — quando vier, find-or-create em me_fornecedor + grava fornecedor_id. */
   fornecedor?: string;
   fornecedor_id?: string;
+  /** `null` LIMPA a categoria; `undefined` não mexe (update parcial). */
+  categoriaId?: string | null;
   descricao?: string;
   valor?: number;
   data_vencimento?: string;
@@ -105,6 +107,7 @@ export function useAtualizarContaPagar() {
           updateData.fornecedor_id = params.fornecedor_id;
         }
 
+        if (params.categoriaId !== undefined) updateData.categoria_id = params.categoriaId;
         if (params.descricao !== undefined) updateData.descricao = params.descricao;
         if (params.valor !== undefined) updateData.valor = params.valor;
         if (params.data_vencimento !== undefined) updateData.data_vencimento = params.data_vencimento;

@@ -9,6 +9,8 @@ export interface AtualizarContaReceberParams {
   /** Nome do cliente — quando vier, find-or-create em me_cliente + grava cliente_id. */
   cliente?: string;
   cliente_id?: string;
+  /** `null` LIMPA a categoria; `undefined` não mexe (update parcial). */
+  categoriaId?: string | null;
   descricao?: string;
   valor?: number;
   data_vencimento?: string;
@@ -108,6 +110,7 @@ export function useAtualizarContaReceber() {
           updateData.cliente_id = params.cliente_id;
         }
 
+        if (params.categoriaId !== undefined) updateData.categoria_id = params.categoriaId;
         if (params.descricao !== undefined) updateData.descricao = params.descricao;
         if (params.valor !== undefined) updateData.valor = params.valor;
         if (params.data_vencimento !== undefined) updateData.data_vencimento = params.data_vencimento;

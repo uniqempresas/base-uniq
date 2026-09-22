@@ -60,7 +60,7 @@ export function DREPage() {
   const { dre: dreData, loading, error, isFallback } = useDRE(periodo);
 
   // Usar dados reais ou fallback do mock (só em modo demo)
-  const dre = dreData ?? (isFallback ? { ...dreMock, cmvDisponivel: true } : null);
+  const dre = dreData ?? (isFallback ? { ...dreMock, comprasMercadoria: dreMock.custos, temComprasMercadoria: true, cmvDisponivel: true } : null);
   const isLucro = dre ? dre.lucroLiquido >= 0 : true;
 
   // Dados para gráfico de pizza (Despesas)
@@ -72,7 +72,7 @@ export function DREPage() {
   // Dados para gráfico de barras (Receitas vs Despesas)
   const dadosComparativo = dre ? [
     { nome: "Receitas", valor: dre.receitaBruta },
-    { nome: "Despesas", valor: dre.despesasOperacionais + dre.custos },
+    { nome: "Despesas", valor: dre.comprasMercadoria + dre.impostos + dre.despesasOperacionais },
     { nome: "Lucro/Prejuízo", valor: Math.abs(dre.lucroLiquido) },
   ] : [];
 
@@ -266,7 +266,7 @@ export function DREPage() {
           <KpiCompact label="Receitas Totais" valor={formatarMoeda(dre.receitaBruta)} icon={TrendingUp} />
           <KpiCompact
             label="Despesas Totais"
-            valor={formatarMoeda(dre.despesasOperacionais + dre.custos)}
+            valor={formatarMoeda(dre.comprasMercadoria + dre.impostos + dre.despesasOperacionais)}
             icon={TrendingDown}
             negativo
           />
@@ -288,7 +288,7 @@ export function DREPage() {
           />
           <CardKPI
             label="Despesas Totais"
-            valor={dre.despesasOperacionais + dre.custos}
+            valor={dre.comprasMercadoria + dre.impostos + dre.despesasOperacionais}
             icon={TrendingDown}
             tipo="negativo"
           />
@@ -347,15 +347,15 @@ export function DREPage() {
             </span>
           </div>
 
-          {/* Custos */}
+          {/* Custo de Mercadoria — fonte: compras reais categorizadas como mercadoria (F1) */}
           <div className="flex items-center justify-between py-2 pl-4 border-b border-[#efefef]">
             <div className="flex items-center gap-2 min-w-0">
-              <span className="text-sm text-[#1f2937]">(-) Custos (mercadorias vendidas)</span>
-              {!dre.cmvDisponivel && (
-                <span className="text-xs text-[#627271]">(Custo dos produtos não cadastrado)</span>
+              <span className="text-sm text-[#1f2937]">(-) Custo de Mercadoria</span>
+              {!dre.temComprasMercadoria && (
+                <span className="text-xs text-[#627271]">(Categorize as compras de insumo para preencher esta linha)</span>
               )}
             </div>
-            <span className="text-sm text-red-600 shrink-0 ml-3">{formatarMoeda(dre.custos)}</span>
+            <span className="text-sm text-red-600 shrink-0 ml-3">{formatarMoeda(dre.comprasMercadoria)}</span>
           </div>
 
           {/* Lucro Bruto */}

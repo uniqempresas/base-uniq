@@ -9,6 +9,8 @@ export interface DREData {
   impostos: number;
   receitaLiquida: number;
   custos: number;
+  comprasMercadoria: number;
+  temComprasMercadoria: boolean;
   lucroBruto: number;
   despesasOperacionais: number;
   lucroLiquido: number;
@@ -113,7 +115,12 @@ export function useDRE(periodo: string) {
 
     // MODO DEMO (sem sessão): usa mock
     if (!session) {
-      setDre({ ...dreMock, cmvDisponivel: true });
+      setDre({
+        ...dreMock,
+        comprasMercadoria: dreMock.custos,
+        temComprasMercadoria: true,
+        cmvDisponivel: true,
+      });
       setIsFallback(true);
       setLoading(false);
       return;
@@ -142,7 +149,7 @@ export function useDRE(periodo: string) {
           .lte("criado_em", fim + "T23:59:59"),
         supabase
           .from("me_contas_pagar")
-          .select("valor, valor_pago, descricao")
+          .select("valor, valor_pago, descricao, categoria_id")
           .eq("empresa_id", empresaId)
           .eq("status", "pago")
           .not("data_pagamento", "is", null)
@@ -151,7 +158,7 @@ export function useDRE(periodo: string) {
         // Contas em aberto (pendente/vencido): contam no mês do vencimento
         supabase
           .from("me_contas_pagar")
-          .select("valor, valor_pago, descricao")
+          .select("valor, valor_pago, descricao, categoria_id")
           .eq("empresa_id", empresaId)
           .in("status", ["pendente", "vencido"])
           .gte("data_vencimento", inicio)
@@ -217,23 +224,54 @@ export function useDRE(periodo: string) {
 
       // Despesas do mês: pagas contam pelo data_pagamento (valor_pago);
       // pendentes/vencidas contam pelo vencimento (valor) — o DRE mostra a despesa do mês, paga ou em aberto
-      const contasPagas = (pagasResult.data ?? []) as { valor: number | null; valor_pago: number | null; descricao: string | null }[];
-      const contasEmAberto = (pendentesResult.data ?? []) as { valor: number | null; valor_pago: number | null; descricao: string | null }[];
+      const contasPagas = (pagasResult.data ?? []) as { valor: number | null; valor_pago: number | null; descricao: string | null; categoria_id: string | null }[];
+      const contasEmAberto = (pendentesResult.data ?? []) as { valor: number | null; valor_pago: number | null; descricao: string | null; categoria_id: string | null }[];
+
+      // TIPO das categorias usadas pelas contas do período, escopado por empresa.
+      // Categoria ausente ("Sem categoria") ou inexistente caem em operacional (D3).
+      const categoriaIdsUsados = [
+        ...new Set(
+          [...contasPagas, ...contasEmAberto]
+            .map((c) => c.categoria_id)
+            .filter((id): id is string => id != null)
+        ),
+      ];
+      const tipoPorCategoria = new Map<string, string>();
+      if (categoriaIdsUsados.length > 0) {
+        const { data: categorias, error: catError } = await supabase
+          .from("me_categoria_financeira")
+          .select("id, tipo")
+          .eq("empresa_id", empresaId)
+          .in("id", categoriaIdsUsados);
+        if (catError) throw catError;
+        for (const cat of categorias ?? []) {
+          if (cat.tipo != null) tipoPorCategoria.set(cat.id, cat.tipo);
+        }
+      }
 
       const despesasComValor = [
-        ...contasPagas.map((c) => ({ descricao: c.descricao, valor: Number(c.valor_pago ?? c.valor ?? 0) })),
-        ...contasEmAberto.map((c) => ({ descricao: c.descricao, valor: Number(c.valor ?? 0) })),
+        ...contasPagas.map((c) => ({ descricao: c.descricao, valor: Number(c.valor_pago ?? c.valor ?? 0), categoriaId: c.categoria_id })),
+        ...contasEmAberto.map((c) => ({ descricao: c.descricao, valor: Number(c.valor ?? 0), categoriaId: c.categoria_id })),
       ];
+
+      // Split de mercadoria (F1): o custo de mercadoria vem da COMPRA REAL — contas a
+      // pagar cuja categoria tem tipo `mercadoria`. O CMV derivado da venda sai do resultado.
+      const ehMercadoria = (c: { categoriaId: string | null }): boolean =>
+        c.categoriaId != null && tipoPorCategoria.get(c.categoriaId) === "mercadoria";
+      const contasMercadoria = despesasComValor.filter(ehMercadoria);
+      const comprasMercadoria = contasMercadoria.reduce((s, c) => s + Number(c.valor || 0), 0);
+      const temComprasMercadoria = contasMercadoria.length > 0;
+      const despesasNaoMercadoria = despesasComValor.filter((c) => !ehMercadoria(c));
 
       // Impostos: contas a pagar tributárias (ex.: "DAS - Simples Nacional"),
       // reconhecidas pela descrição enquanto não houver categoria_id.
       // Contam tanto pagas quanto em aberto, coerente com o resto do DRE.
-      const despesasTributarias = despesasComValor.filter((c) => ehDespesaTributaria(c.descricao ?? ""));
+      const despesasTributarias = despesasNaoMercadoria.filter((c) => ehDespesaTributaria(c.descricao ?? ""));
       const impostos = despesasTributarias.reduce((s, c) => s + Number(c.valor || 0), 0);
 
       // Despesas operacionais excluem os impostos (evita dupla contagem: o mesmo
       // valor não pode aparecer na linha de Impostos E em Despesas Operacionais).
-      const despesasNaoTributarias = despesasComValor.filter((c) => !ehDespesaTributaria(c.descricao ?? ""));
+      const despesasNaoTributarias = despesasNaoMercadoria.filter((c) => !ehDespesaTributaria(c.descricao ?? ""));
       const despesasOperacionais = despesasNaoTributarias.reduce((s, c) => s + Number(c.valor || 0), 0);
 
       // Agrupar despesas por categoria (proxy: primeiras 2 palavras da descrição) —
@@ -242,7 +280,9 @@ export function useDRE(periodo: string) {
 
       // Cálculos
       const receitaLiquida = receitaBruta - impostos;
-      const lucroBruto = receitaLiquida - custos;
+      // Custo de Mercadoria: compra real (categoria tipo `mercadoria`). O CMV derivado
+      // (custos) não entra mais no resultado — mantido como dado informativo.
+      const lucroBruto = receitaLiquida - comprasMercadoria;
       const lucroLiquido = lucroBruto - despesasOperacionais;
       const margemLucro = receitaBruta > 0 ? (lucroLiquido / receitaBruta) * 100 : 0;
 
@@ -252,6 +292,8 @@ export function useDRE(periodo: string) {
         impostos,
         receitaLiquida,
         custos,
+        comprasMercadoria,
+        temComprasMercadoria,
         lucroBruto,
         despesasOperacionais,
         lucroLiquido,

@@ -12,10 +12,12 @@ import {
   Receipt,
   RefreshCw,
   Search,
+  Settings,
   Trash2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router";
 import {
   calcularStatus,
   ContaReceberInput,
@@ -47,6 +49,7 @@ import {
 import { useContasReceber } from "../../hooks/use-contas-receber";
 import { useCriarContaReceber } from "../../hooks/use-criar-conta-receber";
 import { useAtualizarContaReceber } from "../../hooks/use-atualizar-conta-receber";
+import { useCategoriasFinanceiras } from "../../hooks/use-categorias-financeiras";
 import { useAuth } from "../../contexts/AuthContext";
 
 // Rótulo amigável -> valor que a API persiste (contrato congelado)
@@ -60,6 +63,8 @@ export function ContasReceberPage() {
   const { criarConta } = useCriarContaReceber();
   const { atualizarConta, receberConta, loading: atualizando } = useAtualizarContaReceber();
   const { empresa } = useAuth();
+  const navigate = useNavigate();
+  const { categorias } = useCategoriasFinanceiras();
 
   const [statusFiltros, setStatusFiltros] = useState<StatusMovimentacao[]>([]);
   const [busca, setBusca] = useState("");
@@ -68,6 +73,11 @@ export function ContasReceberPage() {
   const [salvando, setSalvando] = useState(false);
 
   const esEdicao = modal === "editar" && selecionada !== null;
+
+  const categoriasReceita = useMemo(
+    () => categorias.filter((c) => c.tipo === "receita"),
+    [categorias]
+  );
 
   // Status calculado (vencido quando a data passou e não foi pago/cancelado)
   const comStatus = useMemo(
@@ -133,6 +143,9 @@ export function ContasReceberPage() {
       forma_pagamento: String(data.get("forma") || "pix"),
       observacoes: String(data.get("observacoes") || "").trim() || undefined,
     };
+    const categoriaId = data.has("categoria")
+      ? String(data.get("categoria") || "").trim() || null
+      : undefined;
 
     if (!params.cliente) return toast.error("Informe o nome do cliente.");
     if (!params.descricao) return toast.error("Informe a descrição.");
@@ -143,7 +156,7 @@ export function ContasReceberPage() {
     let sucesso = false;
 
     if (selecionada) {
-      const result = await atualizarConta({ id: selecionada.id, ...params });
+      const result = await atualizarConta({ id: selecionada.id, ...params, categoriaId });
       if (result.success) {
         sucesso = true;
         toast.success("Conta atualizada com sucesso.");
@@ -151,7 +164,7 @@ export function ContasReceberPage() {
         toast.error(result.error || "Não foi possível atualizar a conta.");
       }
     } else {
-      const result = await criarConta(params);
+      const result = await criarConta({ ...params, categoriaId });
       if (result.success) {
         sucesso = true;
         toast.success("Conta criada com sucesso.");
@@ -550,6 +563,39 @@ export function ContasReceberPage() {
               className={campoFormSheet}
             />
           </label>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-[#1f2937]">
+              Categoria (opcional)
+            </label>
+            {categoriasReceita.length > 0 ? (
+              <select
+                name="categoria"
+                defaultValue={selecionada?.categoriaId || ""}
+                className={campoFormSheet}
+              >
+                <option value="">Sem categoria</option>
+                {categoriasReceita.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.nome}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="mt-1 flex items-center justify-between gap-3 rounded-xl border border-[#efefef] bg-[#FAFAFA] px-3.5 py-3">
+                <p className="text-xs text-[#627271]">Nenhuma categoria cadastrada ainda.</p>
+                <button
+                  type="button"
+                  onClick={() => navigate("/financeiro/configuracoes")}
+                  className="flex shrink-0 items-center gap-1.5 rounded-xl border border-[#efefef] bg-white px-3 py-2 text-xs text-[#1f2937] transition-colors hover:bg-[#efefef]"
+                  style={{ fontWeight: 500 }}
+                >
+                  <Settings size={13} />
+                  Configurar
+                </button>
+              </div>
+            )}
+          </div>
 
           <label className="block text-sm font-medium text-[#1f2937]">
             Descrição *

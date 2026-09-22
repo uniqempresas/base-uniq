@@ -12,6 +12,7 @@ import { formaPagamentoParaBanco } from "../components/financeiro/mockData";
 export interface CriarContaPagarParams {
   fornecedor?: string;
   fornecedor_id?: string;
+  categoriaId?: string | null;
   descricao: string;
   valor: number;
   data_vencimento: string;
@@ -101,6 +102,7 @@ export function useCriarContaPagar() {
           .insert({
             empresa_id: empresaId,
             fornecedor_id: fornecedorId,
+            categoria_id: params.categoriaId ?? null,
             descricao: params.descricao,
             valor: params.valor,
             data_vencimento: params.data_vencimento,
