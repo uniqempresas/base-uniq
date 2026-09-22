@@ -981,6 +981,28 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 
 ---
 
+## 🧩 MÓDULOS — análise documentada (21/09/2026)
+
+> 📄 **Documento dedicado: `tracking/TRACKING_MODULOS.md`** — leia ANTES de mexer em módulos, rail, `/meus-modulos`, planos ou permissões por colaborador.
+
+**WHY:** antes do teste com a Doceê, o fundador quer começar com o **mínimo de módulos** (Minha Empresa · Financeiro · Chatbot).
+
+**Status:** 📖 ANÁLISE CONCLUÍDA — **nada foi alterado**. Aguarda decisão do fundador (§7 do documento).
+
+**Achado central — dois sistemas de módulos que não se falam:**
+- O **banco** tem catálogo real (`unq_modulos_sistema`, 11 módulos) + ativação por empresa (`unq_empresa_modulos`, populada para **UNIQ Empresas** e **Gráfica HQ**).
+- A **aplicação não lê o banco**: o estado vive no **`localStorage`** (`uniq-modulos-ativos`) a partir de um catálogo **hardcoded de 17 módulos** (`src/app/lib/modulos.ts`).
+- **Consequências verificadas:** ativação **por navegador, não por empresa**; tabelas do banco **decorativas**; **sem guarda de rota** (módulo "desativado" continua acessível pela URL); subnav **não filtrada**; `me_modulo_ativo` e `me_modulo_cargo` **vazias**; **3 vocabulários** de módulo (app 17 · banco 11 · `employees/ModuleCheckbox` 7); `loja_virtual` e `marketplace` apontam para a mesma rota; a **Doceê tem 0 módulos** no banco.
+- **Produtos/categorias do cardápio moram dentro do módulo "Estoque"** → desligar Estoque tira da Doceê a gestão do cardápio (a vitrine pública segue no ar).
+
+**Conflito de produto registrado:** o `CONTEXTO_PROJETO.md` diz *"Módulos ativados pela UNIQ — o parceiro não escolhe ou configura"*, mas a tela `/meus-modulos` entrega **Loja de Módulos + trial de 14 dias + cancelar + comparador de planos** ao cliente.
+
+**Caminhos propostos:** **A** (pragmático, sem banco: ajustar catálogo/`CORE_MODULES` e remover a loja de módulos) · **B** (correto: ligar em `unq_empresa_modulos` + guarda de rota) · **C** (módulo **Cardápio**, tirando produtos/categorias/banners de dentro de "Estoque"). **Recomendação: A agora; B + C na sequência** — os três passam por PRD/SPEC/WIRE.
+
+**Backlog:** registrado como **B10**.
+
+---
+
 ## ➕ PENDÊNCIAS QUE DEPENDEM DO FUNDADOR
 
 | # | Item | Necessário antes de | Observação |
@@ -1008,6 +1030,7 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 | B7 | **Erro TS em `ProdutoDetalhePage.tsx:456` — `tab.badge` possivelmente `undefined`** | Arquivo da lane "Editar Produto" (trabalho paralelo, 12/09/2026). `TABS` (linhas 322–327) tem shapes inconsistentes: só a aba `movimentacoes` tem `badge` (as demais não); a guarda `{"badge" in tab && tab.badge > 0}` (linha 456) não estreita o tipo → LSP: `'tab.badge' is possibly 'undefined'`. **Fix sugerido:** tipar o elemento de `TABS` com `badge?: number` explícito e usar `tab.badge != null && tab.badge > 0` (ou `typeof tab.badge === "number"`). **Dono:** lane Editar Produto (não tocar por esta lane). | Média |
 | B8 | **~~"Contabilizar venda" envia `p_itens` sem `produto_id`/`servico_id`~~** | ✅ Resolvido (15/09/2026). Parte 1: `use-pedido.ts` busca `me_itens_venda` (+ `foto_url` via `me_produto`) e popula `itens` no detalhe — validação: venda `0c901c4a`, "Surpresa de Uva" ×2. Parte 2: `ItemPedido` ganhou `produtoId`/`tipoItem`; `ItemVenda` e `handleContabilizar` mandam payload canônico da RPC (`{tipo, id_referencia, nome, quantidade, preco_unitario}`). Commit `de7c86b` (parte 1). | Fechado |
 | B9 | **Categorias em Contas a Receber / Pagar** | O formulário de conta **não tem categoria** — por isso não dá para distinguir *compra de estoque/ingrediente* de *despesa operacional*, nem separar tributos por categoria. Isso **bloqueia o ajuste do DRE** que evita a **dupla contagem** entre o **CMV** (custo da mercadoria vendida, derivado da venda) e a **conta a pagar da compra** — ex.: comprar R$ 98 de chocolate lançado como conta a pagar **e** o CMV das trufas feitas com ele contariam 2×. Exige: campo de categoria no form (lendo `me_categoria_financeira`, hoje **vazia**) + classificar a conta + o DRE excluir as compras de estoque das Despesas Operacionais. ⚠️ **Enquanto isso, a linha de Impostos usa uma heurística por descrição** (`ehDespesaTributaria` em `use-dre.ts`), que deve ser substituída por `categoria_id` quando este item entrar. | Média |
+| B10 | **Sistema de módulos — unificar app ↔ banco** | 📄 Diagnóstico completo em **`tracking/TRACKING_MODULOS.md`**. Hoje o app **ignora** as tabelas de módulo (`unq_modulos_sistema` / `unq_empresa_modulos`) e usa `localStorage` + catálogo hardcoded (**17 códigos**), enquanto o banco tem **11 códigos diferentes**; `me_modulo_ativo` e `me_modulo_cargo` estão **vazias**; **não há guarda de rota** (módulo desativado entra pela URL); subnav não filtrada; `loja_virtual` e `marketplace` apontam para a mesma rota. Inclui: menu mínimo (Minha Empresa · Financeiro · Chatbot), alinhar `/meus-modulos` à decisão *"módulos ativados pela UNIQ"* e o módulo **Cardápio** (hoje produtos/categorias/banners moram dentro de "Estoque"). | Média |
 
 ---
 
