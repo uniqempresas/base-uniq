@@ -15,7 +15,6 @@ import {
   X,
   Sparkles,
   Truck,
-  TrendingUp,
   Scissors,
   MessageCircle,
   Store,
@@ -53,6 +52,7 @@ interface SubNavItem {
   path?: string;
   icon?: LucideIcon;
   children?: SubNavItem[];
+  moduloCodigo?: string;
 }
 
 interface SubNavSection {
@@ -63,16 +63,11 @@ interface SubNavSection {
 }
 
 const RAIL_ITEMS: NavRailItem[] = [
-  { id: "dashboard", label: "Visão Geral", icon: LayoutDashboard, path: "/dashboard", moduloCodigo: "dashboard" },
   { id: "minha-empresa", label: "Minha Empresa", icon: Fingerprint, path: "/configuracoes/empresa", moduloCodigo: "minha_empresa" },
-  { id: "vendas", label: "Vendas \u0026 PDV", icon: ShoppingCart, path: "/vendas", moduloCodigo: "vendas" },
-  { id: "crm", label: "CRM", icon: Users, path: "/crm/dashboard", moduloCodigo: "crm" },
-  { id: "loja", label: "Loja Virtual", icon: Store, path: "/loja-virtual", moduloCodigo: "loja_virtual" },
   { id: "financeiro", label: "Financeiro", icon: DollarSign, path: "/financeiro", moduloCodigo: "financeiro" },
-  { id: "agenda", label: "Agenda", icon: Calendar, path: "/agenda", moduloCodigo: "agenda" },
-  { id: "metricas", label: "Métricas", icon: BarChart3, path: "/metricas", moduloCodigo: "metricas" },
-  { id: "mel", label: "MEL", icon: Sparkles, path: "/mel", moduloCodigo: "mel" },
   { id: "chatbot", label: "Chatbot", icon: MessageCircle, path: "/chatbot", moduloCodigo: "chatbot" },
+  { id: "loja", label: "Loja Virtual", icon: Store, path: "/loja-virtual", moduloCodigo: "loja_virtual" },
+  { id: "mel", label: "MEL", icon: Sparkles, path: "/mel", moduloCodigo: "mel" },
   { id: "modulos", label: "Módulos", icon: LayoutGrid, path: "/meus-modulos", moduloCodigo: "meus-modulos" },
   { id: "configuracoes", label: "Configurações", icon: Settings, path: "/configuracoes/empresa", moduloCodigo: "configuracoes" },
 ];
@@ -83,43 +78,23 @@ const SUBNAV_SECTIONS: SubNavSection[] = [
     title: "Minha Empresa",
     subtitle: "Visão Geral",
     items: [
-      { id: "visao-geral", label: "Visão Geral", path: "/dashboard", icon: LayoutDashboard },
+      { id: "visao-geral", label: "Visão Geral", path: "/dashboard", icon: LayoutDashboard, moduloCodigo: "dashboard" },
       // Atalho para Pedidos direto da visão da empresa (mesmo destino do item em
       // Vendas & PDV). A subnav mostra só a seção do rail ativo, então não há
       // dois itens acesos ao mesmo tempo.
-      { id: "me-pedidos", label: "Pedidos", path: "/vendas/pedidos", icon: ShoppingCart },
+      { id: "me-pedidos", label: "Pedidos", path: "/vendas/pedidos", icon: ShoppingCart, moduloCodigo: "vendas" },
       {
         id: "cadastros",
         label: "Cadastros",
         icon: Briefcase,
         children: [
-          { id: "produtos", label: "Produtos", path: "/estoque/produtos", icon: Box },
-          { id: "servicos", label: "Serviços", path: "/servicos", icon: Scissors },
-          { id: "clientes", label: "Clientes", path: "/crm/clientes", icon: UserRound },
-          { id: "fornecedores", label: "Fornecedores", path: "/fornecedores", icon: Truck },
-          { id: "colaboradores", label: "Colaboradores", path: "/configuracoes/colaboradores", icon: Users },
+          { id: "produtos", label: "Produtos", path: "/estoque/produtos", icon: Box, moduloCodigo: "estoque" },
+          { id: "servicos", label: "Serviços", path: "/servicos", icon: Scissors, moduloCodigo: "servicos" },
+          { id: "clientes", label: "Clientes", path: "/crm/clientes", icon: UserRound, moduloCodigo: "crm" },
+          { id: "fornecedores", label: "Fornecedores", path: "/fornecedores", icon: Truck, moduloCodigo: "fornecedores" },
+          { id: "colaboradores", label: "Colaboradores", path: "/configuracoes/colaboradores", icon: Users, moduloCodigo: "colaboradores" },
         ],
       },
-    ],
-  },
-  {
-    railId: "vendas",
-    title: "Vendas \u0026 PDV",
-    subtitle: "Gestão de vendas",
-    items: [
-      { id: "v-visao-geral", label: "Visão Geral", path: "/vendas/relatorios", icon: LayoutDashboard },
-      { id: "v-pedidos", label: "Pedidos", path: "/vendas/pedidos", icon: ShoppingCart },
-      { id: "v-cupons", label: "Cupons", path: "/vendas/cupons", icon: Sparkles },
-    ],
-  },
-  {
-    railId: "crm",
-    title: "CRM",
-    subtitle: "Gestão de clientes",
-    items: [
-      { id: "c-dashboard", label: "Dashboard CRM", path: "/crm/dashboard", icon: LayoutDashboard },
-      { id: "c-clientes", label: "Clientes", path: "/crm/clientes", icon: Users },
-      { id: "c-pipeline", label: "Pipeline", path: "/crm/pipeline", icon: TrendingUp },
     ],
   },
   {
@@ -143,28 +118,6 @@ const SUBNAV_SECTIONS: SubNavSection[] = [
       { id: "lv-aparencia", label: "Aparência", path: "/loja-virtual/aparencia", icon: Palette },
       { id: "lv-produtos", label: "Produtos", path: "/loja-virtual/produtos", icon: Package },
       { id: "lv-categorias", label: "Categorias", path: "/estoque/configuracoes", icon: LayoutGrid },
-    ],
-  },
-  {
-    railId: "agenda",
-    title: "Agenda",
-    subtitle: "Compromissos e horários",
-    items: [
-      { id: "a-dashboard", label: "Agenda", path: "/agenda", icon: Calendar },
-      { id: "a-novo", label: "Novo agendamento", path: "/agenda/novo", icon: Calendar },
-      { id: "a-compromissos", label: "Compromissos", path: "/agenda/compromissos", icon: CheckCircle },
-    ],
-  },
-  {
-    railId: "metricas",
-    title: "Métricas",
-    subtitle: "Indicadores do negócio",
-    items: [
-      { id: "mt-dashboard", label: "Visão geral", path: "/metricas/dashboard", icon: BarChart3 },
-      { id: "mt-vendas", label: "Vendas", path: "/metricas/vendas", icon: TrendingUp },
-      { id: "mt-financeiro", label: "Financeiro", path: "/metricas/financeiro", icon: DollarSign },
-      { id: "mt-clientes", label: "Clientes", path: "/metricas/clientes", icon: Users },
-      { id: "mt-produtos", label: "Produtos", path: "/metricas/produtos", icon: Package },
     ],
   },
   {
@@ -216,7 +169,7 @@ const SUBNAV_SECTIONS: SubNavSection[] = [
   },
 ];
 
-const CORE_MODULES = new Set(["dashboard", "configuracoes", "meus-modulos", "minha_empresa", "mel"]);
+const CORE_MODULES = new Set(["minha_empresa", "mel", "modulos", "configuracoes"]);
 
 export function AppLayout() {
   const navigate = useNavigate();
@@ -250,7 +203,7 @@ export function AppLayout() {
       return "minha-empresa";
     }
     if (currentPath.startsWith("/chatbot")) return "chatbot";
-    return "dashboard";
+    return "minha-empresa";
   }, [currentPath]);
 
   const activeSubnav = useMemo(() => {
@@ -264,6 +217,23 @@ export function AppLayout() {
       return modulo && (modulo.status === "core" || modulo.status === "ativo" || modulo.status === "trial");
     });
   }, [modulosAtivos]);
+
+  // Filtra a subnav pelo status do módulo (mesma fonte do visibleRailItems).
+  // Passa se: sem moduloCodigo, OU core module, OU status {core, ativo, trial}.
+  // Recursa em children; grupo sem filhos sobreviventes também some.
+  const filterSubnavItems = (items: SubNavItem[]): SubNavItem[] => {
+    return items.reduce<SubNavItem[]>((acc, item) => {
+      if (item.moduloCodigo && !CORE_MODULES.has(item.moduloCodigo)) {
+        const modulo = modulosAtivos.find((m) => m.codigo === item.moduloCodigo);
+        const statusOk =
+          modulo && (modulo.status === "core" || modulo.status === "ativo" || modulo.status === "trial");
+        if (!statusOk) return acc;
+      }
+      const children = item.children ? filterSubnavItems(item.children) : undefined;
+      if (item.children && children && children.length === 0) return acc;
+      return [...acc, { ...item, children }];
+    }, []);
+  };
 
   const [expandedMobileModule, setExpandedMobileModule] = useState<string | null>(null);
   const [expandedMobileSubmenu, setExpandedMobileSubmenu] = useState<string | null>("cadastros");
@@ -483,7 +453,7 @@ export function AppLayout() {
 
           {/* Submenu items */}
           <nav className="flex-1 px-3 py-3 overflow-y-auto">
-            {activeSubnav.items.map((item) => {
+            {filterSubnavItems(activeSubnav.items).map((item) => {
               const Icon = item.icon;
               const itemHasChildren = item.children && item.children.length > 0;
               const isOpen = expandedSubmenu === item.id;
@@ -541,18 +511,6 @@ export function AppLayout() {
               );
             })}
           </nav>
-
-          {/* Plan status footer */}
-          <div className="p-4 border-t border-[#efefef]">
-            <div className="bg-[#1F2937] rounded-xl p-3 text-white">
-              <p className="text-[10px] text-[#efefef] uppercase tracking-wide">Status do Plano</p>
-              <p className="text-sm font-semibold mt-0.5">UNIQ Pro Enterprise</p>
-              <div className="mt-2 h-1.5 w-full bg-[#627271] rounded-full overflow-hidden">
-                <div className="h-full w-3/4 bg-[#86cb92] rounded-full" />
-              </div>
-              <p className="text-[10px] text-[#efefef] mt-1">75% da cota usada</p>
-            </div>
-          </div>
         </div>
       </aside>
 
@@ -667,7 +625,7 @@ export function AppLayout() {
                       >
                         {subnav && (
                           <div className="mt-1 ml-2 bg-[#1f2937] rounded-lg border-l-2 border-[#86cb92]/40 overflow-hidden">
-                            {subnav.items.map((subItem) => {
+                            {filterSubnavItems(subnav.items).map((subItem) => {
                               const SubIcon = subItem.icon;
                               const subHasChildren = subItem.children && subItem.children.length > 0;
                               const subIsOpen = expandedMobileSubmenu === subItem.id;
@@ -757,16 +715,6 @@ export function AppLayout() {
 
               {/* Footer */}
               <div className="shrink-0 p-4 border-t border-[#627271]/40 bg-[#1F2937]">
-                {/* Status do Plano */}
-                <div className="bg-[#1f2937] rounded-xl p-3 mb-3 border border-[#627271]/30">
-                  <p className="text-[10px] text-[#efefef] uppercase tracking-wide font-medium">Status do Plano</p>
-                  <p className="text-white text-sm font-semibold mt-0.5">UNIQ Pro Enterprise</p>
-                  <div className="mt-2 h-1.5 w-full bg-[#627271] rounded-full overflow-hidden">
-                    <div className="h-full w-3/4 bg-[#86cb92] rounded-full" />
-                  </div>
-                  <p className="text-[10px] text-[#efefef] mt-1">75% da cota usada</p>
-                </div>
-
                 {/* Ações finais */}
                 <div className="space-y-1">
                   <button
