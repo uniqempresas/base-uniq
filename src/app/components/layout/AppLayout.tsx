@@ -170,7 +170,7 @@ const SUBNAV_SECTIONS: SubNavSection[] = [
   },
 ];
 
-const CORE_MODULES = new Set(["minha_empresa", "mel", "modulos", "configuracoes"]);
+const CORE_MODULES = new Set(["minha_empresa", "mel", "modulos", "configuracoes", "chatbot"]);
 
 export function AppLayout() {
   const navigate = useNavigate();

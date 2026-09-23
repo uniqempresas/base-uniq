@@ -8,6 +8,7 @@ import {
 
 const AGENDA_INCLUSA_MIGRATION_KEY = 'uniq-agenda-inclusa-v1';
 const LOJA_VIRTUAL_ATIVA_MIGRATION_KEY = 'uniq-loja-virtual-ativa-v1';
+const CHATBOT_CORE_MIGRATION_KEY = 'uniq-chatbot-core-v1';
 
 type ModulosContextValue = {
   modulos: Modulo[];
@@ -58,6 +59,25 @@ function carregarModulos(): Modulo[] {
         ? { ...modulo, status: 'ativo' as ModuloStatus }
         : modulo);
       localStorage.setItem(LOJA_VIRTUAL_ATIVA_MIGRATION_KEY, 'true');
+    }
+
+    // Chatbot como módulo BASE (pedido explícito do fundador): o catálogo o marca
+    // como 'core', mas quem já usava o app tem o status antigo salvo no
+    // localStorage — e o merge acima prioriza o valor salvo. Por isso o módulo
+    // sumiu do rail (provavelmente CANCELADO na antiga /meus-modulos, que tinha
+    // botão Cancelar e não permite mais desfazer pela interface).
+    // ⚠️ EXCEÇÃO DELIBERADA: as migrações anteriores não ressuscitam 'cancelado'
+    // (regra do projeto: cancelamento é definitivo). Aqui o dono pediu para
+    // trazer o Chatbot de volta — então esta migração converte 'cancelado'
+    // TAMBÉM. Não é engano; não remover.
+    // Limpa dataRenovacao junto: módulo core não expira, e a data salva no
+    // localStorage (ex.: '15/05/2026') apareceria na tela Meus Módulos.
+    if (!localStorage.getItem(CHATBOT_CORE_MIGRATION_KEY)) {
+      resultado = resultado.map((modulo) => modulo.codigo === 'chatbot'
+        && (modulo.status === 'nao_adquirido' || modulo.status === 'cancelado')
+        ? { ...modulo, status: 'core' as ModuloStatus, dataRenovacao: undefined }
+        : modulo);
+      localStorage.setItem(CHATBOT_CORE_MIGRATION_KEY, 'true');
     }
 
     return resultado;

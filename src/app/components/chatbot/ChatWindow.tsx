@@ -33,16 +33,27 @@ function getInitials(nome: string): string {
 export function ChatWindow({ conversa, mensagens, onSendMessage, onBack, inputRef }: ChatWindowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll para a última mensagem ao abrir/trocar de conversa ou quando
-  // chega mensagem nova. O ref aponta para o próprio container de rolagem
-  // (div com overflow-y-auto), então scrollTop/scrollHeight são aplicados no
-  // elemento certo — antes o ref apontava para um div interno sem rolagem.
+  // Auto-scroll: ao abrir/trocar de conversa, vai sempre para a última mensagem.
+  // (O ref aponta para o próprio container de rolagem — div com overflow-y-auto —
+  // então scrollTop/scrollHeight são aplicados no elemento certo.)
   useEffect(() => {
     const container = scrollRef.current;
     if (container) {
       container.scrollTop = container.scrollHeight;
     }
-  }, [mensagens, conversa?.id]);
+  }, [conversa?.id]);
+
+  // Mensagem nova: só acompanha se o usuário já estiver no fim da conversa.
+  // Se ele estiver lendo o histórico (rolou para cima), não arrasta a rolagem.
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const proximoDoFim =
+      container.scrollHeight - container.scrollTop - container.clientHeight < 64;
+    if (proximoDoFim) {
+      container.scrollTop = container.scrollHeight;
+    }
+  }, [mensagens]);
 
   if (!conversa) {
     return (
@@ -113,7 +124,7 @@ export function ChatWindow({ conversa, mensagens, onSendMessage, onBack, inputRe
           <MessageBubble
             key={mensagem.id}
             mensagem={mensagem}
-            isOwn={!mensagem.isBot}
+            isOwn={mensagem.isBot}
           />
         ))}
       </div>

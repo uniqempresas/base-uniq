@@ -224,7 +224,9 @@ export function useConversasReais(): UseConversasReaisReturn {
       conversaId: conversaIdAtiva,
       conteudo: conteudo.trim(),
       tipo: "texto",
-      isBot: false,
+      // A mensagem enviada no console do operador é do lado UNIQ/MEL (mesmo
+      // lado do bot), logo vai à direita na conversa (isBot === true).
+      isBot: true,
       timestamp: new Date(),
       lida: true,
     };
