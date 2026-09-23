@@ -1179,6 +1179,34 @@ O fundador recebeu, ao abrir o Fluxo de Caixa:
 
 ---
 
+## 🤖 CHATBOT — 4 ajustes entregues (23/09/2026)
+
+**Commit `35d7df1`** · deploy verificado (`CORE_MODULES` em produção termina em `configuracoes, chatbot`).
+
+**1. Lado das mensagens estava invertido.** `ChatWindow` passava `isOwn={!mensagem.isBot}`. Como `isBot` significa "é do nosso lado" (`remetente_tipo !== "cliente"`), o `!` colocava o **cliente** à direita e a **MEL** à esquerda. Corrigido para `isOwn={mensagem.isBot}`.
+
+> 🔎 **Bug de segunda ordem, achado na execução:** a MESMA inversão existia na mensagem criada localmente ao enviar (`useConversasReais` montava com `isBot: false`). Sem corrigir junto, **a própria resposta do operador** apareceria do lado do cliente depois do flip. O agente da lane pegou — eu não havia previsto.
+
+**2. Rolagem da conversa.** O diagnóstico **não** era o que parecia: a cadeia de altura **já estava fechada** (o commit `e9e6257` já havia movido o ref para o container certo e adicionado `min-h-0`). A causa real era o **auto-scroll** arrastando quem estava lendo o histórico. Dividido em dois efeitos: `[conversa?.id]` rola sempre; `[mensagens]` só acompanha se o usuário **já estiver no fim** (< 64px).
+
+**3. Chatbot como módulo base.** `status: 'ativo'` → `'core'`; entrou no `CORE_MODULES`; e ganhou a migração `uniq-chatbot-core-v1` — que é o que faz o módulo **voltar** para quem o tinha cancelado (o `localStorage` vence o catálogo, e a tela virou somente leitura, então não havia como desfazer pela interface). A ordem do rail **não** mudou (Chatbot já estava acima da MEL).
+
+> ⚠️ **Exceção deliberada, registrada no código:** as migrações anteriores **não** ressuscitavam `cancelado` (a regra do projeto é "cancelamento é definitivo"). Esta converte `cancelado` também, a pedido explícito do fundador.
+
+**4. `dataRenovacao` limpo.** O Chatbot manteve `dataRenovacao: '15/05/2026'`, e `MeusModulosPage` renderiza esse campo para **qualquer** módulo "adquirido" — então um módulo **base** mostraria uma renovação **vencida**, num módulo que não expira. Limpo no catálogo **e** na migração. Precedentes: a migração da Agenda limpou os mesmos campos ao virar `core`, e o MEL nunca teve `dataRenovacao`.
+
+### 📌 O que o gate `tsc` cobre — e o que NÃO cobre
+
+Verificado em 23/09/2026: o `tsconfig.json` tem **`strict: true`** (o que **inclui** `strictNullChecks` e `noImplicitAny`). Confirmado com `npx tsc --noEmit --strict` = **0 erros**. Só `noUnusedLocals`/`noUnusedParameters` estão desligados — e isso afeta limpeza, não segurança.
+
+**O que escapa mesmo com `strict`:** o **TDZ dentro de callback** (o incidente do Fluxo de Caixa, acima). O TypeScript assume que o callback roda depois da declaração, então não acusa — e o bundler também não. É **limitação da linguagem**, não da configuração.
+
+**Mitigação:** a varredura descrita no incidente acima — procurar **leitura de propriedade** de uma variável `useState` **antes** da própria declaração, **no mesmo componente**, com **caminho completo** no relatório. Rodou em todo `src/app` em 23/09: **zero** outros casos.
+
+> 🧠 **Lição de processo:** nesta sessão eu errei **três vezes** ao ler minha própria saída de ferramenta — casamento por nome gerando 185 falsos positivos, `CheckoutPage.tsx` errado (existem **dois** arquivos com esse nome), e um `grep` que devolveu "False" para chaves **inexistentes** no `tsconfig` (eu li como "desligadas" e montei um alarme falso sobre segurança de tipos). **Conferir o próprio output antes de concluir vale tanto quanto conferir o código.**
+
+---
+
 ## ✅ JÁ CONCLUÍDO (não refazer)
 
 Decision #0 (Supabase oficial) · Diagnóstico real · Plano de 5 semanas aprovado · Preço (R$ 1.500/R$ 297 → R$ 0/R$ 197) · Data de faturamento (5/15/25) · Exit Safe (mar/2027, 18 meses, lançamento jul/2027) · Ondas 4+4 · Módulos default+vertical · Dogfooding · `DESIGN.md` oficial · Wireframe no repo/design no OpenDesign · Vender 2/prometer 1 (pitch) · Canal híbrido · Controle de entrega = CRM+Agenda · Cross-out não usar · Verde petróleo removido · Documento de necessidades = conversa inteira.
