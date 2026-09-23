@@ -89,7 +89,20 @@ export function useConfirmarPagamento() {
 
           if (updateError) throw updateError;
         } else {
-          // 3b. Sem conta → cria já paga, vinculada à venda
+          // 3b. Sem conta → cria já paga, vinculada à venda.
+          //     Best-effort: categoriza como "Vendas" quando a categoria já
+          //     existe no tenant (a RPC registrar_venda a cria na 1ª venda).
+          //     Se o SELECT falhar ou não houver "Vendas", a conta fica sem
+          //     categoria (comportamento anterior) — nunca bloqueia a criação.
+          const { data: catVendas } = await supabase
+            .from("me_categoria_financeira")
+            .select("id")
+            .eq("empresa_id", empresaId)
+            .eq("tipo", "receita")
+            .ilike("nome", "vendas")
+            .limit(1)
+            .maybeSingle();
+
           const { error: insertError } = await supabase
             .from("me_contas_receber")
             .insert({
@@ -102,6 +115,7 @@ export function useConfirmarPagamento() {
               data_vencimento: hoje,
               data_pagamento: hoje,
               forma_pagamento: params.formaPagamento || null,
+              categoria_id: catVendas?.id ?? null,
               status: "pago",
             });
 
