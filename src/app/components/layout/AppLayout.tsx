@@ -107,6 +107,7 @@ const SUBNAV_SECTIONS: SubNavSection[] = [
       { id: "f-contas", label: "Contas a Pagar", path: "/financeiro/contas-pagar", icon: Calendar },
       { id: "f-contas-receber", label: "Contas a Receber", path: "/financeiro/contas-receber", icon: Calendar },
       { id: "f-dre", label: "DRE", path: "/financeiro/dre", icon: BarChart3 },
+      { id: "f-configuracoes", label: "Configurações", path: "/financeiro/configuracoes", icon: Settings },
     ],
   },
   {

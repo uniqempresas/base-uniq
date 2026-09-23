@@ -148,6 +148,16 @@ Em `routes.tsx`, no bloco do Financeiro (perto de `:123-128`), no padrão lazy:
 { path: "/financeiro/configuracoes", lazy: pagina(() => import("./components/financeiro/ConfiguracoesFinanceirasPage"), "ConfiguracoesFinanceirasPage") },
 ```
 
+> ⚠️ **Furo corrigido em 22/09/2026 — reportado pelo fundador:**
+>
+> *"não consegui acessar a configuração, eu tive que digitar na url o caminho."*
+>
+> A rota foi criada, mas **nenhum item de menu apontava para ela**. O único caminho era o botão **"Configurar"** dos formulários de conta — que só aparece **quando não há categorias**. Assim que o fundador criou a primeira categoria, o botão sumiu e a tela ficou **inalcançável**.
+>
+> **Correção:** item **"Configurações"** na seção `railId: "financeiro"` do `SUBNAV_SECTIONS` (`AppLayout.tsx`), **logo após o DRE** — posição pedida pelo fundador. Sem `moduloCodigo`, portanto nunca filtrado. O botão "Configurar" nos formulários **permanece** — dois caminhos é melhor que um.
+>
+> 📌 **Lição registrada:** criar uma rota **não** a torna alcançável. Toda tela administrativa precisa de **dois** caminhos — o **contextual** (botão no fluxo) e o **permanente** (item de menu). Um botão que só aparece em **estado vazio** desaparece justamente quando o usuário passa a precisar da tela.
+
 ---
 
 ## 4. Lane B — categoria nas contas
