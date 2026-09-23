@@ -266,20 +266,10 @@ export interface ContaPagarView extends ContaPagar {
   fornecedorId?: string;
 }
 
-// UUID cru nunca pode aparecer na tela. Dados reais gravam descrições como
-// "Venda #848081af-e1b9-4c5d-9e40-991a0ac0fb7c - Henriq Silva" — esta função
-// remove qualquer UUID e o sufixo "- <nome do cliente>" redundante.
-const UUID_RE = /#?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
-
-export function limparDescricao(descricao: string | null | undefined, cliente?: string): string {
-  if (!descricao) return "";
-  let d = descricao.trim().replace(UUID_RE, " ").replace(/\s{2,}/g, " ").trim();
-  if (cliente) {
-    const sufixo = ` - ${cliente}`;
-    if (d.endsWith(sufixo)) d = d.slice(0, -sufixo.length).trim();
-  }
-  return d;
-}
+// UUID cru nunca pode aparecer na tela. limparDescricao/UUID_RE agora vivem em
+// `src/app/lib/masks.ts` (compartilhados com o fluxo de caixa). Re-exportados
+// aqui para não quebrar quem já importava deste arquivo.
+export { limparDescricao, UUID_RE } from "../../lib/masks";
 
 export function numeroPedidoDe(conta: ContaReceber): string | null {
   const v = (conta as ContaReceberView).numeroPedido;

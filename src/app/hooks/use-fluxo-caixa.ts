@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
+import { limparDescricao } from "../lib/masks";
 import { useAuth } from "../contexts/AuthContext";
 import { movimentacoesMock, calcularStatus } from "../components/financeiro/mockData";
 import type { StatusMovimentacao } from "../components/financeiro/mockData";
@@ -11,6 +12,7 @@ export interface MovimentacaoFluxo {
   valor: number;
   data: string; // ISO date
   categoria: string;
+  categoriaId?: string | null;
   status: StatusMovimentacao;
   pessoa?: string;
   origem: "conta_receber" | "conta_pagar" | "venda";
@@ -95,7 +97,7 @@ export function useFluxoCaixa(periodo: string) {
       const [receberResult, pagarResult, receberAnteriorResult, pagarAnteriorResult] = await Promise.all([
         supabase
           .from("me_contas_receber")
-          .select("id, descricao, valor_pago, data_pagamento, status, cliente_id, empresa_id")
+          .select("id, descricao, valor_pago, data_pagamento, status, cliente_id, categoria_id, empresa_id")
           .eq("empresa_id", empresaId)
           .eq("status", "pago")
           .not("data_pagamento", "is", null)
@@ -103,7 +105,7 @@ export function useFluxoCaixa(periodo: string) {
           .lte("data_pagamento", fim),
         supabase
           .from("me_contas_pagar")
-          .select("id, descricao, valor_pago, data_pagamento, status, fornecedor_id, empresa_id")
+          .select("id, descricao, valor_pago, data_pagamento, status, fornecedor_id, categoria_id, empresa_id")
           .eq("empresa_id", empresaId)
           .eq("status", "pago")
           .not("data_pagamento", "is", null)
@@ -131,11 +133,13 @@ export function useFluxoCaixa(periodo: string) {
       const receber = (receberResult.data ?? []) as {
         id: string; descricao: string | null; valor_pago: number | null;
         data_pagamento: string | null; status: string | null; cliente_id: string | null;
+        categoria_id: string | null;
       }[];
 
       const pagar = (pagarResult.data ?? []) as {
         id: string; descricao: string | null; valor_pago: number | null;
         data_pagamento: string | null; status: string | null; fornecedor_id: string | null;
+        categoria_id: string | null;
       }[];
 
       // Calcular saldo inicial
@@ -147,16 +151,23 @@ export function useFluxoCaixa(periodo: string) {
       );
       const saldoInicialCalc = saldoRecAnt - saldoPagAnt;
 
-      // 2. Buscar nomes de clientes e fornecedores
+      // 2. Buscar nomes de clientes, fornecedores e categorias financeiras
       const clienteIds = [...new Set(receber.map((r) => r.cliente_id).filter((id): id is string => id !== null))];
       const fornecedorIds = [...new Set(pagar.map((p) => p.fornecedor_id).filter((id): id is string => id !== null))];
+      const categoriaIds = [...new Set([
+        ...receber.map((r) => r.categoria_id).filter((id): id is string => id !== null),
+        ...pagar.map((p) => p.categoria_id).filter((id): id is string => id !== null),
+      ])];
 
-      const [clientesResult, fornecedoresResult] = await Promise.all([
+      const [clientesResult, fornecedoresResult, categoriasResult] = await Promise.all([
         clienteIds.length > 0
           ? supabase.from("me_cliente").select("id, nome_cliente").in("id", clienteIds).eq("empresa_id", empresaId)
           : Promise.resolve({ data: null, error: null }),
         fornecedorIds.length > 0
           ? supabase.from("me_fornecedor").select("id, nome_fornecedor, razao_social").in("id", fornecedorIds).eq("empresa_id", empresaId)
+          : Promise.resolve({ data: null, error: null }),
+        categoriaIds.length > 0
+          ? supabase.from("me_categoria_financeira").select("id, nome").in("id", categoriaIds).eq("empresa_id", empresaId)
           : Promise.resolve({ data: null, error: null }),
       ]);
 
@@ -174,33 +185,50 @@ export function useFluxoCaixa(periodo: string) {
         }
       }
 
+      const categoriasMap = new Map<string, string>();
+      if (categoriasResult.data) {
+        for (const c of categoriasResult.data as { id: string; nome: string }[]) {
+          categoriasMap.set(c.id, c.nome);
+        }
+      }
+
       // 3. Mapear entradas
-      const entradas: MovimentacaoFluxo[] = receber.map((r) => ({
-        id: `cr-${r.id}`,
-        descricao: r.descricao || "Conta a receber",
-        tipo: "entrada" as const,
-        valor: Number(r.valor_pago) || 0,
-        data: r.data_pagamento ? `${r.data_pagamento}T12:00:00` : "",
-        categoria: truncarDescricao(r.descricao),
-        status: calcularStatus(r.data_pagamento ?? "", "pago"),
-        pessoa: r.cliente_id ? clientesMap.get(r.cliente_id) : undefined,
-        origem: "conta_receber" as const,
-        origemId: r.id,
-      }));
+      const entradas: MovimentacaoFluxo[] = receber.map((r) => {
+        const pessoa = r.cliente_id ? clientesMap.get(r.cliente_id) : undefined;
+        const categoriaReal = r.categoria_id ? categoriasMap.get(r.categoria_id) : undefined;
+        return {
+          id: `cr-${r.id}`,
+          descricao: pessoa || limparDescricao(r.descricao, pessoa) || "Conta a receber",
+          tipo: "entrada" as const,
+          valor: Number(r.valor_pago) || 0,
+          data: r.data_pagamento ? `${r.data_pagamento}T12:00:00` : "",
+          categoria: categoriaReal || "Venda",
+          categoriaId: r.categoria_id,
+          status: calcularStatus(r.data_pagamento ?? "", "pago"),
+          pessoa,
+          origem: "conta_receber" as const,
+          origemId: r.id,
+        };
+      });
 
       // 4. Mapear saídas
-      const saidas: MovimentacaoFluxo[] = pagar.map((p) => ({
-        id: `cp-${p.id}`,
-        descricao: p.descricao || "Conta a pagar",
-        tipo: "saida" as const,
-        valor: Number(p.valor_pago) || 0,
-        data: p.data_pagamento ? `${p.data_pagamento}T12:00:00` : "",
-        categoria: truncarDescricao(p.descricao),
-        status: calcularStatus(p.data_pagamento ?? "", "pago"),
-        pessoa: p.fornecedor_id ? fornecedoresMap.get(p.fornecedor_id) : undefined,
-        origem: "conta_pagar" as const,
-        origemId: p.id,
-      }));
+      const saidas: MovimentacaoFluxo[] = pagar.map((p) => {
+        const pessoa = p.fornecedor_id ? fornecedoresMap.get(p.fornecedor_id) : undefined;
+        const categoriaReal = p.categoria_id ? categoriasMap.get(p.categoria_id) : undefined;
+        return {
+          id: `cp-${p.id}`,
+          descricao: pessoa || limparDescricao(p.descricao, pessoa) || "Conta a pagar",
+          tipo: "saida" as const,
+          valor: Number(p.valor_pago) || 0,
+          data: p.data_pagamento ? `${p.data_pagamento}T12:00:00` : "",
+          categoria: categoriaReal || "Despesa",
+          categoriaId: p.categoria_id,
+          status: calcularStatus(p.data_pagamento ?? "", "pago"),
+          pessoa,
+          origem: "conta_pagar" as const,
+          origemId: p.id,
+        };
+      });
 
       const todas = [...entradas, ...saidas];
       setMovimentacoes(todas);
@@ -239,7 +267,7 @@ export function useFluxoCaixa(periodo: string) {
         valor_pago: mov.valor,
         forma_pagamento: null as string | null,
         conta_id: null as string | null,
-        categoria_id: null as string | null,
+        categoria_id: mov.categoriaId ?? null,
       };
 
       if (mov.tipo === "entrada") {
@@ -283,6 +311,7 @@ export function useFluxoCaixa(periodo: string) {
         dadosAtualizar.data_vencimento = dados.data.slice(0, 10);
         dadosAtualizar.data_pagamento = dados.data.slice(0, 10);
       }
+      if (dados.categoriaId !== undefined) dadosAtualizar.categoria_id = dados.categoriaId;
 
       if (Object.keys(dadosAtualizar).length === 0) return {};
 

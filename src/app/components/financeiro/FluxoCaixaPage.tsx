@@ -18,18 +18,15 @@ import {
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { formatarMoeda } from "./mockData";
 import { useFluxoCaixa, type MovimentacaoFluxo } from "../../hooks/use-fluxo-caixa";
-
-const categorias = [
-  "Vendas", "Aluguel", "Internet", "Luz", "Água", "Fornecedores", "Impostos",
-  "Salários", "Marketing", "Outras Receitas", "Outras Despesas",
-];
+import { useCategoriasFinanceiras } from "../../hooks/use-categorias-financeiras";
 
 type Formulario = Pick<MovimentacaoFluxo, "descricao" | "categoria" | "pessoa" | "valor" | "data" | "tipo"> & {
   pessoa?: string;
+  categoriaId: string;
 };
 
 const formularioInicial: Formulario = {
-  descricao: "", categoria: "Vendas", pessoa: "", valor: 0, data: mesAtual() + "-01", tipo: "entrada",
+  descricao: "", categoria: "", pessoa: "", valor: 0, data: mesAtual() + "-01", tipo: "entrada", categoriaId: "",
 };
 
 function mesAtual(): string {
@@ -51,6 +48,10 @@ export function FluxoCaixaPage() {
     editarMovimentacao,
     excluirMovimentacao,
   } = useFluxoCaixa(periodo);
+  const { categorias: categoriasFinanceiras } = useCategoriasFinanceiras();
+  const categoriasDoTipo = categoriasFinanceiras.filter((c) =>
+    formulario.tipo === "entrada" ? c.tipo === "receita" : c.tipo === "operacional" || c.tipo === "mercadoria"
+  );
   const [filtroTipo, setFiltroTipo] = useState<"entrada" | "saida" | "todos">("todos");
   const [searchQuery, setSearchQuery] = useState("");
   const [mostrarModal, setMostrarModal] = useState(false);
@@ -88,7 +89,7 @@ export function FluxoCaixaPage() {
 
   const abrirEdicao = (mov: MovimentacaoFluxo) => {
     setEditandoId(mov.id);
-    setFormulario({ descricao: mov.descricao, categoria: mov.categoria, pessoa: mov.pessoa ?? "", valor: mov.valor, data: mov.data.slice(0, 10), tipo: mov.tipo });
+    setFormulario({ descricao: mov.descricao, categoria: mov.categoria, pessoa: mov.pessoa ?? "", valor: mov.valor, data: mov.data.slice(0, 10), tipo: mov.tipo, categoriaId: mov.categoriaId ?? "" });
     setMostrarModal(true);
   };
 
@@ -101,6 +102,7 @@ export function FluxoCaixaPage() {
         descricao: formulario.descricao.trim(),
         valor: Number(formulario.valor),
         data: `${formulario.data}T12:00:00`,
+        categoriaId: formulario.categoriaId || null,
       });
       if (resultado.error) {
         setFeedbackErro(resultado.error);
@@ -118,6 +120,7 @@ export function FluxoCaixaPage() {
         status: "pago",
         origem: formulario.tipo === "entrada" ? "conta_receber" : "conta_pagar",
         origemId: "",
+        categoriaId: formulario.categoriaId || null,
       });
       if (resultado.error) {
         setFeedbackErro(resultado.error);
@@ -291,7 +294,7 @@ export function FluxoCaixaPage() {
         )}
       </section>
 
-      {mostrarModal && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1f2937]/60 p-4" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setMostrarModal(false); }}><div data-od-id="fluxo-caixa-modal" role="dialog" aria-modal="true" aria-labelledby="modal-titulo" className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-5 shadow-2xl sm:p-6"><div className="mb-5 flex items-start justify-between"><div><h2 id="modal-titulo" className="text-xl font-semibold text-[#1f2937]">{editandoId ? "Editar movimentação" : "Nova movimentação"}</h2><p className="mt-1 text-sm text-[#627271]">Preencha os dados para manter seu caixa atualizado.</p></div><button aria-label="Fechar modal" onClick={() => setMostrarModal(false)} className={`flex h-9 w-9 items-center justify-center rounded-lg text-[#627271] hover:bg-[#efefef] ${botaoFoco}`}><X size={18} /></button></div><form onSubmit={salvar} className="grid grid-cols-1 gap-4 sm:grid-cols-2"><label className="sm:col-span-2 text-sm font-semibold text-[#1f2937]">Descrição *<input required value={formulario.descricao} onChange={(e) => setFormulario({ ...formulario, descricao: e.target.value })} className={`${campo} mt-1`} placeholder="Ex.: Venda de produtos" /></label><label className="text-sm font-semibold text-[#1f2937]">Categoria<select value={formulario.categoria} onChange={(e) => setFormulario({ ...formulario, categoria: e.target.value })} className={`${campo} mt-1`}>{categorias.map((cat) => <option key={cat}>{cat}</option>)}</select></label><label className="text-sm font-semibold text-[#1f2937]">Tipo<select value={formulario.tipo} onChange={(e) => setFormulario({ ...formulario, tipo: e.target.value as "entrada" | "saida" })} className={`${campo} mt-1`}><option value="entrada">Entrada</option><option value="saida">Saída</option></select></label><label className="text-sm font-semibold text-[#1f2937]">Pessoa<input value={formulario.pessoa ?? ""} onChange={(e) => setFormulario({ ...formulario, pessoa: e.target.value })} className={`${campo} mt-1`} placeholder="Ex.: Maria Santos" /></label><label className="text-sm font-semibold text-[#1f2937]">Valor *<input required type="number" min="0" step="0.01" value={formulario.valor} onChange={(e) => setFormulario({ ...formulario, valor: Number(e.target.value) })} className={`${campo} mt-1`} placeholder="0,00" /></label><label className="text-sm font-semibold text-[#1f2937]">Data *<input required type="date" value={formulario.data.slice(0, 10)} onChange={(e) => setFormulario({ ...formulario, data: e.target.value })} className={`${campo} mt-1`} /></label><div className="mt-2 flex flex-col-reverse gap-3 sm:col-span-2 sm:flex-row sm:justify-end"><button type="button" onClick={() => setMostrarModal(false)} className={`rounded-lg border border-[#627271] px-4 py-2 text-sm font-semibold text-[#1f2937] hover:bg-[#efefef] ${botaoFoco}`}>Cancelar</button><button type="submit" className={`rounded-lg bg-[#86cb92] px-4 py-2 text-sm font-semibold text-[#1f2937] hover:bg-[#1f2937] hover:text-white ${botaoFoco}`}>Salvar</button></div></form></div></div>}
+      {mostrarModal && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1f2937]/60 p-4" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setMostrarModal(false); }}><div data-od-id="fluxo-caixa-modal" role="dialog" aria-modal="true" aria-labelledby="modal-titulo" className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-5 shadow-2xl sm:p-6"><div className="mb-5 flex items-start justify-between"><div><h2 id="modal-titulo" className="text-xl font-semibold text-[#1f2937]">{editandoId ? "Editar movimentação" : "Nova movimentação"}</h2><p className="mt-1 text-sm text-[#627271]">Preencha os dados para manter seu caixa atualizado.</p></div><button aria-label="Fechar modal" onClick={() => setMostrarModal(false)} className={`flex h-9 w-9 items-center justify-center rounded-lg text-[#627271] hover:bg-[#efefef] ${botaoFoco}`}><X size={18} /></button></div><form onSubmit={salvar} className="grid grid-cols-1 gap-4 sm:grid-cols-2"><label className="sm:col-span-2 text-sm font-semibold text-[#1f2937]">Descrição *<input required value={formulario.descricao} onChange={(e) => setFormulario({ ...formulario, descricao: e.target.value })} className={`${campo} mt-1`} placeholder="Ex.: Venda de produtos" /></label><label className="text-sm font-semibold text-[#1f2937]">Categoria<select value={formulario.categoriaId} onChange={(e) => setFormulario({ ...formulario, categoriaId: e.target.value })} className={`${campo} mt-1`}><option value="">Sem categoria</option>{categoriasDoTipo.map((cat) => <option key={cat.id} value={cat.id}>{cat.nome}</option>)}</select></label><label className="text-sm font-semibold text-[#1f2937]">Tipo<select value={formulario.tipo} onChange={(e) => setFormulario({ ...formulario, tipo: e.target.value as "entrada" | "saida", categoriaId: "" })} className={`${campo} mt-1`}><option value="entrada">Entrada</option><option value="saida">Saída</option></select></label><label className="text-sm font-semibold text-[#1f2937]">Pessoa<input value={formulario.pessoa ?? ""} onChange={(e) => setFormulario({ ...formulario, pessoa: e.target.value })} className={`${campo} mt-1`} placeholder="Ex.: Maria Santos" /></label><label className="text-sm font-semibold text-[#1f2937]">Valor *<input required type="number" min="0" step="0.01" value={formulario.valor} onChange={(e) => setFormulario({ ...formulario, valor: Number(e.target.value) })} className={`${campo} mt-1`} placeholder="0,00" /></label><label className="text-sm font-semibold text-[#1f2937]">Data *<input required type="date" value={formulario.data.slice(0, 10)} onChange={(e) => setFormulario({ ...formulario, data: e.target.value })} className={`${campo} mt-1`} /></label><div className="mt-2 flex flex-col-reverse gap-3 sm:col-span-2 sm:flex-row sm:justify-end"><button type="button" onClick={() => setMostrarModal(false)} className={`rounded-lg border border-[#627271] px-4 py-2 text-sm font-semibold text-[#1f2937] hover:bg-[#efefef] ${botaoFoco}`}>Cancelar</button><button type="submit" className={`rounded-lg bg-[#86cb92] px-4 py-2 text-sm font-semibold text-[#1f2937] hover:bg-[#1f2937] hover:text-white ${botaoFoco}`}>Salvar</button></div></form></div></div>}
     </main>
   );
 }
