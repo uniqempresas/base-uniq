@@ -1153,6 +1153,32 @@ O app usa `receita` · `operacional` · `mercadoria` (o DRE separa Custo de Merc
 
 ---
 
+## 🐞 INCIDENTE — TDZ quebrou o Fluxo de Caixa em produção (23/09/2026)
+
+**Correção: commit `b6de45d`.**
+
+O fundador recebeu, ao abrir o Fluxo de Caixa:
+
+> `Cannot access 's' before initialization` — `at FluxoCaixaPage-….js` · `at Array.filter`
+
+**Causa raiz:** em `FluxoCaixaPage.tsx`, o filtro `categoriasDoTipo` lia `formulario.tipo` **antes** de `formulario` ser declarado — o `useState` estava poucas linhas **abaixo**. É um **TDZ** (*temporal dead zone*).
+
+**Por que passou por todos os gates:**
+
+| Gate | Por que não pegou |
+|---|---|
+| `npx tsc --noEmit` | A leitura está dentro de um **callback** (`.filter((c) => …)`). O TS assume que ele roda depois — **não acusa** |
+| `npm run build` | Idem — o bundler não faz essa análise |
+| **Verificação do bundle** | Eu conferia **strings** das mudanças no chunk de produção. String prova que o código **está no ar**, mas **não** prova que ele **roda**. Um TDZ não aparece em string nenhuma |
+
+> 📌 **Lição:** verificação de bundle por string é **necessária, não suficiente**. Ela não substitui abrir a tela. Para mudança de **lógica**, o teste tem de ser de **execução**.
+
+**Varredura da mesma classe** (feita na sequência): procurei em todo `src/app` o padrão *"leitura de propriedade de uma variável `useState` antes da própria declaração, no mesmo componente"*. **Resultado: zero** — o Fluxo de Caixa era o único caso.
+
+> ⚠️ A varredura gerou **dois falsos alarmes meus** no caminho: a primeira versão casava qualquer menção ao nome (185 "achados", quase todos ruído — import, tipo, parâmetro), e a segunda leu o `CheckoutPage.tsx` **errado** — existem **dois** arquivos com esse nome (`loja/` e `marketplace/`). Ambos resolvidos lendo o arquivo certo. **Lição secundária: em varredura, reporte o caminho COMPLETO, nunca só o nome do arquivo.**
+
+---
+
 ## ✅ JÁ CONCLUÍDO (não refazer)
 
 Decision #0 (Supabase oficial) · Diagnóstico real · Plano de 5 semanas aprovado · Preço (R$ 1.500/R$ 297 → R$ 0/R$ 197) · Data de faturamento (5/15/25) · Exit Safe (mar/2027, 18 meses, lançamento jul/2027) · Ondas 4+4 · Módulos default+vertical · Dogfooding · `DESIGN.md` oficial · Wireframe no repo/design no OpenDesign · Vender 2/prometer 1 (pitch) · Canal híbrido · Controle de entrega = CRM+Agenda · Cross-out não usar · Verde petróleo removido · Documento de necessidades = conversa inteira.
