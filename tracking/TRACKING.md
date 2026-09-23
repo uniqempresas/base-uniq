@@ -1094,7 +1094,7 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 | B8 | **~~"Contabilizar venda" envia `p_itens` sem `produto_id`/`servico_id`~~** | ✅ Resolvido (15/09/2026). Parte 1: `use-pedido.ts` busca `me_itens_venda` (+ `foto_url` via `me_produto`) e popula `itens` no detalhe — validação: venda `0c901c4a`, "Surpresa de Uva" ×2. Parte 2: `ItemPedido` ganhou `produtoId`/`tipoItem`; `ItemVenda` e `handleContabilizar` mandam payload canônico da RPC (`{tipo, id_referencia, nome, quantidade, preco_unitario}`). Commit `de7c86b` (parte 1). | Fechado |
 | ~~B9~~ | ~~**Categorias em Contas a Receber / Pagar**~~ | ✅ **FECHADO (22/09/2026)** — commit `dfdee00`. Categorias financeiras com 3 tipos, `categoria_id` gravado nos 4 hooks de escrita, select nos 2 formulários e o **DRE deixou de duplicar** (custo de mercadoria vem da compra real). Detalhe completo na seção **B9** abaixo. | **Fechado** |
 | B10 | **Sistema de módulos — unificar app ↔ banco** | 📄 Diagnóstico completo em **`tracking/TRACKING_MODULOS.md`**. O app **ignora** as tabelas de módulo (`unq_modulos_sistema` / `unq_empresa_modulos`) e usa `localStorage` + catálogo hardcoded (**17 códigos**), enquanto o banco tem **11 códigos diferentes**; `me_modulo_ativo` e `me_modulo_cargo` estão **vazias**; **não há guarda de rota** (módulo desativado entra pela URL). **✅ Entregues em 22/09/2026:** a **Loja Virtual** completa (`29885d2`, validada pelo fundador) e o **menu enxuto** (`1f4ccf3`). **O que resta é a Opção B:** ligar o app em `unq_empresa_modulos` + **guarda de rota** + unificação dos 3 vocabulários + seed da Doceê — é o que resolve o **enxuto global** (`TRACKING_MODULOS.md` §10.3 D6) e os módulos que outras empresas precisam (§10.6). | **Alta** |
-| B11 | **Estoque sem ponto de entrada no menu** | 🔎 **Achado em 22/09/2026** (verificação secundária da correção do menu do Financeiro). **`/estoque/dashboard` não tem nenhum ponto de entrada**: nada no menu aponta e nenhum componente navega até lá (as únicas navegações para esse path estão *dentro* da própria página — `EstoqueDashboardPage.tsx:80`, auto-referência). **`/estoque/movimentacoes`** só é alcançada *de dentro* do dashboard (`EstoqueDashboardPage.tsx:96`, `:343`) — logo, também inalcançável. **`/estoque`** (redirect) herda o furo. Hoje o Estoque só é acessível pelo menu via **Cadastros ▸ Produtos**. **Não corrigido** — o fundador pediu para reportar, não consertar. Correção provável: item de Estoque no submenu, ou um "Ver estoque" no dashboard. | Média |
+| B11 | **Estoque sem ponto de entrada no menu** | 🔎 **Achado em 22/09/2026** (verificação secundária da correção do menu do Financeiro). **`/estoque/dashboard` não tem nenhum ponto de entrada**: nada no menu aponta e nenhum componente navega até lá (as únicas navegações para esse path estão *dentro* da própria página — `EstoqueDashboardPage.tsx:80`, auto-referência). **`/estoque/movimentacoes`** só é alcançada *de dentro* do dashboard (`EstoqueDashboardPage.tsx:96`, `:343`) — logo, também inalcançável. **`/estoque`** (redirect) herda o furo. Hoje o Estoque só é acessível pelo menu via **Cadastros ▸ Produtos**. **Não corrigido.** ⏸️ **Adiado por decisão do fundador (23/09/2026):** *"não vamos movimentar com estoque agora, então pode deixar como está por hora."* Correção provável, quando voltar: item de Estoque no submenu, ou um "Ver estoque" no dashboard. | Média |
 | B12 | **Trocar a heurística de tributos por categoria** | O DRE identifica impostos por **heurística de descrição** (`ehDespesaTributaria`, regex sobre termos como "darf", "icms", "simples nacional") porque as contas antigas **não têm categoria**. Depois do B9 a categoria existe — mas trocar agora **zeraria a linha de Impostos** nas contas ainda sem categoria. Exige reclassificar as contas legadas primeiro. | Média |
 
 ---
@@ -1124,10 +1124,32 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 > 2. O **contrato** (`categoriaId?: string` + "só incluir quando `!== undefined`") **não permitia remover** uma categoria ao editar — o `undefined` significa "não mexe". Corrigido para `string | null` (`null` limpa) + `data.has("categoria")` nas páginas, para distinguir "campo ausente do form" de "campo vazio".
 
 **Pendências registradas:**
-- ⚠️ Migration `20260922180000_me_categoria_financeira_tipo.sql` **criada mas NÃO aplicada** — o **MCP do Supabase caiu** nesta sessão. Não é bloqueio: a tabela já existe no banco com as colunas necessárias.
-- ⚠️ **Roundtrip no banco não testado** (mesma causa) — a escrita foi validada por tipos e inspeção de código, não contra o banco real.
+- ✅ **Migration aplicada (23/09/2026)** — o MCP do Supabase voltou. A `20260922180000_me_categoria_financeira_tipo.sql` foi **reescrita** para refletir a estrutura **real** da tabela (que foi criada direto no Supabase, fora do histórico de migrations) e para **alinhar a CHECK de `tipo`** ao app — ver a seção "Constraint" abaixo.
+- ✅ **Roundtrip no banco PROVADO** — o fundador criou a categoria **"Embalagens"** pelo app e ela chegou correta: `tipo = mercadoria` (o valor que o DRE usa para a linha de Custo de Mercadoria), `cor = #475569`, `ativo = true`. Cadeia completa app → banco confirmada por query.
 - ⚠️ **Divergência esperada:** o **Fluxo de Caixa** e o **"Lucro do mês"** do dashboard **continuam** contando a compra — são **caixa**, não competência. **Não é bug**; o DRE é por competência.
-- 📌 **Novo item de backlog:** trocar a **heurística de tributos** por categoria (decisão D4 — não feito aqui para não zerar a linha de Impostos em contas antigas sem categoria).
+- 📌 **Backlog:** trocar a **heurística de tributos** por categoria (decisão D4 — não feito aqui para não zerar a linha de Impostos em contas antigas sem categoria). Registrado como **B12**.
+
+### ⚠️ Constraint `me_categoria_financeira_tipo_check` — erro em produção e correção (23/09/2026)
+
+O fundador recebeu, ao criar uma categoria:
+
+> `new row for relation "me_categoria_financeira" violates check constraint "me_categoria_financeira_tipo_check"`
+
+**Causa raiz:** a tabela foi criada **direto no Supabase, fora do histórico de migrations do repo** — então a estrutura real não era visível no código, e o SPEC a **inferiu**, errando em três pontos:
+
+| | **Real** (verificado em 23/09/2026) | SPEC assumiu |
+|---|---|---|
+| `tipo` | **NOT NULL**, **sem default** | nullable, default `'operacional'` ❌ |
+| Auditoria | `created_at` / `updated_at` | `criado_em` / `atualizado_em` ❌ |
+| Constraint | **Existia**: `CHECK (tipo = ANY (ARRAY['receita','despesa']))` | "não existe" ❌ |
+
+O app usa `receita` · `operacional` · `mercadoria` (o DRE separa Custo de Mercadoria de Despesas Operacionais). Como o **padrão do formulário é `operacional`**, **toda** criação de categoria falhava.
+
+**Correção aplicada:** a CHECK passa a aceitar `receita` · `operacional` · `mercadoria`. `operacional` **substitui** `despesa` (mesmo conceito, nome alinhado ao DRE). A tabela estava **vazia** — nada a migrar. Também foi criado o **índice único** `(empresa_id, lower(nome))`, que **não existia** e que o CRUD assume para tratar duplicidade (`23505`).
+
+**Prova:** insert real dos 3 valores passou; os dados de teste foram removidos (tabela de volta a 0 linhas, 2 índices). O **app não precisou de mudança**.
+
+> 📌 **Lição registrada:** quando o schema **não pode ser verificado**, isso é um **bloqueio**, não uma oportunidade de inferir. O sinal existia (o recon disse "nenhuma migration existe") e foi ignorado. É o mesmo padrão do status do módulo na Loja Virtual — construir contra uma realidade presumida.
 
 ---
 
