@@ -49,14 +49,16 @@ export function FluxoCaixaPage() {
     excluirMovimentacao,
   } = useFluxoCaixa(periodo);
   const { categorias: categoriasFinanceiras } = useCategoriasFinanceiras();
-  const categoriasDoTipo = categoriasFinanceiras.filter((c) =>
-    formulario.tipo === "entrada" ? c.tipo === "receita" : c.tipo === "operacional" || c.tipo === "mercadoria"
-  );
   const [filtroTipo, setFiltroTipo] = useState<"entrada" | "saida" | "todos">("todos");
   const [searchQuery, setSearchQuery] = useState("");
   const [mostrarModal, setMostrarModal] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [formulario, setFormulario] = useState<Formulario>(formularioInicial);
+  // ⚠️ Precisa vir DEPOIS de `formulario`: o callback lê `formulario.tipo`, e o
+  // TypeScript NÃO acusa TDZ dentro de callback — só quebra em runtime.
+  const categoriasDoTipo = categoriasFinanceiras.filter((c) =>
+    formulario.tipo === "entrada" ? c.tipo === "receita" : c.tipo === "operacional" || c.tipo === "mercadoria"
+  );
   const [feedback, setFeedback] = useState("");
   const [feedbackErro, setFeedbackErro] = useState("");
 
