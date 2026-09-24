@@ -68,6 +68,8 @@ export const router = createBrowserRouter([
   { path: "/loja/:slug/conta", Component: ContaClientePage },
   // Catálogo público (no AppLayout)
   { path: "/catalogo", lazy: pagina(() => import("./components/servicos/CatalogoPage"), "CatalogoPage") },
+  // Apresentação comercial — deck público (no AppLayout)
+  { path: "/apresentacao", lazy: pagina(() => import("./components/apresentacao/ApresentacaoPage"), "ApresentacaoPage") },
   // App routes - pathless layout (ERP: tudo sob demanda)
   {
     lazy: pagina(() => import("./components/layout/AppLayout"), "AppLayout"),
