@@ -1216,6 +1216,35 @@ Decision #0 (Supabase oficial) · Diagnóstico real · Plano de 5 semanas aprova
 
 ---
 
+## 🎤 APRESENTAÇÃO COMERCIAL — reconstrução da rota `/apresentacao` (25/09/2026)
+
+**WHY:** a apresentação comercial é o material que vende o modelo de co-fundador e tem **uma única conversão**: levar o cliente a falar com a MEL (que conduz o SPIN; o fechamento segue humano).
+
+**Status:** 🟢 **IMPLEMENTADO (26/09/2026) — push feito; aguarda validação do fundador na Vercel.** O **design real foi criado no OpenDesign** (regra do projeto: wireframe no repo, design no OpenDesign) e trazido para o repo como **página estática — Opção A** (não é React portado: é o próprio artefato, servido em `/apresentacao`).
+
+**Contexto do que deu errado antes:** a v1 (`tracking/apresentacao/referencia/slide-01..13.png`) tinha identidade forte (grafite + menta + Melissa + ritmo claro/escuro); o problema era **a escrita**. Uma correção anterior focou só na cópia e **jogou fora o visual**, deixando o deck no ar como texto puro sem imagens. **A v1 é a base visual/estrutural a refinar, não anti-referência.**
+
+**Documentos:**
+- PRD: `tracking/plans/PRD-ApresentacaoComercial.md` (✅ aprovado)
+- SPEC: `tracking/specs/SPEC-ApresentacaoComercial.md` (✅ validado)
+- WIRE: `tracking/wireframe/WIRE-ApresentacaoComercial.md` (referência de estrutura — a implementação real é o artefato do OpenDesign)
+- Leitura visual da v1 (hex medidos por pixel): `tracking/apresentacao/LEITURA_VISUAL_DECK_V1.md`
+
+**Decisões do fundador (25/09/2026):** apresentação sempre ao vivo · seguir a identidade da v1 com ritmo claro/escuro · 14 slides (pode crescer) · reconstruir do zero (não reaproveitar o que está no ar) · MEL e Melissa convivem na tela · pilares = Aumento de Faturamento · Aumento de Margem · Transformação do Empreendedor em Empresário · preço co-fundador R$ 500 + R$ 197/mês × valor cheio R$ 1.500 + R$ 297/mês no mesmo tamanho · cobrança após a entrega do MVP (dias 5/15/25) · fases Alpha (out/26) · Beta (jan/27) · Prod (abr/27) · fechamento = grande chamada para falar com a MEL · slide 13 = visões de futuro (52 parceiros, integrações) · trilhas = visão · ilustração vetorial sóbria · rota pública compartilhável.
+
+**Pendências resolvidas (25/09/2026):** P1 (CTA do slide 14) parkada — plugar "Falar com a MEL" quando o fluxo n8n ativar · P2 (verde escuro da v1) mantido, exceção ao DESIGN.md · P3 `noindex` · A1 sem "retorno garantido em 90 dias".
+
+**Implementação (Opção A — artefato estático, 26/09/2026):**
+- `public/apresentacao/index.html` — o deck do OpenDesign (self-contained), com **um** acréscimo: `<base href="/apresentacao/">` (faz os assets relativos resolverem sob `/apresentacao/`). **Ao re-exportar do OpenDesign, reinjetar essa linha.**
+- `public/apresentacao/assets/` — `logo-uniq.png`, `mel-34.png`, `mel-avatar.png`
+- `vercel.json` — rewrite explícito `/apresentacao` → `/apresentacao/index.html` **antes** do catch-all
+- `src/app/routes.tsx` — rota React `/apresentacao` **removida**; deck antigo (`src/app/components/apresentacao/`) **deletado**
+- Verificado: `tsc` **0 erros** · `npm run build` ✅ · `dist/apresentacao/index.html` + assets presentes
+
+**Próximo passo:** validação do fundador na Vercel (abrir `/apresentacao` no celular). Pendência futura: plugar "Falar com a MEL" no slide 14 quando o fluxo n8n ativar (P1).
+
+---
+
 ## ✅ DEFINIÇÃO DE PRONTO (Definition of Done) — para toda tela/tarefa
 
 - [ ] Estado visual completo: **loading (skeleton), empty, error, success**.
