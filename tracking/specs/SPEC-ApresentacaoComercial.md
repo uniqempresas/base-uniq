@@ -304,6 +304,9 @@ export const SLIDES: Slide[] = [ /* §5 */ ];
 4. **Fórmula sob medida (slide 10):**
 > "Ilustração vetorial da metáfora do médico: uma receita médica (papel com linhas) de onde nasce, como num fluxo, um sistema simples — cartões com ícones de atendimento, agenda e funil — tudo organizado como uma solução sob medida. Paleta menta #86cb92 + grafite #1f2937 sobre cinza #efefef. Limpo, poucos elementos, sem texto longo."
 
+5. **Custos e parceria (slide 7):**
+> "Ilustração vetorial sóbria: à esquerda, uma nota/planilha simples de custos com linhas e números (sem gráficos de crescimento, sem setas, sem cifrões); à direita, dois pequenos negócios trocando uma caixa/embalagem — uma gráfica entregando material impresso para uma loja — representando a parceria de insumos entre empresas do grupo. Paleta menta #86cb92 + grafite #1f2937 sobre cinza #efefef. Traço limpo, poucos elementos, muito respiro, enquadramento próximo. Sem banco de imagens, sem aperto de mão genérico, sem clichê de 'empresário de sucesso'."
+
 ---
 
 ## 7. Tokens e identidade (D22 — hex medidos na v1)

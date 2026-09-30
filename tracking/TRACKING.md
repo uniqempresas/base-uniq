@@ -1241,7 +1241,9 @@ Decision #0 (Supabase oficial) · Diagnóstico real · Plano de 5 semanas aprova
 - `src/app/routes.tsx` — rota React `/apresentacao` **removida**; deck antigo (`src/app/components/apresentacao/`) **deletado**
 - Verificado: `tsc` **0 erros** · `npm run build` ✅ · `dist/apresentacao/index.html` + assets presentes
 
-**Próximo passo:** validação do fundador na Vercel (abrir `/apresentacao` no celular). Pendência futura: plugar "Falar com a MEL" no slide 14 quando o fluxo n8n ativar (P1).
+**Revisão visual (30/09/2026):** o deck passou a ter **menos texto na tela e mais guia visual** (gramática de apoio do PDF do Gemini: 3 colunas sem caixa, imagem de apoio, linha do tempo), **mantendo a identidade UNIQ**. Texto na tela caiu de **5.123 → 3.524 caracteres (−31%)**; 10 de 14 slides dentro da meta de 180–260 e 4 exceções registradas. Novo documento: `tracking/apresentacao/ROTEIRO_APRESENTACAO.md` (**o que fica na tela × o que vira fala**). WIRE reescrito e **aprovado** (D23–D28). Os 4 slots de ilustração (`dor`, `funil`, `margem`, `medico`) estão como **espaço reservado do mesmo tamanho** — o deck não quebra sem a arte.
+
+**Próximo passo:** validação do fundador na Vercel (abrir `/apresentacao` no celular). Pendências futuras: **gerar as 4 ilustrações** (prompts no SPEC §6.2) e plugar "Falar com a MEL" no slide 14 quando o fluxo n8n ativar (P1).
 
 ---
 
