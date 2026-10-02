@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
 <base href="/apresentacao/">
@@ -21,6 +21,10 @@
         (3–12, 14–15): títulos 54→72, corpo mínimo 23→26, eyebrows 16→20,
         takeaways 28→34. Slides 4 e 13 cravados no gabarito aprovado —
         pixel-idênticos. Nenhum texto, cor ou estrutura alterado.
+    v3.2 (01/10, direção do fundador): slide 3 com headline curta em 2
+        linhas ("Apagando incêndio / o dia inteiro.") + subtítulo forte;
+        slide 12 (Investimento) passa a FUNDO CLARO — cheio em tira cinza
+        apagada, fundador grafite profundo com menta, checks ajustados.
    Obs.: nomes de classes `sN-*` e comentários internos seguem a numeração
        ANTERIOR (deck de 14) para não quebrar nada; a numeração oficial dos
        slides é a dos comentários de cada <section> abaixo.
@@ -127,10 +131,10 @@ body{
 .slide.ativo > :nth-child(4){animation-delay:.28s}
 .slide.ativo > :nth-child(5){animation-delay:.36s}
 .slide.ativo > :nth-child(6){animation-delay:.44s}
-.slide.escuro,.slide.preco,.slide.encerramento{background:var(--grafite);color:var(--corpo-escuro)}
+.slide.escuro,.slide.encerramento{background:var(--grafite);color:var(--corpo-escuro)}
 /* brasas de menta no escuro — o --grafite base permanece puro nos cantos
    para a vinheta da Melissa (mel-fig) continuar colando sem emenda */
-.slide.escuro::before,.slide.preco::before,.slide.encerramento::before{
+.slide.escuro::before,.slide.encerramento::before{
   background:
     radial-gradient(1000px 680px at 84% 16%, rgba(134,203,146,.08), transparent 60%),
     radial-gradient(900px 600px at 6% 96%, rgba(49,71,71,.45), transparent 55%);
@@ -145,21 +149,21 @@ body{
   content:"";flex:none;width:34px;height:3px;border-radius:2px;
   background:linear-gradient(90deg,var(--menta),rgba(134,203,146,.2));
 }
-.escuro .eyebrow,.preco .eyebrow,.encerramento .eyebrow{color:var(--menta)}
+.escuro .eyebrow,.encerramento .eyebrow{color:var(--menta)}
 .titulo{
   font-size:72px;font-weight:700;line-height:1.08;letter-spacing:-.02em;
   color:var(--verde);max-width:1300px;
 }
-.escuro .titulo,.preco .titulo,.encerramento .titulo{color:var(--branco)}
+.escuro .titulo,.encerramento .titulo{color:var(--branco)}
 .subtitulo{
   font-size:28px;line-height:1.5;font-weight:400;
   color:var(--muted);max-width:1080px;
 }
-.escuro .subtitulo,.preco .subtitulo,.encerramento .subtitulo{color:var(--corpo-escuro)}
+.escuro .subtitulo,.encerramento .subtitulo{color:var(--corpo-escuro)}
 .corpo{
   font-size:28px;line-height:1.55;color:var(--muted);max-width:1080px;
 }
-.escuro .corpo,.preco .corpo,.encerramento .corpo{color:var(--corpo-escuro)}
+.escuro .corpo,.encerramento .corpo{color:var(--corpo-escuro)}
 .ressalto{color:var(--menta)}
 .sublinha-menta{ /* traço menta que acompanha a linha do texto, sem corta-la */
   background-image:linear-gradient(var(--menta),var(--menta));
@@ -241,14 +245,24 @@ body{
   background:var(--menta);margin-top:64px;
 }
 
-/* ============ SLIDE 3 — ESCURO (dor) ============ */
+/* ============ SLIDE 3 — ESCURO (dor) ============
+   v3.2 (01/10, fundador): headline curta de 2 linhas ("Apagando incêndio /
+   o dia inteiro.") e "sem sair do lugar" virou subtítulo FORTE (branco,
+   peso 600). Bullets ganharam o espaço liberado.                     */
 .s2-texto{
   position:relative;z-index:1;
   width:52%;height:100%;
   padding:72px 48px 60px 96px;
   display:flex;flex-direction:column;
 }
-.s2-col{list-style:none;display:flex;flex-direction:column;gap:26px;margin-top:44px}
+.s2-texto .subtitulo{
+  margin-top:18px;font-size:32px;line-height:1.35;font-weight:600;
+  color:var(--branco);
+}
+/* hero local 66px: cabe "Apagando incêndio" em 1 linha nos 588px da zona
+   (72px estouraria para 3 linhas e colidiria com a quote absoluta)      */
+.s2-texto .titulo{font-size:66px}
+.s2-col{list-style:none;display:flex;flex-direction:column;gap:30px;margin-top:46px}
 .s2-col li{
   display:flex;gap:18px;
   font-size:28px;line-height:1.5;color:var(--corpo-escuro);
@@ -484,9 +498,15 @@ body{
 .eixo-marca.atual b{color:var(--menta-texto)}
 .col.menta-titulo h3{color:var(--menta-texto)}
 
-/* ============ SLIDE 13 — PREÇO (cheio discreto riscado × fundador destaque) ============
+/* ============ SLIDE 12 — INVESTIMENTO (claro: cheio apagado × fundador escuro) ============
    Direção do fundador (01/10): destaque forte no co-fundador, valor cheio
-   apagado com risco elegante — coerência, não "liquidação".               */
+   apagado com risco elegante — coerência, não "liquidação".
+   v3.2 (01/10, fundador): slide passa para FUNDO CLARO (#EFEFEF) — ritmo
+   claro/escuro da apresentação; título em verde (linguagem dos títulos
+   claros); cheio vira tira cinza (chip) com texto apagado AA; fundador
+   fica grafite profundo OPACO com R$ 197 em menta (contrast snap) e
+   sombra de projeção — mesma linguagem dos cards brancos do slide 4,
+   invertida para o protagonista. Badge, riscado e checks preservados. */
 .slide.preco .titulo{text-align:center;margin-left:auto;margin-right:auto;font-size:60px;line-height:1.1;max-width:1300px}
 .cards-preco{
   display:flex;gap:40px;align-items:center;margin-top:56px;position:relative;z-index:1;
@@ -502,18 +522,21 @@ body{
 .card-preco .apoio{font-size:16px;font-weight:400;letter-spacing:.04em;margin-top:4px}
 .card-preco .moeda{font-size:.45em;font-weight:600;margin-right:8px;vertical-align:.35em}
 .card-preco .mini{font-size:22px;font-weight:400;letter-spacing:0}
-/* cheio: recuado, cinza, risco fino no setup — informa, não concorre */
+/* cheio: tira cinza clara, texto apagado — informa, não concorre */
 .card-preco.cheio{
   flex:1;align-self:center;
-  background:rgba(239,239,239,.05);
-  box-shadow:inset 0 0 0 1px rgba(239,239,239,.12);
-  color:var(--corpo-escuro);
+  background:var(--chip);
+  box-shadow:inset 0 0 0 1px rgba(62,86,83,.12);
+  border-radius:16px;
+  color:var(--muted);
 }
-.card-preco.cheio .apoio{color:var(--corpo-escuro);opacity:.85}
+.card-preco.cheio .rotulo{color:var(--verde)}
+.card-preco.cheio .apoio{color:var(--verde);opacity:.85}
 .card-preco.cheio .moeda{vertical-align:baseline;margin-right:6px} /* risco reto, sem quebra sob o "R$" */
+.card-preco.cheio .mini{color:var(--verde)} /* 22px no apagado exige AA normal — verde sobre o cinza */
 .card-preco.cheio .valor-preco{
   margin-top:26px;font-size:54px;font-weight:700;line-height:1;letter-spacing:-.02em;
-  color:var(--corpo-escuro);
+  color:var(--muted);
 }
 .card-preco.cheio .risca{
   /* risco desenhado à mão: o text-decoration quebra em fontes mistas;
@@ -522,14 +545,14 @@ body{
 }
 .card-preco.cheio .risca::after{
   content:"";position:absolute;left:0;right:0;top:52%;height:3px;border-radius:2px;
-  background:rgba(174,182,180,.78);
+  background:rgba(98,114,113,.6);
 }
-.card-preco.cheio .mensal-cheio{margin-top:14px;font-size:32px;font-weight:600;color:var(--corpo-escuro)}
-/* fundador: card profundo mentado — o protagonista do slide */
+.card-preco.cheio .mensal-cheio{margin-top:14px;font-size:32px;font-weight:600;color:var(--muted)}
+/* fundador: grafite profundo opaco — o protagonista, contrast snap no claro */
 .card-preco.fundador{
   flex:1.25;
-  background:linear-gradient(165deg,rgba(62,86,83,.72) 0%,rgba(24,33,31,.92) 100%);
-  box-shadow:inset 0 0 0 1px rgba(134,203,146,.42), 0 40px 80px -34px rgba(8,13,18,.9);
+  background:linear-gradient(165deg,#33443F 0%,#1F2937 66%,#171F1E 100%);
+  box-shadow:inset 0 0 0 1px rgba(134,203,146,.42), 0 44px 84px -38px rgba(31,41,55,.55);
   color:var(--branco);
 }
 .card-preco.fundador .rotulo{color:var(--branco)}
@@ -549,16 +572,16 @@ body{
   color:var(--menta);
 }
 .card-preco.fundador .mensal .por{font-size:30px;font-weight:600;color:var(--corpo-escuro);letter-spacing:0}
-/* footer: os 3 checks lado a lado, sob fio — mata-objeção, sem gritar */
+/* footer: os 3 checks lado a lado, sob fio — mata-objeção, sem gritar (cores p/ tela clara) */
 .checks{
   position:relative;z-index:1;list-style:none;
   display:flex;gap:56px;justify-content:center;align-items:center;
   margin-top:auto;padding-top:40px;
-  border-top:1px solid rgba(239,239,239,.12);
+  border-top:1px solid var(--regua);
 }
-.checks li{display:flex;gap:12px;align-items:center;font-size:20px;line-height:1.4;color:var(--branco)}
+.checks li{display:flex;gap:12px;align-items:center;font-size:20px;line-height:1.4;color:var(--verde)}
 .checks svg{
-  flex:none;width:20px;height:20px;color:var(--menta);
+  flex:none;width:20px;height:20px;color:var(--menta-texto);
   stroke:currentColor;fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;
 }
 
@@ -654,6 +677,7 @@ body{
   .capa-traco{width:84px;margin-top:38px}
   /* s2: texto, depois ilustração em largura total, quote por último */
   .s2-texto{width:100%;height:auto;padding:44px 24px 48px}
+  .s2-texto .subtitulo{font-size:24px;margin-top:14px}
   .s2-col{gap:20px;margin-top:28px}
   .s2-col li{font-size:22px}
   .s2-quote{position:relative;left:auto;bottom:auto;width:auto;margin-top:30px;padding-left:20px;font-size:28px}
@@ -770,8 +794,8 @@ body{
     <!-- ============ SLIDE 3 — O DIA APAGANDO INCÊNDIO ============ -->
     <section class="slide escuro" data-od-id="slide-dia-incendio" role="group" aria-label="Slide 3 de 14">
       <div class="s2-texto">
-        <h1 class="titulo">O dia inteiro apagando incêndio.</h1>
-        <p class="subtitulo" style="margin-top:12px">E o negócio sem sair do lugar.</p>
+        <h1 class="titulo">Apagando incêndio<br>o dia inteiro.</h1>
+        <p class="subtitulo">E o negócio sem sair do lugar.</p>
         <ul class="s2-col">
           <li>Atendimento, operação, fornecedor e caixa passam por você.</li>
           <li>Não sobra tempo para olhar o mercado.</li>
@@ -1212,7 +1236,7 @@ body{
       <p class="takeaway">O preço de fundador é real — só para os 12 primeiros.</p>
     </section>
 
-    <!-- ============ SLIDE 13 — INVESTIMENTO (transparente: cheio riscado × fundador destaque) ============ -->
+    <!-- ============ SLIDE 12 — INVESTIMENTO (tela clara: cheio riscado × fundador escuro) ============ -->
     <section class="slide preco" data-od-id="slide-investimento" role="group" aria-label="Slide 12 de 14">
       <h1 class="titulo">Investimento transparente.</h1>
       <div class="cards-preco">

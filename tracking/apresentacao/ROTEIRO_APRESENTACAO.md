@@ -4,7 +4,7 @@
 > **Regra:** nada do conteúdo aprovado (SPEC §5) se perde; o que sai da tela entra aqui na coluna "Na fala".
 > **Orçamento de tela:** 180–260 caracteres por slide (total ~3.100). Planilha de referência: slides 4, 8 e 10 são os que mais enxugam (v3.1).
 > **Identidade:** grafite `#1F2937`, verde v1 `#3E5653`, menta `#86CB92`; Melissa presente; ritmo claro/escuro mantido. (Nada da paleta azul do Gemini — a referência do deck do Gemini entra só em **estrutura/proporção**: letras gigantes, ar negativo, cards brancos arredondados, título de tema no topo.)
-> **v3 (01/10/2026):** novo slide 1 (logo na tela da TV), capa refeita sem a Melissa (ela sai da tela e entra na fala), "O custo" em 3 cards brancos, Investimento estilo "transparente" (cheio riscado discreto × fundador em destaque). **v3.1 (01/10/2026):** removido o slide "Por que a UNIQ existe" (decisão do fundador) — deck ficou com **14 slides**; a história continua na fala.
+> **v3 (01/10/2026):** novo slide 1 (logo na tela da TV), capa refeita sem a Melissa (ela sai da tela e entra na fala), "O custo" em 3 cards brancos, Investimento estilo "transparente" (cheio riscado discreto × fundador em destaque). **v3.1 (01/10/2026):** removido o slide "Por que a UNIQ existe" (decisão do fundador) — deck ficou com **14 slides**; a história continua na fala. **v3.2 (01/10/2026, fundador):** slide 3 com headline curta em 2 linhas ("Apagando incêndio / o dia inteiro.") + subtítulo forte; slide 12 (Investimento) passa a **fundo claro** — cheio em tira cinza apagada, fundador card grafite profundo com menta.
 
 **Legenda:** 🖥️ = fica na tela · 🗣️ = o fundador fala (saiu da tela) · 🖼️ = imagem/ilustração
 
@@ -21,8 +21,8 @@
 - 🗣️ Abertura: reconhecer o dono ("deixa eu adivinhar: você atende, entrega, cobra, faz tudo"). **Apresentar a Melissa aqui** (ela saiu da capa): quem ela é, em uma ou duas frases — sem slide próprio ainda. Transição: "eu vou te contar de onde isso veio."
 - 🗣️ **(removido do deck em 01/10 — v3.1)** O antigo slide "Por que a UNIQ existe" saiu da tela; a história continua na **fala**, entre a capa e os objetivos: contato com a alta diretoria nas grandes empresas (analista desde 2011 — Santander e Ultragaz); o contraponto da gráfica B2B (gente talentosa e esforçada, sem as mesmas ferramentas); fecho: "levar para o pequeno o que a grande empresa já usa para vencer."
 
-## Slide 3 — O dia apagando incêndio
-- 🖥️ "O dia inteiro apagando incêndio." · "E o negócio sem sair do lugar." · 3 bullets curtos · **destaque (1 linha):** "Você é mais jogador do jogo do que pensador do jogo."
+## Slide 3 — O dia apagando incêndio *(headline refeita em 01/10, v3.2 — fundador: frase curta, 2 linhas)*
+- 🖥️ **"Apagando incêndio / o dia inteiro."** (headline curta em 2 linhas, quebra forçada depois de "incêndio") · subtítulo **forte** (branco, peso 600): "E o negócio sem sair do lugar." · 3 bullets curtos (ganharam o espaço liberado pela headline) · **destaque (1 linha):** "Você é mais jogador do jogo do que pensador do jogo."
 - 🖼️ **Ilustração de dor** (balcão + WhatsApp) na direita
 - 🗣️ Explicar cada bullet: atendimento/operação/fornecedor/caixa passam por você; sem tempo de olhar o mercado; sem caixa para contratar quem saiba. Depois desenvolver "jogador x pensador".
 
@@ -67,13 +67,13 @@
 - 🖥️ `POR QUE ENTRAR AGORA` · "12 vagas de co-fundador." · **eixo visual:** Alpha (out/26) → Beta (jan/27) → Prod (abr/27) → Lançamento (jul/27) · 3 colunas (título + 1 linha) · **destaque:** "O preço de fundador é real — só para os 12 primeiros."
 - 🗣️ Os corpos das 3 colunas (preço de fundador, atenção máxima, co-construção).
 
-## Slide 12 — Investimento *(refeito em 01/10: "Investimento transparente" estilo Gemini-UNIQ)*
-- 🖥️ **"Investimento transparente."** (centrado, branco sobre grafite) · **2 cards de pesos diferentes (decisão explícita do fundador):**
-  - **Esquerdo (discreto):** `VALOR CHEIO` · "Após os 12 co-fundadores" · **R$ 1.500 · setup riscado** (linha fina elegante só sobre o número) · "+ R$ 297/mês" em cinza — informa, não concorre.
-  - **Direito (destaque):** pill `EXCLUSIVO` em menta · `CO-FUNDADOR` · "Apenas 12 parceiros" · **R$ 500 · setup** + **R$ 197/mês** gigantes em menta, sobre card profundo mentado.
-  - **Rodapé com os 3 checks (linha sóbria abaixo dos cards):** "R$ 500 na entrega do MVP" · "Mensalidade depois da entrega — dias 5, 15 ou 25" · "Depois das 12 vagas, vale o valor cheio."
+## Slide 12 — Investimento *(refeito em 01/10: "Investimento transparente" estilo Gemini-UNIQ · v3.2: fundo CLARO — direção do fundador 01/10)*
+- 🖥️ **"Investimento transparente."** (centrado, verde-escuro sobre tela clara `#EFEFEF`) · **2 cards de pesos diferentes (decisão explícita do fundador):**
+  - **Esquerdo (discreto):** tira cinza clara `#E1E1E0` · `VALOR CHEIO` · "Após os 12 co-fundadores" · **R$ 1.500 · setup riscado** (linha fina elegante só sobre o número, texto apagado) · "+ R$ 297/mês" em cinza — informa, não concorre.
+  - **Direito (destaque):** card grafite profundo opaco com fio menta (contrast snap no claro; mesma linguagem dos cards do slide 4, invertida) · pill `EXCLUSIVO` em menta · `CO-FUNDADOR` · "Apenas 12 parceiros" · **R$ 500 · setup** + **R$ 197/mês** gigantes em menta.
+  - **Rodapé com os 3 checks (linha sóbria abaixo dos cards, texto verde sobre o claro):** "R$ 500 na entrega do MVP" · "Mensalidade depois da entrega — dias 5, 15 ou 25" · "Depois das 12 vagas, vale o valor cheio."
 - 🗣️ O valor concedido no 1º ano (**R$ 2.200**) e a comparação com o custo de um funcionário. Lendo o risco: "o valor cheio não é castigo — é o que a consultoria custa quando as 12 vagas acabarem." (Enquadrar como prioridade, não como desconto de liquidação.)
-- ⚠️ Não voltar a "mesmo peso" (D10 de 25/09) sem ordem do fundador — a inversão para destaque-no-fundador foi decisão dele em 01/10.
+- ⚠️ Não voltar a "mesmo peso" (D10 de 25/09) sem ordem do fundador — a inversão para destaque-no-fundador foi decisão dele em 01/10. O fundo claro também é decisão do fundador (01/10, v3.2): o deck fecha o bloco de proposta em claro→escuro→claro (custo · diferença Melissa escura · dinheiro claro).
 
 ## Slide 13 — A visão
 - 🖥️ `A VISÃO` · "52 empresas em 18 meses." · corpo (2 linhas) · **destaque:** "O foco hoje não é lucro — é **prova social real**." · **fecho:** "O sucesso da sua empresa é a nossa moeda de troca." · **marca de visão (na tela):** site, loja virtual, marketplace, tráfego pago e trilhas **não são entrega do MVP**.
