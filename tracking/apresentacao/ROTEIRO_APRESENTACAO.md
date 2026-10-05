@@ -1,10 +1,10 @@
-﻿# Roteiro da Apresentação — UNIQ Empresas
+# Roteiro da Apresentação — UNIQ Empresas
 
 > **Por que existe:** para deixar os slides **visuais e com menos texto** (direção aprovada em 30/09/2026), o texto que sai da tela precisa de um lugar. Este roteiro é esse lugar — é o que o fundador **fala**, apoiado no que fica **na tela**.
 > **Regra:** nada do conteúdo aprovado (SPEC §5) se perde; o que sai da tela entra aqui na coluna "Na fala".
 > **Orçamento de tela:** 180–260 caracteres por slide (total ~3.100). Planilha de referência: slides 4, 8 e 10 são os que mais enxugam (v3.1).
 > **Identidade:** grafite `#1F2937`, verde v1 `#3E5653`, menta `#86CB92`; Melissa presente; ritmo claro/escuro mantido. (Nada da paleta azul do Gemini — a referência do deck do Gemini entra só em **estrutura/proporção**: letras gigantes, ar negativo, cards brancos arredondados, título de tema no topo.)
-> **v3 (01/10/2026):** novo slide 1 (logo na tela da TV), capa refeita sem a Melissa (ela sai da tela e entra na fala), "O custo" em 3 cards brancos, Investimento estilo "transparente" (cheio riscado discreto × fundador em destaque). **v3.1 (01/10/2026):** removido o slide "Por que a UNIQ existe" (decisão do fundador) — deck ficou com **14 slides**; a história continua na fala. **v3.2 (01/10, fundador):** slide 3 com headline curta em 2 linhas ("Apagando incêndio / o dia inteiro.") + subtítulo forte; slide 12 (Investimento) passa a **fundo claro** — cheio em tira cinza apagada, fundador card grafite profundo com menta. **v3.3 (01/10, fundador):** riscado do R$ 1.500 **removido** no slide 12 (o card escuro do fundador já faz o contraste); slide 13 (A visão) **redesenhado com carta branca** — 52 gigante + linha do tempo + chips da marca de visão, parágrafos movidos para a fala. **v3.4 (01/10, fundador):** slide 3 com a frase jogador × pensador como HEADLINE ("Você joga o jogo. / Mas não pensa o jogo.") — o destaque "Você é mais jogador do jogo do que pensador do jogo." saiu da tela e virou fala. **v3.6 (02/10, fundador):** slide 1 (abertura) usa o **mockup oficial do logo** em full-bleed sobre papel (`assets/capa-uniq.png`, ✦ removido por clone local); chip do `logo-uniq.png` segue no encerramento. **v3.5 (01/10, fundador):** a linha 2 da headline do slide 3 ("Mas não pensa o jogo.") entra em **menta** (`span.ressalto`, mesma gramática da capa).
+> **v3 (01/10/2026):** novo slide 1 (logo na tela da TV), capa refeita sem a Melissa (ela sai da tela e entra na fala), "O custo" em 3 cards brancos, Investimento estilo "transparente" (cheio riscado discreto × fundador em destaque). **v3.1 (01/10/2026):** removido o slide "Por que a UNIQ existe" (decisão do fundador) — deck ficou com **14 slides**; a história continua na fala. **v3.2 (01/10, fundador):** slide 3 com headline curta em 2 linhas ("Apagando incêndio / o dia inteiro.") + subtítulo forte; slide 12 (Investimento) passa a **fundo claro** — cheio em tira cinza apagada, fundador card grafite profundo com menta. **v3.3 (01/10, fundador):** riscado do R$ 1.500 **removido** no slide 12 (o card escuro do fundador já faz o contraste); slide 13 (A visão) **redesenhado com carta branca** — 52 gigante + linha do tempo + chips da marca de visão, parágrafos movidos para a fala. **v3.4 (01/10, fundador):** slide 3 com a frase jogador × pensador como HEADLINE ("Você joga o jogo. / Mas não pensa o jogo.") — o destaque "Você é mais jogador do jogo do que pensador do jogo." saiu da tela e virou fala. **v3.6 (02/10, fundador):** slide 1 (abertura) usa o **mockup oficial do logo** em full-bleed sobre papel (`assets/capa-uniq.png`, ✦ removido por clone local); chip do `logo-uniq.png` segue no encerramento. **v3.5 (01/10, fundador):** a linha 2 da headline do slide 3 ("Mas não pensa o jogo.") entra em **menta** (`span.ressalto`, mesma gramática da capa). **v3.6.1 (02/10, fundador):** subtítulo da capa vira "Trabalhar mais, não significa exatamente ganhar mais dinheiro!" (antigo vai para a fala). **v3.7 (02/10, fundador):** deck passa a **15 slides** — par de ferramentas antes do método: slide 9 (Melissa) re-rotulada "1 de 2" + NOVO slide 10 **Base UNIQ** (escuro, hero "Base UNIQ." com UNIQ em menta, 5 módulos listados, ilustração de traço sangrando à direita); slides seguintes +1.
 
 **Legenda:** 🖥️ = fica na tela · 🗣️ = o fundador fala (saiu da tela) · 🖼️ = imagem/ilustração
 
@@ -17,7 +17,7 @@
 
 ## Slide 2 — Capa
 - 🖥️ `UNIQ EMPRESAS · ALTO TIETÊ` · **"Sua empresa não precisa de mais esforço seu."** (gigante, "esforço seu" em menta) · subtítulo: **"Trabalhar mais, não significa exatamente ganhar mais dinheiro!"** (v3.6.1, 01/10 — frase nova do fundador no lugar do subtítulo longo) · mini traço menta. Fundo grafite tela cheia, texto à esquerda, muito ar.
-- 🖼️ ~~Melissa na capa~~ → **removida da tela (01/10)**; a capa agora é só tipografia. Melissa entra na **fala** daqui e na imagem do slide 10.
+- 🖼️ ~~Melissa na capa~~ → **removida da tela (01/10)**; a capa agora é só tipografia. Melissa entra na **fala** daqui e na imagem do slide 9.
 - 🗣️ Abertura: reconhecer o dono ("deixa eu adivinhar: você atende, entrega, cobra, faz tudo"). **Apresentar a Melissa aqui** (ela saiu da capa): quem ela é, em uma ou duas frases — sem slide próprio ainda. Transição: "eu vou te contar de onde isso veio." **(v3.6.1)** O subtítulo longo que saiu da tela em 01/10 ("No dia a dia, tudo depende de você — e não sobra tempo para olhar o todo. Sua empresa precisa de alguém que cuide dela e aponte o caminho.") segue nesta fala, naturalmente.
 - 🗣️ **(removido do deck em 01/10 — v3.1)** O antigo slide "Por que a UNIQ existe" saiu da tela; a história continua na **fala**, entre a capa e os objetivos: contato com a alta diretoria nas grandes empresas (analista desde 2011 — Santander e Ultragaz); o contraponto da gráfica B2B (gente talentosa e esforçada, sem as mesmas ferramentas); fecho: "levar para o pequeno o que a grande empresa já usa para vencer."
 
@@ -53,21 +53,26 @@
 - 🖼️ Card da Melissa (avatar com anel menta)
 - 🗣️ As 4 descrições — inclusive por que "Trilhas" é visão, não entrega do MVP.
 
-## Slide 9 — Melissa, sua consultora todos os dias
-- 🖥️ `O DIFERENCIAL` · "Melissa, sua consultora todos os dias." · corpo curto: "Consultoria tradicional é uma reunião por mês e um relatório." · **destaque:** "Acompanha o seu negócio **diariamente**." · **fecho:** "O conhecimento de uma consultoria, com a presença de um sócio."
+## Slide 9 — Melissa, sua consultora todos os dias *(ferramenta 1 de 2 — v3.7: abre o par das ferramentas)*
+- 🖥️ `QUEM FAZ O JOGO ANDAR · 1 DE 2` · "Melissa, sua consultora todos os dias." · corpo curto: "Consultoria tradicional é uma reunião por mês e um relatório." · **destaque:** "Acompanha o seu negócio **diariamente**." · **fecho:** "O conhecimento de uma consultoria, com a presença de um sócio."
 - 🖼️ Melissa (corpo inteiro) — **é aqui que ela passa a viver no deck**, desde que saiu da capa (01/10)
-- 🗣️ O contraste com a consultoria tradicional; o que ela faz no dia a dia (atende, orienta, organiza o funil).
+- 🗣️ O contraste com a consultoria tradicional; o que ela faz no dia a dia (atende, orienta, organiza o funil). Transição para o 10: "e é dentro da Base UNIQ que ela faz tudo isso acontecer."
 
-## Slide 10 — Como trabalhamos (método)
+## Slide 10 — Base UNIQ, o cérebro da operação *(NOVO na v3.7, 02/10 — fundador: apresentar as duas ferramentas antes de explicar como funciona)*
+- 🖥️ `ONDE TUDO ACONTECE · 2 DE 2` · **"Base UNIQ."** (herói: "Base" branco + "UNIQ" em menta) · subtítulo forte branco: "O cérebro da operação." · **5 módulos (traço menta, 1–2 linhas cada):** "Funil de vendas — do primeiro contato ao fechamento." · "Indicadores — o que está acontecendo dentro da empresa." · "DRE — para onde vai o dinheiro." · "Módulos sob medida — ativados conforme a necessidade da empresa." · "Melissa — a assistente de tudo. Ela mora aqui dentro."
+- 🖼️ **Ilustração SVG de traço** sangrando à direita (mesma gramática do funil do slide 6): painel-central com grade de módulos (um ativo em menta) recebendo por pontilhados o funil (topo), o gráfico de indicadores (esquerda) e o DRE waterfall (direita), e a bolha da Melissa na base — **proibido screenshot de produto, banco de imagem e azul**
+- 🗣️ O que cada módulo resolve: funil = pipeline completo com a Melissa atendendo; indicadores = visão do movimento real da empresa, não planilha de ontem; DRE = entrada e saída organizadas ("mostra para onde o seu está saindo"); módulos = a Base cresce com a empresa — só o que ela precisa agora; Melissa = ponto de contato único que mora dentro de tudo. Regra: a Base é **container, não produto** — o cliente compra consultoria.
+
+## Slide 11 — Como trabalhamos (método)
 - 🖥️ `COMO TRABALHAMOS` · "Como ir ao médico, mas para a sua empresa." · **3 passos com linha pontilhada** (título + 1 linha) · **faixa:** "MVP entregue em até 2 meses. Quem opera é a UNIQ."
 - 🖼️ **Ilustração da receita sob medida**
 - 🗣️ O corpo ("você apresenta as dores; a gente monta uma solução sob medida") e a 2ª linha de cada passo.
 
-## Slide 11 — Por que entrar agora
+## Slide 12 — Por que entrar agora
 - 🖥️ `POR QUE ENTRAR AGORA` · "12 vagas de co-fundador." · **eixo visual:** Alpha (out/26) → Beta (jan/27) → Prod (abr/27) → Lançamento (jul/27) · 3 colunas (título + 1 linha) · **destaque:** "O preço de fundador é real — só para os 12 primeiros."
 - 🗣️ Os corpos das 3 colunas (preço de fundador, atenção máxima, co-construção).
 
-## Slide 12 — Investimento *(refeito em 01/10: "Investimento transparente" estilo Gemini-UNIQ · v3.2: fundo CLARO — direção do fundador 01/10)*
+## Slide 13 — Investimento *(refeito em 01/10: "Investimento transparente" estilo Gemini-UNIQ · v3.2: fundo CLARO — direção do fundador 01/10)*
 - 🖥️ **"Investimento transparente."** (centrado, verde-escuro sobre tela clara `#EFEFEF`) · **2 cards de pesos diferentes (decisão explícita do fundador):**
   - **Esquerdo (discreto):** tira cinza clara `#E1E1E0` · `VALOR CHEIO` · "Após os 12 co-fundadores" · **R$ 1.500 · setup sem riscado** (v3.3, 01/10 — fundador: o card escuro já faz o contraste; o apagado é só pelo cinza) · "+ R$ 297/mês" em cinza — informa, não concorre.
   - **Direito (destaque):** card grafite profundo opaco com fio menta (contrast snap no claro; mesma linguagem dos cards do slide 4, invertida) · pill `EXCLUSIVO` em menta · `CO-FUNDADOR` · "Apenas 12 parceiros" · **R$ 500 · setup** + **R$ 197/mês** gigantes em menta.
@@ -75,11 +80,11 @@
 - 🗣️ O valor concedido no 1º ano (**R$ 2.200**) e a comparação com o custo de um funcionário. Lendo o risco: "o valor cheio não é castigo — é o que a consultoria custa quando as 12 vagas acabarem." (Enquadrar como prioridade, não como desconto de liquidação.)
 - ⚠️ Não voltar a "mesmo peso" (D10 de 25/09) sem ordem do fundador — a inversão para destaque-no-fundador foi decisão dele em 01/10. O fundo claro também é decisão do fundador (01/10, v3.2): o deck fecha o bloco de proposta em claro→escuro→claro (custo · diferença Melissa escura · dinheiro claro).
 
-## Slide 13 — A visão *(redesenhado em 01/10, v3.3 — carta branca do fundador: "mais apoio visual, menos letra")*
-- 🖥️ `A VISÃO` · **"52" GIGANTE em menta** + lead branco "empresas no grupo / até dezembro de 2028" · **linha do tempo pontilhada 2026 (hoje) → dez/2028 (a meta)** — mesma gramática do eixo do slide 11 · **tese (1 linha):** "O foco hoje não é lucro — é **prova social real**." · **marca de visão (na tela, regra inegociável):** rótulo menta `VISÃO, NÃO ENTREGA DO MVP` + **5 chips tracejados com "+" menta**: `Site` `Loja virtual` `Marketplace` `Tráfego pago` `Trilhas`.
+## Slide 14 — A visão *(redesenhado em 01/10, v3.3 — carta branca do fundador: "mais apoio visual, menos letra")*
+- 🖥️ `A VISÃO` · **"52" GIGANTE em menta** + lead branco "empresas no grupo / até dezembro de 2028" · **linha do tempo pontilhada 2026 (hoje) → dez/2028 (a meta)** — mesma gramática do eixo do slide 12 · **tese (1 linha):** "O foco hoje não é lucro — é **prova social real**." · **marca de visão (na tela, regra inegociável):** rótulo menta `VISÃO, NÃO ENTREGA DO MVP` + **5 chips tracejados com "+" menta**: `Site` `Loja virtual` `Marketplace` `Tráfego pago` `Trilhas`.
 - 🗣️ As frases que saíram da tela (preservadas literalmente): "Chegar em dezembro de 2028 com 52 empresas no grupo." · o número "em 18 meses" · "O sucesso da sua empresa é a nossa moeda de troca." Detalhar a visão (integrações futuras) e por que hoje a moeda é o case.
 
-## Slide 14 — Encerramento
+## Slide 15 — Encerramento
 - 🖥️ "O primeiro passo é uma conversa." · "Me conta como a sua empresa funciona hoje. A gente escuta, diagnostica e desenha o caminho — mesmo que você queira pensar, a conversa é o ponto de partida." · rodapé institucional
 - 🖼️ Melissa + logo + arcos
 - 🗣️ O convite. **Sem botão/QR/link** (P1 parkada — plugar "Falar com a MEL" quando o fluxo n8n ativar).
@@ -90,8 +95,9 @@
 - [ ] Todo texto que saiu da tela está na coluna 🗣️ (nada de conteúdo aprovado perdido)
 - [ ] Cada slide de tela ficou entre **180–260 caracteres**
 - [ ] ~~Slide "Por que a UNIQ existe"~~ removido do deck (v3.1) — história preservada na fala do Slide 2
-- [ ] Slide 12 mantém os **3 checks** (são o que mata a objeção de risco)
-- [ ] Slide 12: ~~risco no valor cheio sutil~~ → **riscado removido (v3.3, fundador)** — o apagado é só pelo cinza; nunca "descontão"
-- [ ] Slide 13 mantém a **marca de visão** na tela
+- [ ] Slide 13 mantém os **3 checks** (são o que mata a objeção de risco)
+- [ ] Slide 13: ~~risco no valor cheio sutil~~ → **riscado removido (v3.3, fundador)** — o apagado é só pelo cinza; nunca "descontão"
+- [ ] Slide 14 mantém a **marca de visão** na tela
 - [ ] Melissa da capa antiga foi movida para a **fala dos slides 1–2** (e para a imagem do slide 10)
+- [ ] Par de ferramentas fechado (9 Melissa + 10 Base UNIQ, v3.7) — nenhum módulo prometido além dos 5 da tela
 - [ ] Nenhuma promessa do que não existe

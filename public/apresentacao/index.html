@@ -39,9 +39,17 @@
         fora do PNG); blur de fundo + grão de papel para o upscale 3.1x;
         no mobile o mockup aparece por extenso (contain) sobre o wash.
         logo-uniq.png no chip segue no Encerramento.
-   Obs.: nomes de classes `sN-*` e comentários internos seguem a numeração
-       ANTERIOR (deck de 14) para não quebrar nada; a numeração oficial dos
-       slides é a dos comentários de cada <section> abaixo.
+    v3.6.1 (no ar): subtítulo da capa vira "Trabalhar mais, não significa
+        exatamente ganhar mais dinheiro!" (antigo vai para a fala).
+    v3.7 (02/10, fundador): deck 15 slides — par de FERRAMENTAS antes do
+        método: slide 9 (Melissa, re-rotulada "1 de 2") + NOVO slide 10
+        (Base UNIQ, escuro, hero "Base UNIQ." com UNIQ em menta + lista
+        dos módulos + ilustração de traço sangrando à direita). Blocos
+        de ritmo: 1 claro · 2–3 escuros · 4–8 claros · 9–10 escuros ·
+        11–13 claros · 14–15 escuros. Seguintes renumerados (+1).
+    Obs.: nomes de classes `sN-*` seguem a numeração ANTIGA (deck de 14)
+        para não quebrar nada; os comentários `SLIDE n` dos <section> e
+        dos títulos de <style> agora seguem a numeração OFICIAL (15).
    =========================================================================== */
 :root{
   --canvas:#EFEFEF;        /* fundo claro */
@@ -354,7 +362,7 @@ body{
 .card-custo p{font-size:23px;line-height:1.55;color:var(--muted)}
 .slide.custo .takeaway{text-align:center;font-size:28px}
 
-/* ============ SLIDE 5 — DUAS COLUNAS ============ */
+/* ============ DUAS COLUNAS (CSS legado — slide removido na v3.1) ============ */
 .duas-linha{display:flex;flex:1;margin-top:46px;gap:0;position:relative;z-index:1}
 .duas-col{flex:1;padding:6px 44px 10px 0;display:flex;flex-direction:column;gap:18px}
 .duas-col+.duas-col{padding-left:44px;border-left:1px solid var(--regua)}
@@ -363,7 +371,7 @@ body{
 .duas-col h3{font-size:34px;font-weight:700;color:var(--verde);line-height:1.2}
 .duas-col p{font-size:26px;line-height:1.55;color:var(--muted)}
 
-/* ============ OBJETIVO (7, 8, 9) ============ */
+/* ============ OBJETIVOS (oficial 6–8; classes seguem legado) ============ */
 .agua{
   position:absolute;top:-46px;right:-30px;
   font-size:340px;font-weight:700;line-height:1;
@@ -430,7 +438,7 @@ body{
   border-radius:0 14px 0 0;opacity:.85;pointer-events:none;
 }
 
-/* ============ SLIDE 9 — card lateral da Melissa ============ */
+/* ============ SLIDE 8 — card lateral da Melissa (objetivo 3) ============ */
 .s8-linha{display:flex;gap:64px;flex:1;position:relative;z-index:1;margin-top:34px}
 .s8-lista{flex:1.35;display:flex;flex-direction:column;gap:24px}
 .s8-card{
@@ -450,7 +458,7 @@ body{
 .s8-card .avatar img{width:100%;height:100%;object-fit:cover;object-position:50% 20%;display:block}
 .s8-card h3{font-size:26px;font-weight:700;color:var(--item);line-height:1.35}
 
-/* ============ SLIDE 10 — Melissa escuro ============ */
+/* ============ SLIDE 9 — MELISSA escuro (ferramenta 1/2) ============ */
 .s9-conteudo{
   position:relative;z-index:1;max-width:60%;
   display:flex;flex-direction:column;flex:1;
@@ -463,6 +471,28 @@ body{
 .s9-conteudo .fecho{margin-top:auto;padding-bottom:8px}
 .mel-painel{position:absolute;top:0;right:0;width:38%;height:100%}
 .mel-painel img{object-position:50% 18%}
+
+/* ============ SLIDE 10 — BASE UNIQ (ferramenta 2/2, escuro) ============
+   v3.7 (02/10, fundador): par de ferramentas antes do metodo — Melissa
+   (9) e Base UNIQ (10). Ritmo: blocos simetricos — 1 claro (mockup),
+   2-3 escuros (dor), 4-8 claros (promessa), 9-10 ESCUROS (as duas
+   ferramentas), 11-13 claros (como/por que/quanto), 14-15 escuros
+   (visao/fecho). O foleo grafite no meio do deck da ao par o mesmo
+   "palco" e o hero Base UNIQ. (menta no titulo) ganha o contraste maximo
+   que o claro nao daria. Lista reaproveita a gramatica dos bullets da
+   dor (.s2-col); sangramento a direita como nos slides de objetivo.  */
+.bu-texto{
+  position:relative;z-index:1;
+  width:54%;height:100%;
+  padding:72px 48px 60px 96px;
+  display:flex;flex-direction:column;
+}
+.bu-texto .subtitulo{
+  margin-top:18px;font-size:32px;line-height:1.35;font-weight:600;
+  color:var(--branco);
+}
+.bu-texto .s2-col{max-width:none;gap:26px;margin-top:40px}
+.bu-fig{top:0;right:0;width:46%;height:100%}
 
 /* ============ SLIDE 11 — MÉTODO (linha pontilhada, sem caixa) ============ */
 .s10-cab{
@@ -495,7 +525,7 @@ body{
 }
 .faixa-metodo p{font-size:32px;font-weight:600;line-height:1.4;color:var(--branco);max-width:1300px}
 
-/* ============ SLIDE 12 — eixo visual + colunas ============ */
+/* ============ SLIDE 12 — POR QUE ENTRAR AGORA (eixo visual + colunas) ============ */
 .eixo{
   position:relative;z-index:1;
   display:flex;justify-content:space-between;align-items:flex-start;
@@ -522,7 +552,7 @@ body{
 .eixo-marca.atual b{color:var(--menta-texto)}
 .col.menta-titulo h3{color:var(--menta-texto)}
 
-/* ============ SLIDE 12 — INVESTIMENTO (claro: cheio apagado × fundador escuro) ============
+/* ============ SLIDE 13 — INVESTIMENTO (claro: cheio apagado × fundador escuro) ============
    Direção do fundador (01/10): destaque forte no co-fundador, valor cheio
    apagado — coerência, não "liquidação".
    v3.2 (01/10, fundador): slide passa para FUNDO CLARO (#EFEFEF) — ritmo
@@ -603,7 +633,7 @@ body{
   stroke:currentColor;fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;
 }
 
-/* ============ SLIDE 13 — VISÃO ============
+/* ============ SLIDE 14 — VISÃO ============
    v3.3 (01/10, fundador — carta branca): menos texto, mais apoio visual.
    Na tela só os fatos: 52 GIGANTE + "empresas no grupo até dez/2028" +
    linha do tempo 2026→2028 (gramática do eixo do slide 11, versão escura)
@@ -652,7 +682,7 @@ body{
   content:"+";flex:none;font-weight:700;font-size:19px;line-height:1;color:var(--menta);
 }
 
-/* ============ SLIde 14 — ENCERRAMENTO ============ */
+/* ============ SLIDE 15 — ENCERRAMENTO ============ */
 .s14-conteudo{
   position:relative;z-index:1;width:60%;
   display:flex;flex-direction:column;height:100%;
@@ -730,6 +760,11 @@ body{
   .s2-col{gap:22px;margin-top:30px;max-width:none}
   .s2-col li{font-size:22px}
   .s2-imagem{position:relative;width:100%;height:300px;top:auto;right:auto;margin:30px 0 0;border-radius:10px}
+  /* s10 (base uniq): coluna cheia, ilustracao em largura total abaixo */
+  .bu-texto{width:100%;height:auto;padding:44px 24px 48px}
+  .bu-texto .subtitulo{font-size:24px;margin-top:14px}
+  .bu-texto .s2-col{gap:20px;margin-top:28px}
+  .bu-fig{position:relative;width:100%;height:300px;top:auto;right:auto;margin:30px 0 0;border-radius:10px}
   /* colunas 3 -> 2 -> 1; régua vira linha horizontal */
   .colunas-linha,.duas-linha{flex-direction:column;gap:30px;margin-top:30px}
   .col,.duas-col{padding:0 0 26px}
@@ -826,13 +861,13 @@ body{
 </head>
 <body>
 
-<div class="progresso" id="progresso" role="progressbar" aria-label="Progresso da apresentação" aria-valuemin="1" aria-valuemax="14" aria-valuenow="1" data-od-id="barra-progresso"><span id="progresso-preenchido"></span></div>
+<div class="progresso" id="progresso" role="progressbar" aria-label="Progresso da apresentação" aria-valuemin="1" aria-valuemax="15" aria-valuenow="1" data-od-id="barra-progresso"><span id="progresso-preenchido"></span></div>
 
 <div class="palco-wrap">
   <div class="palco" id="palco">
 
     <!-- ============ SLIDE 1 — ABERTURA (capa: mockup do logo sobre papel) ============ -->
-    <section class="slide abertura" data-od-id="slide-abertura" role="group" aria-label="Slide 1 de 14">
+    <section class="slide abertura" data-od-id="slide-abertura" role="group" aria-label="Slide 1 de 15">
       <div class="capa-mockwrap" role="img" aria-label="Capa — logo UNIQ Empresas sobre papel">
         <img class="capa-bg" src="assets/capa-uniq.png" alt="" aria-hidden="true" draggable="false">
         <img class="capa-fg" src="assets/capa-uniq.png" alt="" draggable="false">
@@ -840,7 +875,7 @@ body{
     </section>
 
     <!-- ============ SLIDE 2 — CAPA (escura, tipografia gigante) ============ -->
-    <section class="slide escuro capa" data-od-id="slide-capa" role="group" aria-label="Slide 2 de 14">
+    <section class="slide escuro capa" data-od-id="slide-capa" role="group" aria-label="Slide 2 de 15">
       <p class="eyebrow">UNIQ Empresas · Alto Tietê</p>
       <h1 class="capa-titulo">Sua empresa não precisa de mais <span class="ressalto">esforço seu</span>.</h1>
       <p class="capa-sub">Trabalhar mais, não significa exatamente ganhar mais dinheiro!</p>
@@ -848,7 +883,7 @@ body{
     </section>
 
     <!-- ============ SLIDE 3 — JOGADOR × PENSADOR (o dia apagando incêndio) ============ -->
-    <section class="slide escuro" data-od-id="slide-dia-incendio" role="group" aria-label="Slide 3 de 14">
+    <section class="slide escuro" data-od-id="slide-dia-incendio" role="group" aria-label="Slide 3 de 15">
       <div class="s2-texto">
         <h1 class="titulo">Você joga o jogo.<br><span class="ressalto">Mas não pensa o jogo.</span></h1>
         <p class="subtitulo">E o negócio sem sair do lugar.</p>
@@ -917,7 +952,7 @@ body{
     </section>
 
     <!-- ============ SLIDE 4 — O CUSTO DE CONTINUAR ASSIM (3 cards brancos) ============ -->
-    <section class="slide custo" data-od-id="slide-custo" role="group" aria-label="Slide 4 de 14">
+    <section class="slide custo" data-od-id="slide-custo" role="group" aria-label="Slide 4 de 15">
       <p class="eyebrow">O custo de continuar assim</p>
       <h1 class="titulo">Trabalhar mais não resolve.</h1>
       <div class="cards-custo">
@@ -944,7 +979,7 @@ body{
     </section>
 
     <!-- ============ SLIDE 5 — TRÊS OBJETIVOS ============ -->
-    <section class="slide" data-od-id="slide-tres-objetivos" role="group" aria-label="Slide 5 de 14">
+    <section class="slide" data-od-id="slide-tres-objetivos" role="group" aria-label="Slide 5 de 15">
       <p class="eyebrow">A UNIQ Empresas</p>
       <h1 class="titulo">Três objetivos. Um só parceiro.</h1>
       <p class="s5-corpo">Temos tecnologia — não somos uma empresa de tecnologia.</p>
@@ -973,8 +1008,8 @@ body{
       </div>
       <p class="takeaway">Consultoria + tecnologia a serviço do objetivo.</p>
     </section>
-    <!-- ============ SLIDE 7 — OBJETIVO 1: FATURAMENTO ============ -->
-    <section class="slide" data-od-id="slide-objetivo-1" role="group" aria-label="Slide 6 de 14">
+    <!-- ============ SLIDE 6 — OBJETIVO 1: FATURAMENTO ============ -->
+    <section class="slide" data-od-id="slide-objetivo-1" role="group" aria-label="Slide 6 de 15">
       <div class="agua" aria-hidden="true">01</div>
       <div class="s6-texto">
         <div class="objetivo-cab">
@@ -1059,8 +1094,8 @@ body{
       </div>
     </section>
 
-    <!-- ============ SLIDE 8 — OBJETIVO 2: MARGEM ============ -->
-    <section class="slide" data-od-id="slide-objetivo-2" role="group" aria-label="Slide 7 de 14">
+    <!-- ============ SLIDE 7 — OBJETIVO 2: MARGEM ============ -->
+    <section class="slide" data-od-id="slide-objetivo-2" role="group" aria-label="Slide 7 de 15">
       <div class="agua" aria-hidden="true">02</div>
       <div class="s7-texto">
         <div class="objetivo-cab">
@@ -1136,8 +1171,8 @@ body{
       </div>
     </section>
 
-    <!-- ============ SLIDE 9 — OBJETIVO 3: TRANSFORMAÇÃO ============ -->
-    <section class="slide" data-od-id="slide-objetivo-3" role="group" aria-label="Slide 8 de 14">
+    <!-- ============ SLIDE 8 — OBJETIVO 3: TRANSFORMAÇÃO ============ -->
+    <section class="slide" data-od-id="slide-objetivo-3" role="group" aria-label="Slide 8 de 15">
       <div class="agua" aria-hidden="true">03</div>
       <div class="objetivo-cab">
         <!-- selo do pilar: trilha = transformação -->
@@ -1174,10 +1209,10 @@ body{
       <p class="objetivo-fecho menta-claro">A empresa deveria trabalhar para você.</p>
     </section>
 
-    <!-- ============ SLIDE 10 — MELISSA, TODOS OS DIAS ============ -->
-    <section class="slide escuro" data-od-id="slide-diferencial" role="group" aria-label="Slide 9 de 14">
+    <!-- ============ SLIDE 9 — MELISSA · ferramenta 1 de 2 ============ -->
+    <section class="slide escuro" data-od-id="slide-diferencial" role="group" aria-label="Slide 9 de 15">
       <div class="s9-conteudo">
-        <p class="eyebrow">O diferencial</p>
+        <p class="eyebrow">Quem faz o jogo andar · 1 de 2</p>
         <h1 class="titulo">Melissa, sua consultora todos os dias.</h1>
         <p class="corpo">Consultoria tradicional é uma reunião por mês e um relatório.</p>
         <p class="destaque">Acompanha o seu negócio <strong>diariamente</strong>.</p>
@@ -1186,8 +1221,75 @@ body{
       <div class="mel-painel mel-fig"><img src="assets/mel-34.png" alt="Melissa, sua consultora todos os dias"></div>
     </section>
 
+    <!-- ============ SLIDE 10 — BASE UNIQ · ferramenta 2 de 2 ============ -->
+    <section class="slide escuro" data-od-id="slide-base-uniq" role="group" aria-label="Slide 10 de 15">
+      <div class="bu-texto">
+        <p class="eyebrow">Onde tudo acontece · 2 de 2</p>
+        <h1 class="titulo">Base <span class="ressalto">UNIQ</span>.</h1>
+        <p class="subtitulo">O cérebro da operação.</p>
+        <ul class="s2-col">
+          <li>Funil de vendas — do primeiro contato ao fechamento.</li>
+          <li>Indicadores — o que está acontecendo dentro da empresa.</li>
+          <li>DRE — para onde vai o dinheiro.</li>
+          <li>Módulos sob medida — ativados conforme a necessidade da empresa.</li>
+          <li>Melissa — a assistente de tudo. Ela mora aqui dentro.</li>
+        </ul>
+      </div>
+      <!-- ILUSTRACAO · cerebro da operacao: painel central de modulos (Base), funil no topo,
+           indicadores a esquerda, DRE a direita, Melissa morando na base — tudo em traço, sem azul -->
+      <div class="fig bu-fig" data-od-id="slot-base-uniq" role="img" aria-label="Ilustração: a Base UNIQ como um painel central de módulos conectados — funil de vendas no topo, indicadores à esquerda, DRE à direita e a Melissa morando na base do painel">
+        <svg viewBox="0 0 740 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <circle cx="370" cy="440" r="300" fill="rgba(134,203,146,.05)"/>
+          <circle cx="370" cy="440" r="195" fill="rgba(134,203,146,.06)"/>
+          <g stroke="#AEB6B4" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <!-- nucleo: painel da Base -->
+            <rect x="235" y="318" width="270" height="234" rx="20" stroke-width="6"/>
+            <!-- grade de modulos -->
+            <rect x="262" y="346" width="62" height="52" rx="8" opacity=".8"/>
+            <rect x="340" y="346" width="62" height="52" rx="8" opacity=".8"/>
+            <rect x="418" y="346" width="62" height="52" rx="8" opacity=".8"/>
+            <rect x="262" y="420" width="62" height="52" rx="8" opacity=".8"/>
+            <rect x="418" y="420" width="62" height="52" rx="8" opacity=".8"/>
+            <path d="M262 494 h218" opacity=".35" stroke-dasharray="2 10" stroke-width="3.5"/>
+            <!-- topo: funil de vendas -->
+            <rect x="283" y="64" width="174" height="146" rx="16"/>
+            <path d="M323 108 h94 L372 162 v34 l-16 12 v-46 z" stroke="rgba(134,203,146,.95)" stroke-width="5"/>
+            <!-- esquerda: indicadores -->
+            <rect x="42" y="358" width="150" height="128" rx="16"/>
+            <path d="M70 388 v64 M70 452 h96" opacity=".6" stroke-width="4"/>
+            <path d="M74 444 l24 -18 l20 12 l32 -38" stroke="rgba(134,203,146,.95)" stroke-width="5"/>
+            <circle cx="150" cy="400" r="5" fill="#3F8F55" stroke="none"/>
+            <!-- direita: DRE (waterfall) -->
+            <rect x="548" y="358" width="150" height="128" rx="16"/>
+            <path d="M570 462 h108" opacity=".6" stroke-width="4"/>
+            <rect x="580" y="424" width="18" height="38" rx="4" opacity=".85"/>
+            <rect x="608" y="398" width="18" height="64" rx="4" opacity=".85"/>
+            <rect x="636" y="416" width="18" height="46" rx="4" opacity=".55"/>
+            <rect x="664" y="384" width="18" height="78" rx="4" stroke="rgba(134,203,146,.95)" stroke-width="5"/>
+            <!-- base: a bolha onde a Melissa mora -->
+            <rect x="283" y="666" width="174" height="116" rx="16"/>
+            <path d="M330 782 l20 30 l14 -30"/>
+          </g>
+          <!-- modulo ativo + faiscas da Melissa (menta) -->
+          <g stroke="rgba(134,203,146,.95)" fill="none" stroke-linecap="round">
+            <rect x="340" y="420" width="62" height="52" rx="8" fill="rgba(134,203,146,.16)" stroke-width="5"/>
+            <path d="M370 700 v34 M353 717 h34" stroke-width="6"/>
+            <path d="M404 692 v14 M397 699 h14" stroke-width="4"/>
+          </g>
+          <circle cx="364" cy="214" r="5" fill="#86CB92" stroke="none"/>
+          <!-- conectores pontilhados: cada ferramenta entra na Base -->
+          <g stroke="#86CB92" fill="none" stroke-width="4" stroke-linecap="round">
+            <path d="M370 228 v74" stroke-dasharray="1 11"/>
+            <path d="M196 422 h24" stroke-dasharray="1 11"/>
+            <path d="M508 422 h24" stroke-dasharray="1 11"/>
+            <path d="M370 568 v82" stroke-dasharray="1 11"/>
+          </g>
+        </svg>
+      </div>
+    </section>
+
     <!-- ============ SLIDE 11 — MÉTODO ============ -->
-    <section class="slide" data-od-id="slide-metodo" role="group" aria-label="Slide 10 de 14">
+    <section class="slide" data-od-id="slide-metodo" role="group" aria-label="Slide 11 de 15">
       <div class="s10-cab">
         <div class="esq">
           <p class="eyebrow">Como trabalhamos</p>
@@ -1244,7 +1346,7 @@ body{
       </div>
     </section>
     <!-- ============ SLIDE 12 — POR QUE ENTRAR AGORA ============ -->
-    <section class="slide" data-od-id="slide-porque-agora" role="group" aria-label="Slide 11 de 14">
+    <section class="slide" data-od-id="slide-porque-agora" role="group" aria-label="Slide 12 de 15">
       <p class="eyebrow">Por que entrar agora</p>
       <h1 class="titulo">12 vagas de co-fundador.</h1>
       <div class="eixo" data-od-id="eixo-visual" role="img" aria-label="Eixo visual: Alpha em outubro de 2026, Beta em janeiro de 2027, Produção em abril de 2027 e Lançamento em julho de 2027">
@@ -1291,8 +1393,8 @@ body{
       <p class="takeaway">O preço de fundador é real — só para os 12 primeiros.</p>
     </section>
 
-    <!-- ============ SLIDE 12 — INVESTIMENTO (tela clara: cheio apagado × fundador escuro) ============ -->
-    <section class="slide preco" data-od-id="slide-investimento" role="group" aria-label="Slide 12 de 14">
+    <!-- ============ SLIDE 13 — INVESTIMENTO (tela clara: cheio apagado × fundador escuro) ============ -->
+    <section class="slide preco" data-od-id="slide-investimento" role="group" aria-label="Slide 13 de 15">
       <h1 class="titulo">Investimento transparente.</h1>
       <div class="cards-preco">
         <div class="card-preco cheio">
@@ -1316,8 +1418,8 @@ body{
       </ul>
     </section>
 
-    <!-- ============ SLIDE 13 — A VISÃO (v3.3: 52 gigante + linha do tempo + chips) ============ -->
-    <section class="slide escuro s13" data-od-id="slide-visao" role="group" aria-label="Slide 13 de 14">
+    <!-- ============ SLIDE 14 — A VISÃO (v3.3: 52 gigante + linha do tempo + chips) ============ -->
+    <section class="slide escuro s13" data-od-id="slide-visao" role="group" aria-label="Slide 14 de 15">
       <p class="eyebrow">A visão</p>
       <h1 class="s13-hero">
         <span class="s13-num">52</span>
@@ -1342,8 +1444,8 @@ body{
       </div>
     </section>
 
-    <!-- ============ SLIde 14 — ENCERRAMENTO (sem botão/QR/link — P1 parkada) ============ -->
-    <section class="slide encerramento" data-od-id="slide-encerramento" role="group" aria-label="Slide 14 de 14">
+    <!-- ============ SLIDE 15 — ENCERRAMENTO (sem botão/QR/link — P1 parkada) ============ -->
+    <section class="slide encerramento" data-od-id="slide-encerramento" role="group" aria-label="Slide 15 de 15">
       <svg class="s14-arcos" viewBox="0 0 430 430" aria-hidden="true">
         <path d="M30 410 A 320 320 0 0 1 410 70" fill="none" stroke="#2C3D42" stroke-width="26"/>
         <path d="M90 410 A 260 260 0 0 1 410 150" fill="none" stroke="#314747" stroke-width="16"/>
@@ -1366,7 +1468,7 @@ body{
   <button class="navbtn" id="btn-anterior" data-od-id="nav-anterior" aria-label="Slide anterior">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
   </button>
-  <span class="contador" id="contador" aria-live="polite">1 / 14</span>
+  <span class="contador" id="contador" aria-live="polite">1 / 15</span>
   <button class="navbtn" id="btn-proximo" data-od-id="nav-proximo" aria-label="Próximo slide">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
   </button>
@@ -1376,7 +1478,7 @@ body{
 (function(){
   "use strict";
   var slides = Array.prototype.slice.call(document.querySelectorAll(".slide"));
-  var TOTAL = slides.length; /* 14 slides — nada de número hardcoded: o deck cresce e a navegação acompanha */
+  var TOTAL = slides.length; /* 15 slides — nada de número hardcoded: o deck cresce e a navegação acompanha */
   var palco = document.getElementById("palco");
   var wrap = palco.parentElement;
   var barra = document.getElementById("progresso-preenchido");
