@@ -33,6 +33,12 @@
         headline ("Você joga o jogo. / Mas não pensa o jogo.", 72px); a
         quote do rodapé saiu da tela (foi para a fala no ROTEIRO) e os
         bullets respiram no espaço dela.
+    v3.5 (no ar): linha 2 da headline do s3 em menta (gramática da capa).
+    v3.6 (02/10, fundador): slide 1 (abertura) vira o MOCKUP OFICIAL da
+        marca em full-bleed (assets/capa-uniq.png, ✦ do gerador clonado
+        fora do PNG); blur de fundo + grão de papel para o upscale 3.1x;
+        no mobile o mockup aparece por extenso (contain) sobre o wash.
+        logo-uniq.png no chip segue no Encerramento.
    Obs.: nomes de classes `sN-*` e comentários internos seguem a numeração
        ANTERIOR (deck de 14) para não quebrar nada; a numeração oficial dos
        slides é a dos comentários de cada <section> abaixo.
@@ -217,25 +223,38 @@ body{
     linear-gradient(to top, var(--grafite) 0%, rgba(31,41,55,0) 16%);
 }
 
-/* ============ SLIDE 1 — ABERTURA (logo na tela da TV) ============
-   Wait-screen: estática, alto contraste, sem headline e sem CTA.
-   O PNG do logo tem chip claro embutido — ele vive sobre o chip do
-   deck (mesma cor), nunca colado direto no grafite.                */
-.slide.abertura{align-items:center;justify-content:center}
+/* ============ SLIDE 1 — ABERTURA (capa: mockup do logo sobre papel) ============
+   v3.6 (02/10, fundador): a wait-screen da TV passou a ser o mockup oficial da
+   marca (tracking/apresentacao/referencia, tratado para_assets): papel
+   texturizado claro + logo, full-bleed no 16:9 da TV. Upscale 3.1x mitigado
+   por: camada de fundo desfocada (pareamento do letterbox no mobile), grao
+   fino de papel por cima (quebra a plasticidade do scale) e leve saturacão
+   reduzida. O ✦ do gerador foi removido por clonagem IDW local no PNG
+   (assets/capa-uniq.png ja sai limpo). Zero texto, zero CTA.
+   O logo em chip (logo-uniq.png) segue vivo no Encerramento (slide 14).  */
+.slide.abertura{padding:0;background:#DCDCDA}
+.capa-mockwrap{position:absolute;inset:0;z-index:1;overflow:hidden}
+.capa-bg{
+  position:absolute;inset:-70px;width:calc(100% + 140px);height:calc(100% + 140px);
+  object-fit:cover;object-position:center;
+  filter:blur(30px) saturate(.92) brightness(1.02);
+  transform:scale(1.06);
+}
+.capa-fg{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;object-position:center;
+}
+.capa-mockwrap::after{ /* grao de papel — disfarca o upscale; tile pequeno */
+  content:"";position:absolute;inset:0;z-index:3;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.3' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='90' height='90' filter='url(%23n)' opacity='.05'/%3E%3C/svg%3E");
+  mix-blend-mode:multiply;
+}
 .chip-logo{
   background:var(--chip);border-radius:8px;
   padding:12px 22px;line-height:0;
   box-shadow:inset 0 0 0 1px rgba(62,86,83,.12), var(--sombra-suave);
 }
 .chip-logo img{height:52px;width:auto;display:block}
-.slide.abertura .chip-logo{
-  padding:44px 60px;border-radius:16px;
-  box-shadow:
-    inset 0 0 0 1px rgba(62,86,83,.12),
-    0 36px 80px -32px rgba(8,13,18,.85),
-    0 0 160px rgba(134,203,146,.10);
-}
-.slide.abertura .chip-logo img{height:148px}
 
 /* ============ SLIDE 2 — CAPA (escura, tipografia gigante) ============ */
 .slide.capa{padding:96px 120px;justify-content:center}
@@ -699,10 +718,8 @@ body{
   .eyebrow{font-size:16px;letter-spacing:.24em;gap:10px}
   .eyebrow::before{width:22px}
   .takeaway,.fecho{font-size:26px}
-  /* abertura: chip do logo menor; capa: título gigante escalado */
-  .slide.abertura{padding:48px 24px}
-  .slide.abertura .chip-logo{padding:24px 32px}
-  .slide.abertura .chip-logo img{height:76px}
+  /* abertura: mockup em CONTAIN sobre o wash desfocado (mostra o logo inteiro) */
+  .capa-fg{object-fit:contain;padding:18px 12px}
   .slide.capa{padding:64px 24px}
   .capa-titulo{font-size:40px;line-height:1.12}
   .capa-sub{font-size:18px;margin-top:26px}
@@ -814,9 +831,12 @@ body{
 <div class="palco-wrap">
   <div class="palco" id="palco">
 
-    <!-- ============ SLIDE 1 — ABERTURA (logo na tela · wait-screen da TV) ============ -->
-    <section class="slide escuro abertura" data-od-id="slide-abertura" role="group" aria-label="Slide 1 de 14">
-      <div class="chip-logo"><img src="assets/logo-uniq.png" alt="Logo UNIQ Empresas"></div>
+    <!-- ============ SLIDE 1 — ABERTURA (capa: mockup do logo sobre papel) ============ -->
+    <section class="slide abertura" data-od-id="slide-abertura" role="group" aria-label="Slide 1 de 14">
+      <div class="capa-mockwrap" role="img" aria-label="Capa — logo UNIQ Empresas sobre papel">
+        <img class="capa-bg" src="assets/capa-uniq.png" alt="" aria-hidden="true" draggable="false">
+        <img class="capa-fg" src="assets/capa-uniq.png" alt="" draggable="false">
+      </div>
     </section>
 
     <!-- ============ SLIDE 2 — CAPA (escura, tipografia gigante) ============ -->
