@@ -1,7 +1,7 @@
 # 📄 ESCOPO DO PROJETO — UNIQ Empresas
 
 > **Status:** Descoberta concluída — escopo validado pelo fundador em 07/09/2026.  
-> **Base:** `doc/CONTEXTO_UNIQ.md` + `tracking/CONTEXTO_PROJETO.md` + CEO.md + KelvinCleto.txt + conversas de descoberta.  
+> **Base:** `tracking/CONTEXTO_PROJETO.md` (fonte da verdade; o legado `doc/CONTEXTO_UNIQ.md` foi consolidado nele e removido) + CEO.md + KelvinCleto.txt + conversas de descoberta.
 > **Responsável:** CEO / Planejamento Estratégico  
 > **Última atualização:** 07/09/2026
 
@@ -24,7 +24,8 @@ Criar a oferta **UNIQ Empresas**: versão da Base UNIQ direcionada a microempres
 - **Canais secundários de validação:** perfil no Instagram da UNIQ com 1 post semanal, apenas para existir como presença digital. Não é canal de venda ativo nas primeiras 4 semanas.
 - **Laboratório interno (dogfooding):** o fundador opera a **HQ Gráfica** e a esposa opera a **Doceê** (doceria). Ambos testarão o MVP junto com o cliente da primeira semana, aplicando na própria operação antes de entregar aos co-fundadores.
 - **Modelo de entrega:** DFY (Done-For-You) — a UNIQ configura a Base UNIQ para o cliente. Como a plataforma é SaaS, não há instalação física; a entrega é configuração, onboarding e ativação dos módulos.
-- **Modelo financeiro (Fase 1 — decidido em 07/09/2026):** **ancoragem**. O contrato mostra o preço de tabela (setup **R$ 1.500** + **R$ 297/mês**) e a condição de co-fundador concede **isenção do setup** e redução para **R$ 197/mês**, em troca de uso real + feedback + depoimento em vídeo. **Valor concedido no 1º ano: R$ 2.700.** Fallback de **R$ 107/mês** apenas como plano de emergência diante de objeção explícita. Cobrança inicia após a entrega do MVP, em data de faturamento escolhida pelo co-fundador (dia 5, 15 ou 25; **padrão dia 5**).
+- **Modelo financeiro (Fase 1 — atualizado em 24/09/2026):** **ancoragem**. O contrato mostra o preço de tabela (setup **R$ 1.500** + **R$ 297/mês**) e a condição de co-fundador concede **setup R$ 500 (sinal de compromisso)** e redução para **R$ 197/mês**, em troca de uso real + feedback + depoimento em vídeo. **Valor concedido no 1º ano: R$ 2.200.** Fallback de **R$ 107/mês** apenas como plano de emergência diante de objeção explícita. Cobrança da mensalidade inicia após a entrega do MVP, em data de faturamento escolhida pelo co-fundador (dia 5, 15 ou 25; **padrão dia 5**).
+  - **Por que R$ 500 e não grátis:** gratuito desvaloriza ("parece que tem algo errado"), o valor cobre o tempo investido no cliente e traz seriedade. É **sinal que reserva a vaga**, não desconto. O **sinal é pago no fechamento**; a **mensalidade** só começa após a entrega.
 - **Entrega:** módulos + robô de atendimento no WhatsApp prontos até o dia do primeiro pagamento (~30 dias).
 - **Objetivo imediato (revisado em 07/09/2026):** ~~fechar o primeiro co-fundador em 7 dias~~ → **validar a Base UNIQ internamente na HQ Gráfica e na Doceê durante ~3 semanas** e só então visitar o cliente da ótica com algo digno para apresentar.
 - **Por que a mudança de prazo:** o risco de chegar à visita sem algo demonstrável era alto demais. O fundador decidiu que **prova vale mais que velocidade**. O laboratório interno deixa de ser "Semana 0" e vira a **fase central de preparação**.
@@ -50,7 +51,7 @@ Microempresas B2B precisam:
 
 ### O que o cliente pediu
 Modelo de co-fundador com:
-- Setup gratuito.
+- Entrada de **R$ 500** (sinal de compromisso — reserva a vaga).
 - Mensalidade acessível (R$ 197).
 - Construção sob demanda dos módulos que resolvem sua dor.
 
@@ -58,16 +59,17 @@ Modelo de co-fundador com:
 | Entrega | Detalhe |
 |---------|---------|
 | **4 co-fundadores B2B (Onda 1)** | Dores parecidas: atendimento + operação. Ritmo definido pela **capacidade de entrega**, não por calendário fixo. |
-| Setup | **Isento** — valor de tabela **R$ 1.500** explícito no contrato *(hipótese; o mercado valida nas primeiras 3–5 propostas)* |
+| Setup | **R$ 500 — sinal de compromisso** — valor de tabela **R$ 1.500** explícito no contrato *(hipótese; o mercado valida nas primeiras 3–5 propostas)* |
 | Mensalidade | **R$ 197/mês** (tabela R$ 297/mês) |
 | Data de faturamento | Co-fundador escolhe dia **5, 15 ou 25**; **padrão dia 5** |
 | Início da cobrança | **Após a entrega do MVP** (~30 dias do fechamento), nunca na assinatura |
 | Contrapartida | Uso real + feedback sincero + depoimento em vídeo |
-| Valor concedido no 1º ano | **R$ 2.700** (setup R$ 1.500 + 12 × R$ 100 de desconto) |
+| Valor concedido no 1º ano | **R$ 2.200** (R$ 1.000 de economia no setup + 12 × R$ 100 de desconto) |
 | Módulos-lego | Modelo **default + vertical** (ex.: `CRM` → `CRM_OTICA`). Vertical só se replicável para 2–3 negócios do nicho. |
 | Robô de atendimento WhatsApp | Entregue até o dia do pagamento |
 | Prova social | Depoimento/feedback dos co-fundadores |
-| **Onda 2 (+4)** | Abre em **jan/2027**, após **pausa de productização** que deve cortar o tempo de entrega pela metade |
+| **Onda 2 (+4 → 8)** | Abre em **jan/2027**, após **pausa de productização** que deve cortar o tempo de entrega pela metade. Gatilho é **prontidão**, não calendário |
+| **Onda 3 (+4 → 12)** | Abre em **mar–abr/2027**, com o fundador 100% no projeto, sistema concluído e metodologia madura |
 
 > **Princípio da Fase 1:** prova vale mais que receita. Um co-fundador a R$ 197/mês com depoimento em vídeo vale mais que um cliente a R$ 297/mês sem case.
 
@@ -213,7 +215,7 @@ Modelo de co-fundador com:
 - [x] Tamanho médio de faturamento do cliente ideal (R$ 30–100k / 100–500k / +500k)? **R: R$ 5.000 a R$ 10.000/mês; aquisição inicial entre clientes da gráfica.**
 - [x] Modelo de entrega futuro: DFY, white label ou híbrido? **R: DFY — a UNIQ configura a Base UNIQ no modelo SaaS (sem instalação física).**
 - [x] Objetivo imediato: primeira proposta, primeiro cliente, MVP ou parceria? **R: fechar o primeiro cliente/co-fundador no sábado seguinte (7 dias), com MVP demonstrável.**
-- [x] Diferencial adicional além do já documentado? **R: diferenciais já documentados em CONTEXTO_UNIQ.md e CEO.md serão consolidados na proposta (MEL, DFY, proximidade local, método SDD, laboratório próprio).**
+- [x] Diferencial adicional além do já documentado? **R: diferenciais já documentados em `tracking/CONTEXTO_PROJETO.md` e CEO.md serão consolidados na proposta (MEL, DFY, proximidade local, método SDD, laboratório próprio).**
 - [x] Restrições concretas (tempo, dinheiro, tecnologia)? **R: respondidas em 07/09/2026 — ver seção "Restrições concretas — RESPONDIDAS" abaixo.**
 
 ## ✅ Restrições concretas — RESPONDIDAS (07/09/2026)

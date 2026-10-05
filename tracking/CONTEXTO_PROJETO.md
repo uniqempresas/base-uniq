@@ -64,13 +64,23 @@ A UNIQ é uma **Consultoria de Transformação Digital com IA** para microempres
 
 | Item | Valor de tabela (contrato) | Condição co-fundador |
 |------|---------------------------|----------------------|
-| Setup (contratar, treinar e instalar a Melissa) | **R$ 1.500** | **R$ 0 — isento** |
+| Setup (contratar, treinar e instalar a Melissa) | **R$ 1.500** | **R$ 500 — sinal de compromisso** |
 | Mensalidade | **R$ 297/mês** | **R$ 197/mês** |
 | Contrapartida exigida | — | Uso real + feedback sincero + depoimento em vídeo |
 
-**Valor concedido ao co-fundador no 1º ano:** R$ 1.500 (setup) + R$ 1.200 (12 × R$ 100 de desconto) = **R$ 2.700**
+**Valor concedido ao co-fundador no 1º ano:** R$ 1.000 (economia no setup) + R$ 1.200 (12 × R$ 100 de desconto) = **R$ 2.200**
 
-> Esse número vai na proposta. Ele transforma "é caro" em "estou recebendo R$ 2.700 em troca de usar e dar um depoimento".
+> Esse número vai na proposta. Ele transforma "é caro" em "estou recebendo R$ 2.200 em troca de usar e dar um depoimento".
+
+### 🔑 Por que R$ 500 e não grátis (revisado pelo fundador em 24/09/2026)
+
+> **Decisão do fundador:** o setup do co-fundador é **R$ 500**, não isenção.
+>
+> *"Quando é de graça, as pessoas acham que não tem valor. Parece que tem algo errado, ou que estou tentando enganar. Quando eu estabeleço um valor, fica mais sério."*
+>
+> **Três razões:** (1) cobre o **tempo investido** com o cliente — não é só software, é consultoria + configuração; (2) **gratuito desvaloriza**; (3) **cria compromisso dos dois lados** — é o sinal que reserva a vaga e separa quem quer de quem vai usar.
+>
+> **R$ 500 é sinal, não desconto.** A mensalidade só começa **após a entrega do MVP**. A âncora de R$ 1.500 segue intacta.
 
 ### Setup R$ 1.500 — hipótese de trabalho, não preço definitivo
 
@@ -95,7 +105,7 @@ A UNIQ é uma **Consultoria de Transformação Digital com IA** para microempres
 ### 📈 Trajetória de preço (sem cross-out)
 | Período | Setup | Mensalidade |
 |---------|-------|-------------|
-| **Fase 1** — Co-fundadores (Ondas 1 e 2) | **R$ 0** *(tabela R$ 1.500)* | **R$ 197** *(tabela R$ 297)* |
+| **Fase 1** — Co-fundadores (Ondas 1, 2 e 3) | **R$ 500** *(tabela R$ 1.500)* | **R$ 197** *(tabela R$ 297)* |
 | **Fase 2** — Lançamento (jul/2027, por 18 meses → ~dez/2028) | **R$ 1.500** | **R$ 297** |
 | **Fase 3** — Maturidade (pós 18 meses de Fase 2) | **R$ 2.500–3.000** | **R$ 297+** |
 
@@ -122,25 +132,29 @@ A UNIQ é uma **Consultoria de Transformação Digital com IA** para microempres
 >
 > O argumento central deve ser: *"Por menos do que você gasta com uma fração de um funcionário, você tem uma funcionária digital extremamente qualificada trabalhando o mês inteiro."*
 >
-> **Atenção na Fase 1:** como ainda não há cases, o argumento de venda NÃO é "compre minha funcionária digital". É **"seja co-fundador: o preço de tabela é R$ 2.500 de setup + R$ 297/mês, mas você entra isento do setup e a R$ 197 — em troca de usar de verdade e me dar um depoimento."** A Melissa como funcionária é o posicionamento da Fase 2, quando houver prova para sustentá-lo.
+> **Atenção na Fase 1:** como ainda não há cases, o argumento de venda NÃO é "compre minha funcionária digital". É **"seja co-fundador: o preço de tabela é R$ 1.500 de setup + R$ 297/mês. Você entra com R$ 500 — o sinal que reserva a sua vaga — e R$ 197/mês, em troca de usar de verdade e me dar um depoimento."** A Melissa como funcionária é o posicionamento da Fase 2, quando houver prova para sustentá-lo.
 
 ---
 
 ## 🌊 Ondas de Co-fundadores
 
-> ✅ **Decisão do fundador (07/09/2026):** Fase 1 com **4 co-fundadores**. A meta de 8 cases é dividida em **duas ondas de 4**, com uma pausa produtiva entre elas.
+> ✅ **Decisão do fundador (atualizada em 24/09/2026):** **12 co-fundadores em 3 ondas de 4**, com pausa produtiva entre elas.
 
 | Onda | Período | Co-fundadores | Objetivo |
 |------|---------|---------------|----------|
-| **Onda 1** | Set–Dez/2026 | 4 | Entregar, aprender, gerar os primeiros cases |
+| **Onda 1** | Out/2026 (Fase 1) | 4 | Entregar, aprender, gerar os primeiros cases |
 | **Pausa produtiva** | Entre ondas | — | **Productização:** transformar o aprendizado em módulos reutilizáveis |
-| **Onda 2** | Jan/2027 em diante | +4 | Entregar mais rápido, com preço maior e módulos prontos |
+| **Onda 2** | Jan/2027 (Fase 2) | +4 → 8 | Entregar mais rápido, com módulos prontos. Ainda em tempo parcial |
+| **Pausa produtiva** | Entre ondas | — | Productização + fundador assumindo 100% do tempo |
+| **Onda 3** | Mar–Abr/2027 (Fase 2→3) | +4 → 12 | Com sistema concluído e metodologia madura |
 
-> 📌 **Total de co-fundadores: exatamente 8.** Após a Onda 2, **não haverá 9º co-fundador** — o próximo cliente já é pagante (setup R$ 1.500 + R$ 297/mês). Entre a Onda 2 e o lançamento há um **período de maturação** (abr–jun/2027): sistema e empresa amadurecem com os 8 cases, e o fundador transita do CLT (saída fim de mar/2027) para a operação em tempo integral. O lançamento oficial em **jul/2027** é o marco do primeiro cliente de fato.
+> 📌 **Total de co-fundadores: 12.** Após a Onda 3, **não haverá 13º co-fundador** — o próximo cliente já é pagante (setup R$ 1.500 + R$ 297/mês). Entre a Onda 3 e o lançamento há um **período de maturação**: sistema e empresa amadurecem com os 12 cases, e o fundador transita do CLT (saída fim de mar/2027) para a operação em tempo integral. O lançamento oficial em **jul/2027** é o marco do primeiro cliente pagante.
+
+> ⚠️ **Gatilho é prontidão, não calendário.** Cada onda só abre com a anterior **entregue** e o sistema fechado.
 
 ### Por que ondas funcionam (leitura do CEO)
 
-O gargalo nunca foi vender 8 co-fundadores — é **entregar 8**. Dividir em ondas resolve isso porque:
+O gargalo nunca foi vender 12 co-fundadores — é **entregar 12**. Dividir em ondas resolve isso porque:
 
 1. **A onda 1 paga o aprendizado.** Os 4 primeiros revelam o que é padrão e o que é específico de cada ramo.
 2. **A pausa não é ociosa — é a sprint de productização.** É nela que o "lego" é de fato construído, a partir do que a onda 1 ensinou.
@@ -467,7 +481,7 @@ O Exit Safe **não é uma meta de MRR da UNIQ**. É a condição pessoal que per
 | O quê | Onde |
 |-------|------|
 | **Design system oficial** (paleta, tipografia, layout, mood) | **`DESIGN.md`** (raiz do projeto) |
-| Tom de voz, avatar da Melissa, estilo visual da Base UNIQ | `doc/CONTEXTO_UNIQ.md` |
+| Tom de voz, avatar da Melissa, estilo visual da Base UNIQ | **`DESIGN.md`** (raiz do projeto) — lacunas pendentes listadas abaixo |
 
 ### Paleta oficial (extraída de `DESIGN.md`)
 | Role | Nome | Hex | Uso |
@@ -493,9 +507,9 @@ O Exit Safe **não é uma meta de MRR da UNIQ**. É a condição pessoal que per
 - Decisões de acabamento visual pertencem ao OpenDesign, não ao repositório.
 
 ### 🔴 Lacunas conhecidas em `DESIGN.md` (sinalizadas pelo CEO — aguardando decisão)
-1. **Verde petróleo `#3E5653`** aparece no texto do próprio `DESIGN.md` ("A paleta de verde petróleo + menta foge do azul corporativo padrão") e em `doc/CONTEXTO_UNIQ.md`, mas **não está na tabela de cores**.
+1. **Verde petróleo `#3E5653`** aparece no texto do próprio `DESIGN.md` ("A paleta de verde petróleo + menta foge do azul corporativo padrão"), mas **não está na tabela de cores**.
 2. **Voice & Tone** com campos vazios: Adjectives `(none yet)`, Vocabulary Use/Avoid `(none yet)`.
-3. **Imagery** totalmente vazio (Style/Subjects/Treatment/Avoid) — o avatar da Melissa está descrito em `doc/CONTEXTO_UNIQ.md`, mas não no design system.
+3. **Imagery** totalmente vazio (Style/Subjects/Treatment/Avoid) — o avatar da Melissa estava descrito no legado `doc/CONTEXTO_UNIQ.md` (removido em 01/10/2026) e não existe no design system.
 4. **Posture rules** vazio `(none)`.
 5. **Seções Tone e Messaging pillars duplicadas/corrompidas** — o mesmo bloco (Mood / Sensação / Densidade / Filosofia) se repete 3 vezes.
 
@@ -632,10 +646,10 @@ Esposa valida → muda status → contabiliza
 
 | # | Decisão | Resolução |
 |---|---------|-----------|
-| 1 | Preço dos co-fundadores | **Ancoragem:** tabela = setup R$ 2.500 + R$ 297/mês; co-fundador = setup isento + R$ 197/mês |
+| 1 | Preço dos co-fundadores | **Ancoragem:** tabela = setup **R$ 1.500** + R$ 297/mês; co-fundador = **setup R$ 500 (sinal de compromisso)** + R$ 197/mês — *atualizado 24/09/2026* |
 | 2 | Data de faturamento | 3 opções (5, 15, 25); **padrão dia 5** |
 | 3 | Exit Safe | Saída do CLT fim de mar/2027; reserva p/ 18 meses; lançamento jul/2027 |
-| 4 | Nº de co-fundadores | **4 na Fase 1**, em ondas de 4 + 4 |
+| 4 | Nº de co-fundadores | **12 em 3 ondas de 4** — *atualizado 24/09/2026* |
 | 5 | Identidade Mínima | **`DESIGN.md` (raiz) é a fonte oficial** |
 | 6 | Prazo antes da 1ª visita | ~3 semanas de laboratório interno (HQ Gráfica + Doceê) |
 | 7 | Metodologia | **SDD sempre** — sem WIRE aprovado não se escreve código de tela |
@@ -650,10 +664,12 @@ Esposa valida → muda status → contabiliza
 | 16 | Canal do botão "Falar com a MEL" | **HÍBRIDO**: chat na landing como entrada · MEL se apresenta no início · **WhatsApp capturado cedo (fundamental)** · conversa continua no WhatsApp |
 | 17 | Controle de entrega | **CRM + Agenda** — nenhum módulo novo. *"Não seremos nosso próprio inimigo."* |
 | 18 | Vender 2, prometer 1 | **Confirmado.** Pitch oficial: *"A UNIQ faz entrar mais dinheiro e mostra para onde o seu está saindo. Isso é margem."* |
-| 19 | Marco dos 18 meses de R$ 1.500 | **Jul/2027 (lançamento)**. Exatamente **8 co-fundadores, sem 9º**; maturação abr–jun/2027; 1º cliente pagante no lançamento |
+| 19 | Marco dos 18 meses de R$ 1.500 | **Jul/2027 (lançamento)**. **12 co-fundadores em 3 ondas, sem 13º** *(atualizado 24/09/2026)*; maturação até jun/2027; 1º cliente pagante no lançamento |
 | 20 | Verde petróleo `#3E5653` | **Removido do texto oficial** do `DESIGN.md` (07/09/2026) — paleta fica com os 6 tokens oficiais |
 | 21 | Documento de necessidades | **Derivado da conversa inteira registrada e estruturada** — não de um resumo |
 | 22 | Sequência de construção | **Produto nas semanas 1–3 · funil na semana 4–5** — funil não entra no ar antes da cadeia de demonstração funcionar |
+| 23 | Nome da IA | **MEL é o nome oficial** — produto, landing e documentos (já é o que está em todo lugar). **"Melissa" fica como forma falada**, no calor da conversa — *"Mel" é o diminutivo de "Melissa"*, então ouvir "Melissa" e ver "MEL" na tela soa natural. **Nada a renomear** (decidido 24/09/2026) |
+| 24 | Visão de parceiros | **52 parceiros até dez/2028** (lançamento jul/2027 + 18 meses). **Linha de base, não promessa** — intenção original de ~1 por semana. O gargalo é **entrega**, não venda: 52 só acontece com productização entre ondas |
 
 ---
 

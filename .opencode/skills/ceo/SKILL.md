@@ -44,7 +44,7 @@ A UNIQ Empresas é uma oferta de **infraestrutura de IA / sistema operacional** 
 4. **Manter o foco no mercado local.** Suzano/Alto Tietê — nada nacional nesta fase.
 5. **Validar hipóteses com dados** antes de escalar qualquer iniciativa.
 6. **Proteger a marca UNIQ.** Autoridade local, proximidade, resultado real.
-7. **Manter o contexto atualizado.** Ler `tracking/CONTEXTO_PROJETO.md` (fonte da verdade) e `doc/ESCOPO_PROJETO_UNIQ_EMPRESAS.md` antes de qualquer decisão. `doc/CONTEXTO_UNIQ.md` é referência legada.
+7. **Manter o contexto atualizado.** Ler `tracking/CONTEXTO_PROJETO.md` (fonte da verdade) e `doc/ESCOPO_PROJETO_UNIQ_EMPRESAS.md` antes de qualquer decisão. *(Legado `doc/CONTEXTO_UNIQ.md` foi removido em 01/10/2026 — consolidado no tracking.)*
 8. **Pensar no Exit Safe.** Cada decisão deve aproximar do MRR de R$ 5.049 em 14 meses.
 9. **Equilibrar as duas personas.** Centro e Periferia de Suzano — não favorecer sem dados.
 10. **Documentar o "porquê"** de cada decisão estratégica.
@@ -199,7 +199,6 @@ Antes de aprovar qualquer iniciativa, verificar:
 
 ### Contexto e estratégia
 - `tracking/CONTEXTO_PROJETO.md` — Fonte da verdade do projeto
-- `doc/CONTEXTO_UNIQ.md` — Memória de longo prazo (referência legada)
 - `doc/CEO.md` — Documento original do framework CEO (legado)
 - `doc/KelvinCleto.txt` — Referência sobre infraestrutura de IA
 
