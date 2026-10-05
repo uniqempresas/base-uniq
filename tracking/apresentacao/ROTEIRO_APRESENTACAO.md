@@ -16,9 +16,9 @@
 - 🗣️ Sem fala obrigatória: enquanto o grupo entra, a marca segura a sala. Ao sentar todo mundo, o fundador cumprimenta e avança: "Vamos começar pelo que dói."
 
 ## Slide 2 — Capa
-- 🖥️ `UNIQ EMPRESAS · ALTO TIETÊ` · **"Sua empresa não precisa de mais esforço seu."** (gigante, "esforço seu" em menta) · subtítulo: "No dia a dia, tudo depende de você — e não sobra tempo para olhar o todo. Sua empresa precisa de alguém que cuide dela e aponte o caminho." · mini traço menta. Fundo grafite tela cheia, texto à esquerda, muito ar.
+- 🖥️ `UNIQ EMPRESAS · ALTO TIETÊ` · **"Sua empresa não precisa de mais esforço seu."** (gigante, "esforço seu" em menta) · subtítulo: **"Trabalhar mais, não significa exatamente ganhar mais dinheiro!"** (v3.6.1, 01/10 — frase nova do fundador no lugar do subtítulo longo) · mini traço menta. Fundo grafite tela cheia, texto à esquerda, muito ar.
 - 🖼️ ~~Melissa na capa~~ → **removida da tela (01/10)**; a capa agora é só tipografia. Melissa entra na **fala** daqui e na imagem do slide 10.
-- 🗣️ Abertura: reconhecer o dono ("deixa eu adivinhar: você atende, entrega, cobra, faz tudo"). **Apresentar a Melissa aqui** (ela saiu da capa): quem ela é, em uma ou duas frases — sem slide próprio ainda. Transição: "eu vou te contar de onde isso veio."
+- 🗣️ Abertura: reconhecer o dono ("deixa eu adivinhar: você atende, entrega, cobra, faz tudo"). **Apresentar a Melissa aqui** (ela saiu da capa): quem ela é, em uma ou duas frases — sem slide próprio ainda. Transição: "eu vou te contar de onde isso veio." **(v3.6.1)** O subtítulo longo que saiu da tela em 01/10 ("No dia a dia, tudo depende de você — e não sobra tempo para olhar o todo. Sua empresa precisa de alguém que cuide dela e aponte o caminho.") segue nesta fala, naturalmente.
 - 🗣️ **(removido do deck em 01/10 — v3.1)** O antigo slide "Por que a UNIQ existe" saiu da tela; a história continua na **fala**, entre a capa e os objetivos: contato com a alta diretoria nas grandes empresas (analista desde 2011 — Santander e Ultragaz); o contraponto da gráfica B2B (gente talentosa e esforçada, sem as mesmas ferramentas); fecho: "levar para o pequeno o que a grande empresa já usa para vencer."
 
 ## Slide 3 — Jogador × Pensador *(v3.4, 01/10 — fundador: a frase virou a headline; o destaque saiu da tela)*
