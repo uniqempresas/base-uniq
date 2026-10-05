@@ -4,7 +4,7 @@
 > **Regra:** nada do conteúdo aprovado (SPEC §5) se perde; o que sai da tela entra aqui na coluna "Na fala".
 > **Orçamento de tela:** 180–260 caracteres por slide (total ~3.100). Planilha de referência: slides 4, 8 e 10 são os que mais enxugam (v3.1).
 > **Identidade:** grafite `#1F2937`, verde v1 `#3E5653`, menta `#86CB92`; Melissa presente; ritmo claro/escuro mantido. (Nada da paleta azul do Gemini — a referência do deck do Gemini entra só em **estrutura/proporção**: letras gigantes, ar negativo, cards brancos arredondados, título de tema no topo.)
-> **v3 (01/10/2026):** novo slide 1 (logo na tela da TV), capa refeita sem a Melissa (ela sai da tela e entra na fala), "O custo" em 3 cards brancos, Investimento estilo "transparente" (cheio riscado discreto × fundador em destaque). **v3.1 (01/10/2026):** removido o slide "Por que a UNIQ existe" (decisão do fundador) — deck ficou com **14 slides**; a história continua na fala. **v3.2 (01/10/2026, fundador):** slide 3 com headline curta em 2 linhas ("Apagando incêndio / o dia inteiro.") + subtítulo forte; slide 12 (Investimento) passa a **fundo claro** — cheio em tira cinza apagada, fundador card grafite profundo com menta.
+> **v3 (01/10/2026):** novo slide 1 (logo na tela da TV), capa refeita sem a Melissa (ela sai da tela e entra na fala), "O custo" em 3 cards brancos, Investimento estilo "transparente" (cheio riscado discreto × fundador em destaque). **v3.1 (01/10/2026):** removido o slide "Por que a UNIQ existe" (decisão do fundador) — deck ficou com **14 slides**; a história continua na fala. **v3.2 (01/10, fundador):** slide 3 com headline curta em 2 linhas ("Apagando incêndio / o dia inteiro.") + subtítulo forte; slide 12 (Investimento) passa a **fundo claro** — cheio em tira cinza apagada, fundador card grafite profundo com menta. **v3.3 (01/10, fundador):** riscado do R$ 1.500 **removido** no slide 12 (o card escuro do fundador já faz o contraste); slide 13 (A visão) **redesenhado com carta branca** — 52 gigante + linha do tempo + chips da marca de visão, parágrafos movidos para a fala.
 
 **Legenda:** 🖥️ = fica na tela · 🗣️ = o fundador fala (saiu da tela) · 🖼️ = imagem/ilustração
 
@@ -69,15 +69,15 @@
 
 ## Slide 12 — Investimento *(refeito em 01/10: "Investimento transparente" estilo Gemini-UNIQ · v3.2: fundo CLARO — direção do fundador 01/10)*
 - 🖥️ **"Investimento transparente."** (centrado, verde-escuro sobre tela clara `#EFEFEF`) · **2 cards de pesos diferentes (decisão explícita do fundador):**
-  - **Esquerdo (discreto):** tira cinza clara `#E1E1E0` · `VALOR CHEIO` · "Após os 12 co-fundadores" · **R$ 1.500 · setup riscado** (linha fina elegante só sobre o número, texto apagado) · "+ R$ 297/mês" em cinza — informa, não concorre.
+  - **Esquerdo (discreto):** tira cinza clara `#E1E1E0` · `VALOR CHEIO` · "Após os 12 co-fundadores" · **R$ 1.500 · setup sem riscado** (v3.3, 01/10 — fundador: o card escuro já faz o contraste; o apagado é só pelo cinza) · "+ R$ 297/mês" em cinza — informa, não concorre.
   - **Direito (destaque):** card grafite profundo opaco com fio menta (contrast snap no claro; mesma linguagem dos cards do slide 4, invertida) · pill `EXCLUSIVO` em menta · `CO-FUNDADOR` · "Apenas 12 parceiros" · **R$ 500 · setup** + **R$ 197/mês** gigantes em menta.
   - **Rodapé com os 3 checks (linha sóbria abaixo dos cards, texto verde sobre o claro):** "R$ 500 na entrega do MVP" · "Mensalidade depois da entrega — dias 5, 15 ou 25" · "Depois das 12 vagas, vale o valor cheio."
 - 🗣️ O valor concedido no 1º ano (**R$ 2.200**) e a comparação com o custo de um funcionário. Lendo o risco: "o valor cheio não é castigo — é o que a consultoria custa quando as 12 vagas acabarem." (Enquadrar como prioridade, não como desconto de liquidação.)
 - ⚠️ Não voltar a "mesmo peso" (D10 de 25/09) sem ordem do fundador — a inversão para destaque-no-fundador foi decisão dele em 01/10. O fundo claro também é decisão do fundador (01/10, v3.2): o deck fecha o bloco de proposta em claro→escuro→claro (custo · diferença Melissa escura · dinheiro claro).
 
-## Slide 13 — A visão
-- 🖥️ `A VISÃO` · "52 empresas em 18 meses." · corpo (2 linhas) · **destaque:** "O foco hoje não é lucro — é **prova social real**." · **fecho:** "O sucesso da sua empresa é a nossa moeda de troca." · **marca de visão (na tela):** site, loja virtual, marketplace, tráfego pago e trilhas **não são entrega do MVP**.
-- 🗣️ Detalhar a visão (dezembro de 2028, integrações futuras) e por que hoje a moeda é o case.
+## Slide 13 — A visão *(redesenhado em 01/10, v3.3 — carta branca do fundador: "mais apoio visual, menos letra")*
+- 🖥️ `A VISÃO` · **"52" GIGANTE em menta** + lead branco "empresas no grupo / até dezembro de 2028" · **linha do tempo pontilhada 2026 (hoje) → dez/2028 (a meta)** — mesma gramática do eixo do slide 11 · **tese (1 linha):** "O foco hoje não é lucro — é **prova social real**." · **marca de visão (na tela, regra inegociável):** rótulo menta `VISÃO, NÃO ENTREGA DO MVP` + **5 chips tracejados com "+" menta**: `Site` `Loja virtual` `Marketplace` `Tráfego pago` `Trilhas`.
+- 🗣️ As frases que saíram da tela (preservadas literalmente): "Chegar em dezembro de 2028 com 52 empresas no grupo." · o número "em 18 meses" · "O sucesso da sua empresa é a nossa moeda de troca." Detalhar a visão (integrações futuras) e por que hoje a moeda é o case.
 
 ## Slide 14 — Encerramento
 - 🖥️ "O primeiro passo é uma conversa." · "Me conta como a sua empresa funciona hoje. A gente escuta, diagnostica e desenha o caminho — mesmo que você queira pensar, a conversa é o ponto de partida." · rodapé institucional
@@ -91,7 +91,7 @@
 - [ ] Cada slide de tela ficou entre **180–260 caracteres**
 - [ ] ~~Slide "Por que a UNIQ existe"~~ removido do deck (v3.1) — história preservada na fala do Slide 2
 - [ ] Slide 12 mantém os **3 checks** (são o que mata a objeção de risco)
-- [ ] Slide 12: risco no valor cheio é **sutil** (cinza, linha fina) — nunca "descontão"
+- [ ] Slide 12: ~~risco no valor cheio sutil~~ → **riscado removido (v3.3, fundador)** — o apagado é só pelo cinza; nunca "descontão"
 - [ ] Slide 13 mantém a **marca de visão** na tela
 - [ ] Melissa da capa antiga foi movida para a **fala dos slides 1–2** (e para a imagem do slide 10)
 - [ ] Nenhuma promessa do que não existe

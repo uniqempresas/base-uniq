@@ -25,6 +25,10 @@
         linhas ("Apagando incêndio / o dia inteiro.") + subtítulo forte;
         slide 12 (Investimento) passa a FUNDO CLARO — cheio em tira cinza
         apagada, fundador grafite profundo com menta, checks ajustados.
+    v3.3 (01/10, fundador): slide 12 sem o riscado no R$ 1.500 (o card
+        escuro já faz o contraste); slide 13 (Visão) redesenhado — 52
+        gigante + linha do tempo 2026→2028 + tese de 1 linha + chips
+        tracejados da marca de visão; parágrafos saíram para a fala.
    Obs.: nomes de classes `sN-*` e comentários internos seguem a numeração
        ANTERIOR (deck de 14) para não quebrar nada; a numeração oficial dos
        slides é a dos comentários de cada <section> abaixo.
@@ -500,13 +504,16 @@ body{
 
 /* ============ SLIDE 12 — INVESTIMENTO (claro: cheio apagado × fundador escuro) ============
    Direção do fundador (01/10): destaque forte no co-fundador, valor cheio
-   apagado com risco elegante — coerência, não "liquidação".
+   apagado — coerência, não "liquidação".
    v3.2 (01/10, fundador): slide passa para FUNDO CLARO (#EFEFEF) — ritmo
    claro/escuro da apresentação; título em verde (linguagem dos títulos
    claros); cheio vira tira cinza (chip) com texto apagado AA; fundador
    fica grafite profundo OPACO com R$ 197 em menta (contrast snap) e
    sombra de projeção — mesma linguagem dos cards brancos do slide 4,
-   invertida para o protagonista. Badge, riscado e checks preservados. */
+   invertida para o protagonista.
+   v3.3 (01/10, fundador): riscado sobre o R$ 1.500 REMOVIDO — o card
+   escuro do fundador já faz o contraste; cheio segue apagado só pelo
+   cinza. Badge EXCLUSIVO e os 3 checks permanecem. */
 .slide.preco .titulo{text-align:center;margin-left:auto;margin-right:auto;font-size:60px;line-height:1.1;max-width:1300px}
 .cards-preco{
   display:flex;gap:40px;align-items:center;margin-top:56px;position:relative;z-index:1;
@@ -532,20 +539,11 @@ body{
 }
 .card-preco.cheio .rotulo{color:var(--verde)}
 .card-preco.cheio .apoio{color:var(--verde);opacity:.85}
-.card-preco.cheio .moeda{vertical-align:baseline;margin-right:6px} /* risco reto, sem quebra sob o "R$" */
+.card-preco.cheio .moeda{vertical-align:baseline;margin-right:6px} /* "R$" assentado na linha do número */
 .card-preco.cheio .mini{color:var(--verde)} /* 22px no apagado exige AA normal — verde sobre o cinza */
 .card-preco.cheio .valor-preco{
   margin-top:26px;font-size:54px;font-weight:700;line-height:1;letter-spacing:-.02em;
   color:var(--muted);
-}
-.card-preco.cheio .risca{
-  /* risco desenhado à mão: o text-decoration quebra em fontes mistas;
-     uma barra absoluta cruza só o número, com elegância de catálogo */
-  position:relative;display:inline-block;padding:0 6px;
-}
-.card-preco.cheio .risca::after{
-  content:"";position:absolute;left:0;right:0;top:52%;height:3px;border-radius:2px;
-  background:rgba(98,114,113,.6);
 }
 .card-preco.cheio .mensal-cheio{margin-top:14px;font-size:32px;font-weight:600;color:var(--muted)}
 /* fundador: grafite profundo opaco — o protagonista, contrast snap no claro */
@@ -585,14 +583,36 @@ body{
   stroke:currentColor;fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;
 }
 
-/* ============ SLIDE 14 — VISÃO ============ */
-.s13-corpo{margin-top:32px;font-size:29px;line-height:1.55;color:var(--corpo-escuro);max-width:1000px}
-.s13-destaque{
-  margin-top:34px;font-size:32px;line-height:1.5;color:var(--corpo-escuro);max-width:1060px;
+/* ============ SLIDE 13 — VISÃO ============
+   v3.3 (01/10, fundador — carta branca): menos texto, mais apoio visual.
+   Na tela só os fatos: 52 GIGANTE + "empresas no grupo até dez/2028" +
+   linha do tempo 2026→2028 (gramática do eixo do slide 11, versão escura)
+   + uma frase de tese + marca de visão em chips tracejados menta.
+   Os parágrafos saíram para a fala (ROTEIRO v3.3).                  */
+.s13 .eyebrow{margin-bottom:10px}
+.s13-hero{display:flex;align-items:center;gap:56px;position:relative;z-index:1;max-width:1200px;margin-bottom:20px}
+.s13-num{
+  flex:none;font-size:300px;font-weight:700;line-height:.85;letter-spacing:-.04em;
+  color:var(--menta);
 }
-.s13-destaque strong{color:var(--menta);font-weight:700}
-.s13 .fecho{padding-bottom:34px}
-/* marca de visão — sem caixa: só um fio no topo, rótulo menta e a lista */
+.s13-lado{display:flex;flex-direction:column;min-width:0}
+.s13-lead{
+  font-size:64px;font-weight:700;line-height:1.06;letter-spacing:-.02em;
+  color:var(--branco);
+}
+/* linha do tempo — mesmo trilho pontilhado do eixo aprovado, sobre o escuro */
+.s13 .eixo{margin:46px 0 0}
+.s13 .eixo::before{border-top-color:rgba(134,203,146,.55)}
+.s13 .eixo-marca{width:auto;text-align:left;align-items:flex-start}
+.s13 .eixo-marca:last-child{align-items:flex-end} /* parada final ancora na ponta do trilho */
+.s13 .eixo-marca b{color:var(--branco)}
+.s13 .eixo-marca i{color:var(--corpo-escuro)}
+.s13 .eixo-marca.atual .ponto{background:var(--menta);box-shadow:0 0 0 5px rgba(134,203,146,.22)}
+.s13 .eixo-marca.atual b{color:var(--menta)}
+.s13 .fecho{margin-top:auto;padding-bottom:0}
+.s13 .fecho strong{color:var(--branco);font-weight:700}
+/* marca de visão — sem caixa: fio no topo, rótulo menta e chips tracejados.
+   Regra do roteiro: ela NÃO pode sumir da tela (promessa do que não existe) */
 .s13-marca{margin-top:auto;padding-top:30px;max-width:1100px;position:relative}
 .s13-marca::before{
   content:"";position:absolute;top:0;left:0;width:120px;height:2px;
@@ -600,9 +620,17 @@ body{
 }
 .s13-marca .rotulo{
   display:block;font-size:17px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;
-  color:var(--menta);margin-bottom:12px;
+  color:var(--menta);margin-bottom:14px;
 }
-.s13-marca .lista{font-size:23px;line-height:1.55;color:var(--corpo-escuro);padding-top:4px}
+.s13-chips{display:flex;flex-wrap:wrap;gap:12px;padding-top:2px}
+.s13-chip{
+  display:inline-flex;align-items:center;gap:9px;
+  font-size:20px;font-weight:600;line-height:1.2;color:var(--corpo-escuro);
+  border:1.5px dashed rgba(134,203,146,.6);border-radius:999px;padding:9px 18px;
+}
+.s13-chip::before{ /* + menta — é o que vem depois, não é entrega agora */
+  content:"+";flex:none;font-weight:700;font-size:19px;line-height:1;color:var(--menta);
+}
 
 /* ============ SLIde 14 — ENCERRAMENTO ============ */
 .s14-conteudo{
@@ -663,7 +691,7 @@ body{
   .slide.ativo{display:flex;animation:none}
   .slide.ativo > *{animation:none}
   .titulo{font-size:40px}
-  .subtitulo,.corpo,.s13-corpo{font-size:22px}
+  .subtitulo,.corpo{font-size:22px}
   .eyebrow{font-size:16px;letter-spacing:.24em;gap:10px}
   .eyebrow::before{width:22px}
   .takeaway,.fecho{font-size:26px}
@@ -751,8 +779,13 @@ body{
   .card-preco .mini{font-size:18px}
   .checks{flex-direction:column;align-items:flex-start;gap:14px;padding-top:28px;margin-top:30px}
   .checks li{font-size:18px}
-  .s13-destaque{font-size:26px}
-  .s13-marca .lista{font-size:20px}
+  /* s13 (visão): o 52 gigante preside; linha do tempo já vira vertical no eixo */
+  .s13-hero{flex-direction:column;align-items:flex-start;gap:14px}
+  .s13-num{font-size:176px}
+  .s13-lado{width:100%}
+  .s13-lead{font-size:40px}
+  .s13 .eixo{margin:32px 0 0}
+  .s13-chip{font-size:18px;padding:8px 14px}
   /* s14: título mantém o maior peso; Melissa abaixo */
   .s14-conteudo{width:100%}
   .s14-titulo{margin-top:56px;font-size:42px}
@@ -1236,14 +1269,14 @@ body{
       <p class="takeaway">O preço de fundador é real — só para os 12 primeiros.</p>
     </section>
 
-    <!-- ============ SLIDE 12 — INVESTIMENTO (tela clara: cheio riscado × fundador escuro) ============ -->
+    <!-- ============ SLIDE 12 — INVESTIMENTO (tela clara: cheio apagado × fundador escuro) ============ -->
     <section class="slide preco" data-od-id="slide-investimento" role="group" aria-label="Slide 12 de 14">
       <h1 class="titulo">Investimento transparente.</h1>
       <div class="cards-preco">
         <div class="card-preco cheio">
           <p class="rotulo">Valor cheio</p>
           <p class="apoio">Após os 12 co-fundadores</p>
-          <p class="valor-preco"><span class="risca"><span class="moeda">R$</span>1.500</span><span class="mini"> · setup</span></p>
+          <p class="valor-preco"><span class="moeda">R$</span>1.500<span class="mini"> · setup</span></p>
           <p class="mensal-cheio">+ R$ 297/mês</p>
         </div>
         <div class="card-preco fundador" data-od-id="card-cofundador">
@@ -1261,16 +1294,29 @@ body{
       </ul>
     </section>
 
-    <!-- ============ SLIDE 14 — A VISÃO ============ -->
+    <!-- ============ SLIDE 13 — A VISÃO (v3.3: 52 gigante + linha do tempo + chips) ============ -->
     <section class="slide escuro s13" data-od-id="slide-visao" role="group" aria-label="Slide 13 de 14">
       <p class="eyebrow">A visão</p>
-      <h1 class="titulo">52 empresas em 18 meses.</h1>
-      <p class="s13-corpo">Chegar em dezembro de 2028 com 52 empresas no grupo.</p>
-      <p class="s13-destaque">O foco hoje não é lucro — é <strong>prova social real</strong>.</p>
-      <p class="fecho">O sucesso da sua empresa é a nossa moeda de troca.</p>
+      <h1 class="s13-hero">
+        <span class="s13-num">52</span>
+        <span class="s13-lado">
+          <span class="s13-lead">empresas no grupo<br>até dezembro de 2028</span>
+          <span class="eixo" role="img" aria-label="Linha do tempo: partida em 2026, agora; chegada em dezembro de 2028, a meta">
+            <span class="eixo-marca atual"><span class="ponto" aria-hidden="true"></span><b>2026</b><i>hoje</i></span>
+            <span class="eixo-marca"><span class="ponto" aria-hidden="true"></span><b>dez/2028</b><i>a meta</i></span>
+          </span>
+        </span>
+      </h1>
+      <p class="fecho">O foco hoje não é lucro — é <strong>prova social real</strong>.</p>
       <div class="s13-marca" data-od-id="marca-visao">
         <span class="rotulo">Visão, não entrega do MVP</span>
-        <p class="lista">Site, loja virtual, marketplace, tráfego pago e trilhas.</p>
+        <div class="s13-chips">
+          <span class="s13-chip">Site</span>
+          <span class="s13-chip">Loja virtual</span>
+          <span class="s13-chip">Marketplace</span>
+          <span class="s13-chip">Tráfego pago</span>
+          <span class="s13-chip">Trilhas</span>
+        </div>
       </div>
     </section>
 
