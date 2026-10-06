@@ -1114,6 +1114,43 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 
 ---
 
+## 🏭 PRODUÇÃO FASE 1 — ficha técnica/BOM no ar (07/10/2026)
+
+**WHY:** custo por unidade apurado é o 2º pilar do pitch ("mostra para onde o dinheiro está saindo"). A ficha técnica é o pré-requisito do fluxo completo. Veredicto da análise: viável integralmente — plano de 4 fases em `tracking/TRACKING_ESTOQUE.md` §🏭.
+
+**SDD:** PRD/SPEC/WIRE Fase 1 (commits `6216db3`) — WIRE **aprovado pelo fundador** ("Aprovadíssimo").
+
+**Documentos:** `tracking/plans/PRD-Producao-BOM-Fase1.md` · `tracking/specs/SPEC-Producao-BOM-Fase1.md` · `tracking/wireframe/WIRE-Producao-Fase1-FichaTecnica.md`
+
+### ✅ Implementado (commit `3db5d5d`) — @fixer (lane `fix-4`)
+
+| Item | Resultado |
+|---|---|
+| Banco (aplicado e provado via MCP) | `me_produto.natureza` (default 'simples' — 26 produtos existentes válidos) · tabela `est_ficha_tecnica` (auto-ref bloqueada, `UNIQUE (pai, componente)`) · RPC `salvar_ficha_tecnica` (SECURITY DEFINER, snapshot atômico) — **4 caminhos provados em produção**: grava 2 itens ✅, linhas corretas ✅, lista vazia apaga ✅, guarda anti-tenant bloqueia ❌→400 ✅ |
+| Front (@fixer) | `types/producao.ts` · `natureza` mapeada nos 4 hooks de produto · hook `use-ficha-tecnica.ts` (leitura com embed + escrita exclusiva via RPC) · rádio Natureza no cadastro + step condicional "Ficha Técnica" (busca client-side de componentes, qtd/perda, salvar/desfazer) · chip na lista (Simples sem chip) · aba "Ficha Técnica" no detalhe · insumo força `exibir_vitrine=false` em 2 camadas |
+| RLS | `est_ficha_tecnica` **desligada** (pg_class verificado — padrão do projeto; anotado no P5) |
+| Verificação | `tsc` 0 erros · `npm run build` OK · deploy verificado por marcador servido |
+
+### 🔧 Ajustes de operação real (fundador recadastrando os insumos)
+
+- **Unidades no dropdown confusionaram** → `acfd1ff`: adicionadas **Unidade**, **g** e **ml** às opções do modal (tinha só "Peça/Par/Kit/Kg..."). Recomendação registrada: o que se **pesa** → `g`; o que se **conta** → `un` (evita frações nas fichas — spec do livro-razão T1). Fundador vai re-registrar leite condensado e creme de leite em g.
+- **🐞 Modal de produto compostо fechava/piscava no cadastro** → `a578ae1`, 3 frentes: (1) dropdown de insumo não fecha mais antes de inserir o componente em *touch* (`onPointerDown` + blur só quando o foco sai do bloco); (2) **causa raiz da pisca:** `AuthContext` recriava o objeto `empresa` a cada `TOKEN_REFRESHED` do Supabase → refetch global → desmontava o modal no meio da digitação; agora o evento é ignorado (renovação de token é transparente); (3) modais movidos para fora do gate `!loading` em `ProdutosPage` (só o skeleton da 1ª carga pisca).
+
+### 📌 Estado da operação Doceê (07/10/2026)
+
+- Reset completo do banco da Doceê (backup `_bk_20261007_*` — ver seção 🧹 acima); fundador **recadastrando do zero**.
+- **Insumos cadastrados (verificado no banco):** Barra Chocolate (Kg, custo 105) · Cone (Peça, 0,65) · Leite Condensado (Peça, 9) · Creme de Leite (Peça, 2,5) · Limão (Peça, 1) — todos `natureza='insumo'`, `exibir_vitrine=false` automáticos ✅
+- **Próximo da fila:**
+
+| # | Ação | Gatilho |
+|---|---|---|
+| 1 | Fundador cadastra o **composto** (Cone Trufado de Limão) com ficha técnica da referência (choc 20g + leite cond 15g + creme 8g + limão) | Agora — teste da Fase 1 |
+| 2 | **Fase 2:** Compras (`est_compra` já existe ociosa) → conversão de embalagem → **custo médio ponderado** → compra cria conta a pagar | Após ficha completa |
+| 3 | **Fase 3:** OP transacional (baixa insumos + entrada do acabado com custo apurado) | Após Fase 2 |
+| 4 | **Fase 4:** venda grava CMV no ledger + DRE lê custo exato (fecha B12) | Após Fase 3 |
+
+---
+
 ## ➕ PENDÊNCIAS QUE DEPENDEM DO FUNDADOR
 
 | # | Item | Necessário antes de | Observação |
