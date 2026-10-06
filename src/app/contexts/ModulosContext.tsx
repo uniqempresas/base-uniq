@@ -9,6 +9,7 @@ import {
 const AGENDA_INCLUSA_MIGRATION_KEY = 'uniq-agenda-inclusa-v1';
 const LOJA_VIRTUAL_ATIVA_MIGRATION_KEY = 'uniq-loja-virtual-ativa-v1';
 const CHATBOT_CORE_MIGRATION_KEY = 'uniq-chatbot-core-v1';
+const ESTOQUE_CORE_MIGRATION_KEY = 'uniq-estoque-core-v1';
 
 type ModulosContextValue = {
   modulos: Modulo[];
@@ -78,6 +79,20 @@ function carregarModulos(): Modulo[] {
         ? { ...modulo, status: 'core' as ModuloStatus, dataRenovacao: undefined }
         : modulo);
       localStorage.setItem(CHATBOT_CORE_MIGRATION_KEY, 'true');
+    }
+
+    // Estoque como módulo BASE (06/10/2026): o catálogo o marca como 'core', mas
+    // quem já usava o app tem o status antigo ('trial' com dataTrialFim vencida —
+    // 28/04/2026, ou 'nao_adquirido') salvo no localStorage, e o merge acima dá
+    // prioridade ao valor salvo. Sem esta migração, o item "Cadastros ▸ Produtos"
+    // some da subnav e o módulo aparece vencido em "Meus Módulos".
+    // 'cancelado' NÃO é ressuscitado (regra do projeto: cancelamento é definitivo).
+    if (!localStorage.getItem(ESTOQUE_CORE_MIGRATION_KEY)) {
+      resultado = resultado.map((modulo) => modulo.codigo === 'estoque'
+        && (modulo.status === 'trial' || modulo.status === 'nao_adquirido')
+        ? { ...modulo, status: 'core' as ModuloStatus, dataTrialFim: undefined }
+        : modulo);
+      localStorage.setItem(ESTOQUE_CORE_MIGRATION_KEY, 'true');
     }
 
     return resultado;
