@@ -7,6 +7,7 @@ import {
   type EstoqueStatus,
   type ProdutoStatus,
 } from "../components/estoque/estoqueMockData";
+import type { NaturezaProduto } from "../types/producao";
 
 interface DBProduto {
   id: number;
@@ -28,8 +29,18 @@ interface DBProduto {
   foto_url: string | null;
   opcoes_config: unknown;
   exibir_vitrine: boolean | null;
+  /** Produção F1: eixo simples/composto/insumo (NÃO confundir com `tipo`, legado) */
+  natureza: string | null;
   /** Embed do PostgREST: me_produto.categoria_id → me_categoria */
   me_categoria: { id_categoria: number; nome_categoria: string | null; cor: string | null } | null;
+}
+
+/**
+ * Domínio real da coluna (CHECK 'simples'|'composto'|'insumo') com default
+ * 'simples' para linha/embed sem o campo — SPEC-Producao-BOM-Fase1 §3/§4.
+ */
+function normalizarNatureza(valor: string | null | undefined): NaturezaProduto {
+  return valor === "composto" || valor === "insumo" ? valor : "simples";
 }
 
 function calcEstoqueStatus(estoque: number, estoqueMinimo: number): EstoqueStatus {
@@ -68,6 +79,8 @@ function mapProduto(db: DBProduto): Produto {
     status: (db.ativo ? "ativo" : "inativo") as ProdutoStatus,
     // exibir_vitrine — toggle "Mostrar na vitrine" (SPEC §2.3)
     exibirVitrine: db.exibir_vitrine ?? false,
+    // natureza — eixo de produção (SPEC-Producao-BOM-Fase1 §4); ausente = 'simples'
+    natureza: normalizarNatureza(db.natureza),
     estoqueStatus: calcEstoqueStatus(estoque, estoqueMinimo),
     possuiVariacoes: false,
     descricaoCurta: db.descricao || undefined,
@@ -122,6 +135,8 @@ export function useProdutos(): UseProdutosReturn {
     try {
       const { data: dbProdutos, error: produtosError } = await supabase
         .from("me_produto")
+        // O wildcard `*` já cobre a coluna nova `natureza` (Produção F1 §4);
+        // o embed de categoria continua explícito.
         .select("*, me_categoria(id_categoria, nome_categoria, cor)")
         .eq("ativo", true)
         .eq("empresa_id", empresaId)

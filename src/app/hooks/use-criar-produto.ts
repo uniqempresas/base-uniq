@@ -1,6 +1,16 @@
+/**
+ * Escrita de produto (criar/atualizar) — Produção F1 (SPEC-Producao-BOM-Fase1 §4).
+ *
+ * `me_produto.natureza` é o eixo de produção (simples/composto/insumo); o legado
+ * `me_produto.tipo` (variações) continua intocado — PRD D5.
+ *
+ * Regra da vitrine (SPEC §6.3): `insumo` NUNCA aparece na vitrine — o payload
+ * força `exibir_vitrine: false` independentemente do que vier da UI.
+ */
 import { useState, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import type { NaturezaProduto } from "../types/producao";
 
 export interface CriarProdutoParams {
   nome: string;
@@ -21,6 +31,8 @@ export interface CriarProdutoParams {
   precoPromocional?: number | null;
   /** `me_produto.unidade` — coluna aditiva (SPEC §2.5) */
   unidade?: string | null;
+  /** `me_produto.natureza` — default 'simples' quando omitido (Produção F1) */
+  natureza?: NaturezaProduto;
 }
 
 export interface CriarProdutoResult {
@@ -47,6 +59,8 @@ export function useCriarProduto() {
           throw new Error("Empresa não identificada para este usuário. Recarregue a página ou faça login novamente.");
         }
 
+        const natureza: NaturezaProduto = params.natureza ?? "simples";
+
         const { data: novoProduto, error: produtoError } = await supabase
           .from("me_produto")
           .insert({
@@ -58,6 +72,8 @@ export function useCriarProduto() {
             // nome de categoria aqui. Categoria vai em `categoria_id`.
             categoria_id: params.categoriaId ?? null,
             tipo: "Outros",
+            // Produção F1: eixo de produção (coluna nova, default 'simples' no banco)
+            natureza,
             preco: params.precoVenda,
             preco_custo: params.precoCusto || 0,
             estoque_atual: params.estoque || 0,
@@ -66,7 +82,8 @@ export function useCriarProduto() {
             foto_url: params.fotoUrl || null,
             opcoes_config: params.tags?.length ? params.tags : [],
             ativo: true,
-            exibir_vitrine: params.exibirVitrine ?? true,
+            // Insumo é matéria-prima: nunca vende, nunca vitrine (SPEC §6.3 — força off)
+            exibir_vitrine: natureza === "insumo" ? false : params.exibirVitrine ?? true,
             preco_varejo: params.precoPromocional ?? null,
             unidade: params.unidade ?? null,
           })

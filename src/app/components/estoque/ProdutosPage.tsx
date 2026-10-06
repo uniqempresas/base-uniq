@@ -31,6 +31,7 @@ import { useProdutos } from "../../hooks/use-produtos";
 import { useAtualizarProduto } from "../../hooks/use-atualizar-produto";
 import { getTagPalette } from "../../hooks/use-tags";
 import { useCategorias } from "../../hooks/use-categorias";
+import { NATUREZA_LABELS, type NaturezaProduto } from "../../types/producao";
 import { ProdutoFormModal } from "../produto/ProdutoFormModal";
 
 /**
@@ -79,6 +80,27 @@ function MargemChip({ pct }: { pct: number }) {
       }}
     >
       {pct}% margem
+    </span>
+  );
+}
+
+/**
+ * Chip da natureza do produto (Produção F1 — WIRE §3).
+ * Simples NÃO ganha chip (é a maioria — não polui a lista). Cores da paleta já
+ * usada no módulo (mesma combinação do banner `bg-amber-50/border-amber-200/
+ * text-amber-700` desta tela e do `blue-*` do EstoqueDashboard).
+ */
+function NaturezaChip({ natureza }: { natureza?: NaturezaProduto }) {
+  if (!natureza || natureza === "simples") return null;
+  const composto = natureza === "composto";
+  return (
+    <span
+      className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] border shrink-0 ${
+        composto ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-amber-50 border-amber-200 text-amber-700"
+      }`}
+      style={{ fontWeight: 600 }}
+    >
+      {NATUREZA_LABELS[natureza]}
     </span>
   );
 }
@@ -184,12 +206,15 @@ function ProdutoGridCard({ produto, onClick, onDelete, onEdit, onDuplicate }: { 
             </p>
             <p className="text-[#627271] text-[11px] mt-0.5 truncate">{produto.sku}</p>
           </div>
-          <span
-            className="text-[10px] px-1.5 py-0.5 rounded-md shrink-0"
-            style={{ background: catColors.bg, color: catColors.text, fontWeight: 600 }}
-          >
-            {produto.categoria}
-          </span>
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            <NaturezaChip natureza={produto.natureza} />
+            <span
+              className="text-[10px] px-1.5 py-0.5 rounded-md"
+              style={{ background: catColors.bg, color: catColors.text, fontWeight: 600 }}
+            >
+              {produto.categoria}
+            </span>
+          </div>
         </div>
 
         {/* Preço × margem */}
@@ -680,7 +705,10 @@ export function ProdutosPage() {
                             <Package size={16} style={{ color: catColors.text }} />
                           </div>
                           <div>
-                            <p className="text-[#1f2937] text-sm whitespace-nowrap" style={{ fontWeight: 600 }}>{p.nome}</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-[#1f2937] text-sm whitespace-nowrap" style={{ fontWeight: 600 }}>{p.nome}</p>
+                              <NaturezaChip natureza={p.natureza} />
+                            </div>
                             {p.possuiVariacoes && <p className="text-[#627271] text-[10px]">{p.variacoes?.length} variações</p>}
                           </div>
                         </div>

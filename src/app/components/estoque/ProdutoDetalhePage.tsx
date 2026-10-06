@@ -25,6 +25,7 @@ import {
   Barcode,
   ShoppingBag,
   RefreshCw,
+  ClipboardList,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -36,6 +37,7 @@ import {
 } from "./estoqueMockData";
 import { useProduto } from "../../hooks/use-produto";
 import { useMovimentacoes } from "../../hooks/use-movimentacoes";
+import { useFichaTecnica } from "../../hooks/use-ficha-tecnica";
 import { formatarDataMovimentacao } from "../../lib/estoque-utils";
 import { getTagPalette } from "../../hooks/use-tags";
 import { ProdutoFormModal } from "../produto/ProdutoFormModal";
@@ -52,7 +54,7 @@ function corCategoria(cor?: string | null, nome?: string) {
   return CATEGORIA_COLORS[nome || ""] || CATEGORIA_COLORS["Outros"];
 }
 
-type TabType = "geral" | "estoque" | "variacoes" | "movimentacoes";
+type TabType = "geral" | "estoque" | "variacoes" | "movimentacoes" | "ficha";
 
 export function ProdutoDetalhePage() {
   const { id } = useParams();
@@ -74,6 +76,17 @@ export function ProdutoDetalhePage() {
     error: movError,
     recarregar: recarregarMov,
   } = useMovimentacoes({ produtoId: id });
+
+  // Produção F1 (SPEC §7): leitura da ficha técnica do pai. O hook roda SEMPRE
+  // (rules-of-hooks) — para produto que não é composto passamos `undefined`,
+  // que resolve para lista vazia sem consultar o banco.
+  const ehComposto = produto?.natureza === "composto";
+  const {
+    itens: itensDaFicha,
+    loading: fichaLoading,
+    error: fichaError,
+    recarregar: recarregarFicha,
+  } = useFichaTecnica(ehComposto ? produto?.id : undefined);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -144,6 +157,10 @@ export function ProdutoDetalhePage() {
   const TABS: TabItem[] = [
     { id: "geral", label: "Geral", icon: Package },
     { id: "estoque", label: "Estoque", icon: BarChart2 },
+    // Produção F1 (WIRE §4): aba só para composto — menos atrito na tela atual
+    ...(ehComposto
+      ? [{ id: "ficha", label: "Ficha Técnica", icon: ClipboardList, badge: itensDaFicha.length }]
+      : []),
     ...(produto.possuiVariacoes ? [{ id: "variacoes", label: "Variações", icon: Layers }] : []),
     { id: "movimentacoes", label: "Movimentações", icon: RefreshCw, badge: movimentacoes.length },
   ];
@@ -567,6 +584,97 @@ export function ProdutoDetalhePage() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* FICHA TÉCNICA (Produção F1 — WIRE §4): somente leitura, sem custo nesta fase */}
+        {activeTab === "ficha" && ehComposto && (
+          <div>
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h3 className="text-[#1f2937] text-sm" style={{ fontWeight: 600 }}>Ficha Técnica</h3>
+                <p className="text-[#627271] text-xs">
+                  {itensDaFicha.length} componente{itensDaFicha.length === 1 ? "" : "s"} · quantidade por 1 unidade produzida
+                </p>
+              </div>
+              <button
+                onClick={() => setProdutoParaEditar(produto)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#efefef] text-[#1f2937] text-xs hover:bg-[#efefef] transition-colors"
+                style={{ fontWeight: 500 }}
+              >
+                <Edit2 size={13} />
+                Editar ficha
+              </button>
+            </div>
+
+            {fichaError ? (
+              <div className="bg-white rounded-2xl border border-red-200 shadow-sm p-12 text-center">
+                <AlertTriangle size={32} className="text-red-500 mx-auto mb-3" />
+                <h3 className="text-[#1f2937] mb-2" style={{ fontWeight: 600 }}>Não foi possível carregar a ficha técnica</h3>
+                <p className="text-[#627271] text-sm mb-6">{fichaError}</p>
+                <button
+                  onClick={recarregarFicha}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[#1f2937] text-sm"
+                  style={{ background: "#86cb92", fontWeight: 600 }}
+                >
+                  <RefreshCw size={15} />
+                  Tentar novamente
+                </button>
+              </div>
+            ) : fichaLoading ? (
+              <div className="bg-white rounded-2xl border border-[#efefef] shadow-sm p-5 space-y-2">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="h-12 rounded-xl bg-[#efefef] animate-pulse" />
+                ))}
+              </div>
+            ) : itensDaFicha.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-[#efefef] shadow-sm p-12 text-center">
+                <Package size={32} className="text-[#627271] mx-auto mb-3" />
+                <h3 className="text-[#1f2937] mb-2" style={{ fontWeight: 600 }}>Nenhum componente na ficha</h3>
+                <p className="text-[#627271] text-sm mb-6">Abra o cadastro do produto para montar a ficha técnica.</p>
+                <button
+                  onClick={() => setProdutoParaEditar(produto)}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[#1f2937] text-sm"
+                  style={{ background: "#86cb92", fontWeight: 600 }}
+                >
+                  <Edit2 size={15} />
+                  Montar ficha técnica
+                </button>
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-[#efefef] shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-[#efefef] border-b border-[#efefef]">
+                        {["Componente", "Unidade", "Qtd. por unidade", "Perda"].map((h) => (
+                          <th key={h} className="px-4 py-3 text-left text-[#627271] text-xs whitespace-nowrap" style={{ fontWeight: 600 }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {itensDaFicha.map((item) => (
+                        <tr key={item.id} className="border-b border-[#efefef] last:border-b-0">
+                          <td className="px-4 py-3">
+                            <p className="text-[#1f2937] text-sm" style={{ fontWeight: 600 }}>{item.componenteNome}</p>
+                            <p className="text-[#627271] text-[11px] font-mono">{item.componenteSku || "sem SKU"}</p>
+                          </td>
+                          <td className="px-4 py-3 text-[#627271] text-xs">{item.componenteUnidade}</td>
+                          <td className="px-4 py-3">
+                            <span className="text-[#1f2937] text-sm" style={{ fontWeight: 700 }}>
+                              {item.quantidadePorUnidade} {item.componenteUnidade}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-[#1f2937] text-xs" style={{ fontWeight: 500 }}>
+                            {item.perdaPct}%
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

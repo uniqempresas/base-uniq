@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import type { NaturezaProduto } from "../types/producao";
 
 export interface AtualizarProdutoParams {
   id: number;
@@ -23,6 +24,11 @@ export interface AtualizarProdutoParams {
   precoPromocional?: number | null;
   /** `me_produto.unidade` — coluna aditiva (SPEC §2.5) */
   unidade?: string | null;
+  /**
+   * `me_produto.natureza` — eixo de produção (Produção F1). Sempre gravado pelo
+   * modal (default `'simples'`); omitido = coluna intocada.
+   */
+  natureza?: NaturezaProduto;
 }
 
 export interface AtualizarProdutoResult {
@@ -68,6 +74,11 @@ export function useAtualizarProduto() {
         if (campos.exibirVitrine !== undefined) updateData.exibir_vitrine = campos.exibirVitrine;
         if (campos.precoPromocional !== undefined) updateData.preco_varejo = campos.precoPromocional;
         if (campos.unidade !== undefined) updateData.unidade = campos.unidade;
+        // Produção F1: eixo de produção — o legado `tipo` (variações) não é tocado (PRD D5).
+        if (campos.natureza !== undefined) updateData.natureza = campos.natureza;
+        // Insumo = matéria-prima, nunca vitrine (SPEC §6.3). Depois do mapeamento de
+        // exibir_vitrine para valer sobre o que veio da UI.
+        if (campos.natureza === "insumo") updateData.exibir_vitrine = false;
 
         const { error: updateError } = await supabase
           .from("me_produto")

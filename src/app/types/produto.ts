@@ -4,6 +4,8 @@
  * contrato único; os mocks re-exportam daqui.
  */
 
+import type { NaturezaProduto } from "./producao";
+
 export type EstoqueStatus = "ok" | "baixo" | "zerado";
 export type ProdutoStatus = "ativo" | "inativo" | "rascunho";
 
@@ -49,4 +51,10 @@ export interface Produto {
   tags?: string[]; // nomes das tags (persistido em me_produto.opcoes_config)
   /** `me_produto.exibir_vitrine` — exposição nova (SPEC §2.3 / lane A) */
   exibirVitrine?: boolean;
+  /**
+   * `me_produto.natureza` — eixo de produção (Simples/Composto/Insumo).
+   * Opcional no tipo porque o mock antigo não tem o campo; o mapper resolve
+   * o ausente como `'simples'` (SPEC-Producao-BOM-Fase1 §3).
+   */
+  natureza?: NaturezaProduto;
 }
