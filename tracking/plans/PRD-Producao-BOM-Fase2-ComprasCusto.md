@@ -21,6 +21,7 @@ A ficha técnica (Fase 1) diz **quanto de cada insumo** gasta 1 doce — mas fal
 | D8 | **Uma conta por compra:** ao receber, nasce 1 `me_contas_pagar` vinculada (coluna nova `compra_id`), categoria matéria-prima/insumo quando existir, status `pendente`, vencimento escolhido no ato. |
 | D9 | **Custo = média ponderada móvel** aplicada no recebimento: `custo_novo = (estoque_atual × custo_atual + qtd_entrada × valor_unit_entrada) ÷ (estoque_atual + qtd_entrada)`, gravado em `me_produto.preco_custo` do insumo. |
 | D10 | Compras usam **fornecedor real** (`me_fornecedor` — já existe; a tela de compra busca/seleciona). |
+| D11 | Nova Compra com **3 modos de recebimento** (emenda da aprovação do WIRE): *Já recebi agora* (grava e recebe na hora — estoque/custo/conta na sequência), *Agendar* (`data_prevista` exibida), *Só registrar*. |
 
 ## 3. Escopo da Fase 2
 

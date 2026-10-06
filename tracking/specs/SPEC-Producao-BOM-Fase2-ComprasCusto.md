@@ -2,6 +2,12 @@
 
 **Data:** 06/10/2026 · **PRD:** `tracking/plans/PRD-Producao-BOM-Fase2-ComprasCusto.md` · **WIRE:** `tracking/wireframe/WIRE-Producao-Fase2-Compras.md`
 
+> **APROVAÇÃO:** WIRE v1.1 aprovado pelo fundador em 06/10/2026, com emenda **D11** no modal
+> "Nova Compra": 3 modos — (a) *Já recebi agora* (cria a compra e imediatamente chama
+> `receber_compra` com data de recebimento = hoje e vencimento da conta informado);
+> (b) *Agendar* (grava `data_prevista`, compra nasce PENDENTE e a data aparece na
+> lista/card); (c) *Só registrar* (padrão `PENDENTE` puro).
+
 ---
 
 ## 1. Fonte da verdade — o que foi verificado no banco/código (06/10/2026, MCP + recon)
@@ -34,6 +40,10 @@ ALTER TABLE me_produto
 ALTER TABLE me_contas_pagar
   ADD COLUMN IF NOT EXISTS compra_id uuid REFERENCES est_compra(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_contas_pagar_compra ON me_contas_pagar (compra_id);
+
+-- Emenda D11 (WIRE v1.1): data prevista de recebimento (compra agendada)
+ALTER TABLE est_compra
+  ADD COLUMN IF NOT EXISTS data_prevista date;
 
 -- Integridade da compra
 CREATE INDEX IF NOT EXISTS idx_est_compra_empresa_status ON est_compra (empresa_id, status);
@@ -111,7 +121,7 @@ export interface Movimentacao {
 | Hook | Contrato |
 |---|---|
 | `use-compras.ts` (NOVO) | Leitura: `est_compra` select com embed `me_fornecedor(nome_fornecedor)` e `est_compra_item(produto_id, quantidade, valor_unitario, me_produto(nome_produto, sku, unidade, unidade_compra, fator_conversao))`, `.eq("empresa_id")`, order `data_compra desc`. Sessão → mock vazio + `isFallback` (compras é funcionalidade nova — sem mock, disciplina da ficha) |
-| `use-criar-compra.ts` (NOVO) | INSERT pai + itens client-side em 2 passos (pegar id do pai → inserir itens). `status:'PENDENTE'`, `valor_total` somado no cliente com revalidação server-side pela RPC no receber. Recusa: fornecedor obrigatório · 1+ itens · quantidade > 0 · valor ≥ 0 |
+| `use-criar-compra.ts` (NOVO) | INSERT pai + itens client-side em 2 passos (pegar id do pai → inserir itens). `status:'PENDENTE'`, `valor_total` somado no cliente com revalidação server-side pela RPC no receber. Grava `data_prevista` quando agendada (D11). Recusa: fornecedor obrigatório · 1+ itens · quantidade > 0 · valor ≥ 0 · `unidade_compra` exige `fator_conversao` |
 | `use-receber-compra.ts` (NOVO) | Chama RPC `receber_compra`; mapa de SQLSTATE (23503/23514/42501/P0001) igual `use-ficha-tecnica.ts:50-64` |
 | `use-cancelar-compra.ts` (NOVO) | UPDATE `status='CANCELADO'` permitido só de PENDENTE e com `.eq("empresa_id")` |
 | `use-atualizar-produto.ts` | Payload estendido: grava `unidade_compra`/`fator_conversao` (sempre — null limpa) |
@@ -131,10 +141,11 @@ export interface Movimentacao {
 - **KPIs:** Em aberto (conta $ pendente) · Recebido no mês · Itens faltantes (relação estoque_atual × estoque_minimo — derrota simples para "o que comprar").
 - **Lista de compras desktop em TABELA** (desktop) / lista de cards (mobile BREAK de bottom-sheet — idem ContasPagarPage):
   - colunas: Data de compra · Fornecedor · NF · Valor · Itens-n · Status badge (`PENDENTE` âmbar · `RECEBIDO` está · `CANCELADO` vaz ) · ações (Receber / Cancelar / Detalhe).
-- **Nova compra:** formulário de modal, 2 seções:
-  a. **Fornecedor:** select obrigatório com busca por `useSuppliers` (existe padrão em fornecedores) — nenhum fornecedor cadastrado → bloqueio suave com CTA para ` modulação forncedores`.
-  b. **Itens:** adiciona insumos (`natureza='insumo'`, mesma busca client-side da ficha técnica — `useProdutos()` filtrado); linha exposta "comprar X kg a R50" × mesmo dropdown inverso ao WIRE. Sistema explica conversão visível por linha ("= 2.000 g ao estoque"). Valorização em tempo real no rodapé do form.
-- **Receber compra:** modal com data de recebimento (default hoje) **+ data de vencimento da conta** (default 2 dias +30) — dispara RPC; toast um: "Compra recebida — estoque +X → custo médio R$ y · Conta a pagar profissional criada".
+- **Nova compra:** formulário de modal, 2 seções (WIRE v1.1 — emenda D11):
+  a. **Fornecedor:** select obrigatório com busca — nenhum fornecedor cadastrado → bloqueio suave com CTA para módulo fornecedores.
+  b. **Itens:** adiciona insumos (`natureza='insumo'`, mesma busca client-side da ficha técnica — `useProdutos()` filtrado); linha mostra a conversão em tempo real ("2 kg = 2.000 g ao estoque"); total no rodapé.
+  c. **Quando recebe?** (radios): *Agora* (grava compra → chama `receber_compra` na sequência: data de hoje + vencimento informado = compra já nasce RECEBIDO, com toast do custo médio) · *Agendar* (grava `data_prevista`; compra nasce PENDENTE com a data exibida na lista) · *Só registrar* (padrão).
+- **Receber compra:** modal com data de recebimento (default hoje) **+ data de vencimento da conta** (default hoje +30) — dispara RPC; toast único: "Compra recebida — estoque +X · custo médio R$ y · conta a pagar criada".
 - **Bottom-sheet mobile** (reus产值 `components.tsx` do Financeiro: `BottomSheet`, `campoFormSheet`, `SheetActions`).
 
 ### 5.3 Navegação

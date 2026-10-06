@@ -1,8 +1,7 @@
 # WIRE — Produção Fase 2: Compras + Custo Médio + Conta a Pagar
 
-**Versão:** 1.0
-**Data:** 06/10/2026
-**Status:** Em revisão — aguardando aprovação do fundador (GitHub)
+**Versão:** 1.1 (aprovada pelo fundador 06/10/2026 com emenda D11)
+**Status:** PRONTO PARA IMPLEMENTAÇÃO
 **Telas:** `/estoque/compras` (nova) · `/estoque/produtos/[novo/editar insumo]` (extensão do modal existente)
 **Referências:** `tracking/plans/PRD-Producao-BOM-Fase2-ComprasCusto.md` · `tracking/specs/SPEC-Producao-BOM-Fase2-ComprasCusto.md`
 
@@ -90,11 +89,20 @@ Não criamos rota nova além de `/estoque/compras`. Modais não têm rota.
 │ └────────────────────────────────────────┘ │
 │ [+ Adicionar outro insumo]                 │
 │ ─────────────────────────────────────────  │
+│ Quando recebe?                             │
+│ ( ) Agora — já recebi esta compra *        │
+│     └ Data receb. [06/10] · Venc. conta    │
+│       [05/11/2026]                         │
+│ (•) Agendar — prevista para [08/10/2026]   │
+│ ( ) Só registrar                           │
+│ ─────────────────────────────────────────  │
 │ TOTAL: R$ 50,00                            │
-│ [   Salvar compra (pendente)   ]           │
+│ [          Salvar compra       ]           │
+│ (+ = recebe: estoque+custo+conta a pagar)  │
 └────────────────────────────────────────────┘
 ```
-Toast de sucesso: "Compra registrada — aguardando recebimento".
+Toast de sucesso: "Compra registrada — aguardando recebimento" / No modo "Agora": "Compra
+recebida — estoque +X · custo médio R$ y · conta a pagar criada".
 
 ### 2.4 Modal "Receber compra"
 
