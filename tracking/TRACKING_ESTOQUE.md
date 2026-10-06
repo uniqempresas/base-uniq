@@ -137,7 +137,7 @@
 | P5 | Semiacabado = **composto aninhado** (composto que serve de componente) — sem enum próprio |
 
 **Cronograma de fases (MVPs sequenciais, cada um com PRD/SPEC/WIRE próprio):**
-1. **Fase 1 (em SDD):** `natureza` no cadastro + ficha técnica/BOM (estrutura) — **sem custo**.
+1. **Fase 1 — ✅ IMPLEMENTADA (07/10/2026, commit `3db5d5d`, deploy verificado por marcador):** WIRE aprovado pelo fundador ("Aprovadíssimo"). Entregue: `me_produto.natureza` (default 'simples' — 26 produtos existentes válidos, verificado por query), tabela `est_ficha_tecnica` com guardas (auto-ref bloqueada, `UNIQUE (pai, componente)`), RPC `salvar_ficha_tecnica` (SECURITY DEFINER, snapshot atômico, lista vazia apaga — **4 caminhos provados em produção**), rádio Natureza no cadastro + step condicional "Ficha Técnica" com busca de componentes, chip na lista (Simples sem chip), aba "Ficha Técnica" no detalhe, insumo força `exibir_vitrine=false` em 2 camadas. RLS de `est_ficha_tecnica`: **desligada** (padrão do projeto — anotar no P5). `tsc` 0 · build OK. **Falta: validação do fundador no celular (ficha da Trufa de Maracujá).**
 2. **Fase 2 — Custo entra:** Compras (`est_compra` + tela) com conversão de embalagem → custo médio móvel → compra cria **conta a pagar** automática.
 3. **Fase 3 — Produção:** Ordem de Produção transacional (baixa insumos + entrada do acabado com custo apurado) — piloto na Trufa de Maracujá da ficha de referência.
 4. **Fase 4 — Ciclo fechado:** venda grava CMV no ledger + DRE lê custo exato (aposenta a heurística de categorias — B12 fecha junto).
