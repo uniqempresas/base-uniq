@@ -20,7 +20,6 @@ import {
   AlertTriangle,
   XCircle,
   Plus,
-  X,
   Loader2,
   MoreVertical,
   Barcode,
@@ -29,7 +28,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import {
-  MOVIMENTACOES,
   CATEGORIA_COLORS,
   formatCurrency,
   calcMargem,
@@ -37,10 +35,12 @@ import {
   type Produto,
 } from "./estoqueMockData";
 import { useProduto } from "../../hooks/use-produto";
-import { useAtualizarProduto } from "../../hooks/use-atualizar-produto";
+import { useMovimentacoes } from "../../hooks/use-movimentacoes";
+import { formatarDataMovimentacao } from "../../lib/estoque-utils";
 import { getTagPalette } from "../../hooks/use-tags";
 import { ProdutoFormModal } from "../produto/ProdutoFormModal";
 import { useCategorias } from "../../hooks/use-categorias";
+import { AjustarEstoqueModal } from "./AjustarEstoqueModal";
 
 /**
  * Cor do chip de categoria de um produto.
@@ -51,196 +51,8 @@ function corCategoria(cor?: string | null, nome?: string) {
   if (cor) return getTagPalette(cor);
   return CATEGORIA_COLORS[nome || ""] || CATEGORIA_COLORS["Outros"];
 }
-import { useAuth } from "../../contexts/AuthContext";
-import { supabase } from "../../../lib/supabase";
 
 type TabType = "geral" | "estoque" | "variacoes" | "movimentacoes";
-
-/* ── Ajustar Estoque Modal ── */
-function AjustarEstoqueModal({
-  produto,
-  onClose,
-  onSuccess,
-}: {
-  produto: Produto;
-  onClose: () => void;
-  onSuccess: () => void;
-}) {
-  const [tipo, setTipo] = useState<"entrada" | "saida">("entrada");
-  const [quantidade, setQuantidade] = useState("");
-  const [motivo, setMotivo] = useState("");
-  const [obs, setObs] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
-
-  const { empresa, perfil } = useAuth();
-  const { atualizarProduto } = useAtualizarProduto();
-
-  const motivosEntrada = ["Compra", "Devolução", "Ajuste", "Produção", "Inventário", "Outro"];
-  const motivosSaida = ["Venda", "Ajuste", "Perda", "Quebra", "Doação", "Outro"];
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErro(null);
-
-    const qtd = Number(quantidade);
-    if (!qtd || qtd <= 0) {
-      setErro("Informe uma quantidade válida (maior que zero).");
-      return;
-    }
-    if (!motivo) {
-      setErro("Selecione um motivo para a movimentação.");
-      return;
-    }
-    if (tipo === "saida" && qtd > (produto.estoque || 0)) {
-      setErro(`Quantidade maior que o estoque disponível (${produto.estoque} ${produto.unidade}).`);
-      return;
-    }
-
-    // Sem tenant autenticado, não gravar em tenant errado (mesmo critério do hook).
-    const empresaId = empresa?.id;
-    if (!empresaId) {
-      setErro("Empresa não identificada para este usuário. Recarregue a página ou faça login novamente.");
-      return;
-    }
-
-    // me_produto.estoque_atual é VALOR ABSOLUTO (não delta) — calcula o novo total.
-    const estoqueAtual = produto.estoque || 0;
-    const novoEstoque = tipo === "entrada" ? estoqueAtual + qtd : estoqueAtual - qtd;
-
-    setLoading(true);
-    try {
-      // Ordem escolhida: UPDATE (me_produto) primeiro, INSERT (est_movimentacao) depois.
-      // Estoque é a fonte da verdade do negócio: se o histórico falhar, o estoque segue
-      // consistente e avisamos o usuário. Se fosse o contrário, teríamos um registro de
-      // histórico sem o estoque realmente mudar — falso histórico.
-      const result = await atualizarProduto({ id: Number(produto.id), estoque: novoEstoque });
-      if (!result.success) {
-        setErro(result.error || "Erro ao atualizar o estoque do produto.");
-        return;
-      }
-
-      const { error: movError } = await supabase.from("est_movimentacao").insert({
-        empresa_id: empresaId,
-        produto_id: Number(produto.id), // me_produto.id (integer)
-        tipo, // 'entrada' | 'saida' (minúsculo — mesma convenção de MovTipo dos mocks e demais tipo_*)
-        quantidade: qtd,
-        motivo,
-        // me_usuario.id = id do auth (uuid) quando logado; sem perfil a coluna é nullable e fica null
-        usuario_id: perfil?.id || null,
-        // observacao/obs não é enviado: coluna não confirmada na tabela est_movimentacao
-      });
-
-      if (movError) {
-        // O UPDATE já foi ao banco — o "sucesso" não pode ser exibido sem o histórico.
-        console.error("[AjustarEstoqueModal] Erro ao registrar movimentação:", movError);
-        setErro("Estoque atualizado, mas não foi possível registrar o histórico da movimentação. Tente novamente.");
-        return;
-      }
-
-      onSuccess();
-    } catch (err) {
-      setErro(err instanceof Error ? err.message : "Erro ao ajustar o estoque. Tente novamente.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (!produto) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#efefef]">
-          <div>
-            <h3 className="text-[#1f2937] text-sm" style={{ fontWeight: 700 }}>Ajustar Estoque</h3>
-            <p className="text-[#627271] text-xs">{produto.nome} · Atual: {produto.estoque} {produto.unidade}</p>
-          </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-xl bg-[#efefef] flex items-center justify-center hover:bg-[#efefef]">
-            <X size={16} className="text-[#1f2937]" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSave} className="p-5 space-y-4">
-          {/* Tipo */}
-          <div className="grid grid-cols-2 gap-2">
-            {(["entrada", "saida"] as const).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => { setTipo(t); setMotivo(""); setErro(null); }}
-                className="flex items-center justify-center gap-2 py-3 rounded-xl border text-sm transition-all"
-                style={{
-                  background: tipo === t ? (t === "entrada" ? "#efefef" : "#FEF2F2") : "transparent",
-                  borderColor: tipo === t ? (t === "entrada" ? "#86cb92" : "#EF4444") : "#efefef",
-                  color: tipo === t ? (t === "entrada" ? "#1f2937" : "#B91C1C") : "#627271",
-                  fontWeight: tipo === t ? 700 : 400,
-                }}
-              >
-                {t === "entrada" ? <ArrowUpCircle size={16} /> : <ArrowDownCircle size={16} />}
-                {t === "entrada" ? "Entrada" : "Saída"}
-              </button>
-            ))}
-          </div>
-
-          <div>
-            <label className="block text-[#1f2937] text-xs mb-1.5" style={{ fontWeight: 500 }}>Quantidade *</label>
-            <input
-              type="number"
-              min="1"
-              value={quantidade}
-              onChange={(e) => setQuantidade(e.target.value)}
-              placeholder="0"
-              className="w-full px-3.5 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92]"
-              required
-              autoFocus
-            />
-            {tipo === "saida" && quantidade && parseInt(quantidade) > produto.estoque && (
-              <p className="text-red-500 text-xs mt-1">⚠️ Quantidade maior que o estoque disponível ({produto.estoque})</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-[#1f2937] text-xs mb-1.5" style={{ fontWeight: 500 }}>Motivo *</label>
-            <div className="flex flex-wrap gap-2">
-              {(tipo === "entrada" ? motivosEntrada : motivosSaida).map((m) => (
-                <button key={m} type="button" onClick={() => setMotivo(m)}
-                  className="px-3 py-1.5 rounded-xl text-xs transition-all border"
-                  style={{ background: motivo === m ? "#efefef" : "transparent", color: motivo === m ? "#1f2937" : "#627271", borderColor: motivo === m ? "#86cb92" : "#efefef", fontWeight: motivo === m ? 600 : 400 }}>
-                  {m}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-[#1f2937] text-xs mb-1.5" style={{ fontWeight: 500 }}>Observação</label>
-            <textarea value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Detalhes da movimentação..." rows={2}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92] resize-none" />
-          </div>
-
-          {erro && (
-            <div className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-200 px-3 py-2.5">
-              <AlertTriangle size={14} className="text-red-500 mt-0.5 shrink-0" />
-              <p className="text-red-600 text-xs" style={{ fontWeight: 500 }}>{erro}</p>
-            </div>
-          )}
-
-          <div className="flex gap-3">
-            <button type="button" onClick={onClose} className="flex-1 py-3 rounded-xl border border-[#efefef] text-[#1f2937] text-sm" style={{ fontWeight: 500 }}>
-              Cancelar
-            </button>
-            <button type="submit" disabled={loading || !quantidade || !motivo}
-              className="flex-1 py-3 rounded-xl text-sm flex items-center justify-center gap-2 disabled:opacity-50"
-              style={{ background: tipo === "entrada" ? "#86cb92" : "linear-gradient(135deg, #EF4444, #DC2626)", color: tipo === "entrada" ? "#1f2937" : "white", fontWeight: 600 }}>
-              {loading ? <><Loader2 size={15} className="animate-spin" />Salvando...</> : `Registrar ${tipo}`}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
 
 export function ProdutoDetalhePage() {
   const { id } = useParams();
@@ -254,11 +66,14 @@ export function ProdutoDetalhePage() {
   const { produto, loading, error, isFallback, recarregar } = useProduto(id);
   const { categorias: categoriasConfig } = useCategorias();
 
-  // Movimentações: só em modo demo (mock-first); com sessão ativa vêm da base (empty state real)
-  const movimentacoes =
-    isFallback && produto
-      ? MOVIMENTACOES.filter((m) => m.produtoId === produto.id)
-      : [];
+  // B14 (SPEC §5.3): Movimentações reais com sessão (empty real se nunca movimentado);
+  // mock só em modo demo — o hook resolve o fallback (isFallback) internamente.
+  // ATENÇÃO rules-of-hooks: este hook fica ANTES dos returns condicionais abaixo.
+  const {
+    movimentacoes,
+    error: movError,
+    recarregar: recarregarMov,
+  } = useMovimentacoes({ produtoId: id });
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -347,7 +162,12 @@ export function ProdutoDetalhePage() {
         <AjustarEstoqueModal
           produto={produto}
           onClose={() => setShowAjuste(false)}
-          onSuccess={() => { setShowAjuste(false); recarregar(); showToast("Estoque ajustado com sucesso!"); }}
+          onSuccess={() => {
+            setShowAjuste(false);
+            recarregar();
+            recarregarMov();
+            showToast("Estoque ajustado com sucesso!");
+          }}
         />
       )}
 
@@ -675,7 +495,7 @@ export function ProdutoDetalhePage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[#1f2937] text-xs truncate" style={{ fontWeight: 600 }}>{m.motivo}</p>
-                        <p className="text-[#627271] text-[10px]">{m.data.split(" - ")[0]}</p>
+                        <p className="text-[#627271] text-[10px]">{formatarDataMovimentacao(m.data).data}</p>
                       </div>
                       <span className="text-xs shrink-0" style={{ fontWeight: 700, color: m.tipo === "entrada" ? "#1f2937" : "#EF4444" }}>
                         {m.tipo === "entrada" ? "+" : "-"}{m.quantidade}
@@ -764,7 +584,22 @@ export function ProdutoDetalhePage() {
               </button>
             </div>
 
-            {movimentacoes.length === 0 ? (
+            {movError ? (
+              /* Error da leitura (SPEC §3.5 — com retry) */
+              <div className="bg-white rounded-2xl border border-red-200 shadow-sm p-12 text-center">
+                <AlertTriangle size={32} className="text-red-500 mx-auto mb-3" />
+                <h3 className="text-[#1f2937] mb-2" style={{ fontWeight: 600 }}>Não foi possível carregar as movimentações</h3>
+                <p className="text-[#627271] text-sm mb-6">{movError}</p>
+                <button
+                  onClick={recarregarMov}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[#1f2937] text-sm mx-auto"
+                  style={{ background: "#86cb92", fontWeight: 600 }}
+                >
+                  <RefreshCw size={15} />
+                  Tentar novamente
+                </button>
+              </div>
+            ) : movimentacoes.length === 0 ? (
               <div className="bg-white rounded-2xl border border-[#efefef] shadow-sm p-12 text-center">
                 <RefreshCw size={32} className="text-[#627271] mx-auto mb-3" />
                 <h3 className="text-[#1f2937] mb-2" style={{ fontWeight: 600 }}>Nenhuma movimentação</h3>
@@ -782,9 +617,13 @@ export function ProdutoDetalhePage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {movimentacoes.map((m) => (
+                      {movimentacoes.map((m) => {
+                        const quando = formatarDataMovimentacao(m.data);
+                        return (
                         <tr key={m.id} className="border-b border-[#efefef] hover:bg-[#efefef]/50 transition-colors">
-                          <td className="px-4 py-3 text-[#1f2937] text-xs whitespace-nowrap">{m.data}</td>
+                          <td className="px-4 py-3 text-[#1f2937] text-xs whitespace-nowrap">
+                            {quando.data}{quando.hora ? ` ${quando.hora}` : ""}
+                          </td>
                           <td className="px-4 py-3">
                             <div className={`flex items-center gap-1.5 text-xs ${m.tipo === "entrada" ? "text-[#1f2937]" : "text-red-600"}`}>
                               {m.tipo === "entrada" ? <ArrowUpCircle size={14} /> : <ArrowDownCircle size={14} />}
@@ -799,10 +638,11 @@ export function ProdutoDetalhePage() {
                           <td className="px-4 py-3">
                             <span className="text-xs px-2 py-0.5 rounded-full bg-[#efefef] text-[#1f2937]" style={{ fontWeight: 500 }}>{m.motivo}</span>
                           </td>
-                          <td className="px-4 py-3 text-[#1f2937] text-xs">{m.responsavel}</td>
+                          <td className="px-4 py-3 text-[#1f2937] text-xs">{m.responsavel || "—"}</td>
                           <td className="px-4 py-3 text-[#627271] text-xs max-w-[200px] truncate">{m.observacao || "—"}</td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

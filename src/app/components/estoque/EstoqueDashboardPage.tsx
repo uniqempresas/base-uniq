@@ -25,8 +25,10 @@ import {
   BarChart,
   Bar,
 } from "recharts";
-import { MOVIMENTACOES, formatCurrency } from "./estoqueMockData";
+import { formatCurrency } from "./estoqueMockData";
 import { useProdutos } from "../../hooks/use-produtos";
+import { useMovimentacoes } from "../../hooks/use-movimentacoes";
+import { formatarDataMovimentacao } from "../../lib/estoque-utils";
 
 // Usar placeholder até ter a imagem real
 const melPortrait = "https://api.dicebear.com/7.x/avataaars/svg?seed=MEL";
@@ -54,13 +56,21 @@ export function EstoqueDashboardPage() {
   const navigate = useNavigate();
 
   const { produtos, loading, isFallback, error, recarregar } = useProdutos();
+  // B14: "Movimentações recentes" reais (5 mais recentes por data_movimentacao);
+  // demo (sem sessão) recebe o mock via isFallback do próprio hook. Gráficos seguem mock (fora de escopo).
+  const {
+    movimentacoes,
+    loading: movLoading,
+    error: movError,
+    recarregar: recarregarMov,
+  } = useMovimentacoes();
 
   const totalProdutos = produtos.length;
   const valorTotalEstoque = produtos.reduce((acc, p) => acc + (p.precoVenda * p.estoque), 0);
   const produtosBaixoEstoque = produtos.filter(p => p.estoque <= p.estoqueMinimo).length;
   const produtosSemEstoque = produtos.filter(p => p.estoque === 0).length;
 
-  const movimentacoesRecentes = MOVIMENTACOES.slice(0, 5);
+  const movimentacoesRecentes = movimentacoes.slice(0, 5);
   const produtosCriticos = produtos.filter(p => p.estoque <= p.estoqueMinimo).slice(0, 5);
 
   return (
@@ -110,7 +120,7 @@ export function EstoqueDashboardPage() {
         </div>
       </div>
 
-      {loading ? (
+      {(loading || movLoading) ? (
         /* ── Loading: skeleton do layout ── */
         <div className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -347,29 +357,54 @@ export function EstoqueDashboardPage() {
             </button>
           </div>
           <div className="space-y-3">
-            {movimentacoesRecentes.map((mov) => (
-              <div key={mov.id} className="flex items-center gap-3 p-3 rounded-lg border border-[#efefef]">
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                  mov.tipo === "entrada" ? "bg-[#efefef]" : "bg-red-100"
-                }`}>
-                  {mov.tipo === "entrada" ? (
-                    <TrendingUp size={18} className="text-[#627271]" />
-                  ) : (
-                    <TrendingDown size={18} className="text-red-600" />
-                  )}
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-[#1f2937] text-sm">{mov.produtoNome}</p>
-                  <p className="text-[#627271] text-xs">{mov.tipo === "entrada" ? "Entrada" : "Saída"} · {mov.data}</p>
-                </div>
-                <div className="text-right">
-                  <p className={`font-bold ${mov.tipo === "entrada" ? "text-[#627271]" : "text-red-600"}`}>
-                    {mov.tipo === "entrada" ? "+" : "-"}{mov.quantidade}
-                  </p>
-                  <p className="text-xs text-[#627271]">{mov.motivo}</p>
-                </div>
+            {movError ? (
+              /* Error da seção (não derruba o dashboard) */
+              <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-red-50 border border-red-100">
+                <p className="text-red-600 text-xs" style={{ fontWeight: 500 }}>
+                  Não foi possível carregar as movimentações.
+                </p>
+                <button
+                  onClick={recarregarMov}
+                  className="flex items-center gap-1 text-[#1f2937] text-xs shrink-0"
+                  style={{ fontWeight: 600 }}
+                >
+                  <RefreshCw size={12} />
+                  Tentar novamente
+                </button>
               </div>
-            ))}
+            ) : movimentacoesRecentes.length === 0 ? (
+              /* Empty real (WIRE §3) */
+              <p className="text-[#627271] text-center py-6">Sem movimentações ainda</p>
+            ) : (
+              movimentacoesRecentes.map((mov) => {
+                const quando = formatarDataMovimentacao(mov.data);
+                return (
+                  <div key={mov.id} className="flex items-center gap-3 p-3 rounded-lg border border-[#efefef]">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                      mov.tipo === "entrada" ? "bg-[#efefef]" : "bg-red-100"
+                    }`}>
+                      {mov.tipo === "entrada" ? (
+                        <TrendingUp size={18} className="text-[#627271]" />
+                      ) : (
+                        <TrendingDown size={18} className="text-red-600" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-[#1f2937] text-sm">{mov.produtoNome}</p>
+                      <p className="text-[#627271] text-xs">
+                        {mov.tipo === "entrada" ? "Entrada" : "Saída"} · {quando.data}{quando.hora ? ` ${quando.hora}` : ""}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-bold ${mov.tipo === "entrada" ? "text-[#627271]" : "text-red-600"}`}>
+                        {mov.tipo === "entrada" ? "+" : "-"}{mov.quantidade}
+                      </p>
+                      <p className="text-xs text-[#627271]">{mov.motivo || "—"}</p>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </div>

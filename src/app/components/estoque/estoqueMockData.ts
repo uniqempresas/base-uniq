@@ -6,37 +6,13 @@
 // zero quebra nos demais consumidores existentes.
 import { formatCurrency, calcMargem } from "../../lib/produto-utils";
 import type { Produto, Variacao, ProdutoStatus, EstoqueStatus } from "../../types/produto";
+// Tipos de movimentação mudaram para `src/app/types/estoque.ts` (B14 — SPEC §2),
+// mesmo padrão do `Produto` acima; re-exportados para zero quebra nos consumidores.
+import type { Movimentacao, MovTipo, MovMotivo } from "../../types/estoque";
 
 export { formatCurrency, calcMargem };
 export type { Produto, Variacao, ProdutoStatus, EstoqueStatus };
-
-export type MovTipo = "entrada" | "saida";
-export type MovMotivo =
-  | "Compra"
-  | "Devolução"
-  | "Ajuste"
-  | "Perda"
-  | "Venda"
-  | "Inventário"
-  | "Quebra"
-  | "Doação"
-  | "Outro";
-
-export interface Movimentacao {
-  id: string;
-  produtoId: string;
-  produtoNome: string;
-  produtoSku: string;
-  tipo: MovTipo;
-  quantidade: number;
-  motivo: MovMotivo;
-  responsavel: string;
-  observacao?: string;
-  data: string;
-  custo?: number;
-  cancelada: boolean;
-  variacao?: string;
-}
+export type { Movimentacao, MovTipo, MovMotivo };
 
 // Categoria colors
 export const CATEGORIA_COLORS: Record<string, { bg: string; text: string }> = {
