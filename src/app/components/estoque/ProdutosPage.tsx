@@ -411,8 +411,9 @@ export function ProdutosPage() {
         </div>
       )}
 
-      {/* Loading skeleton */}
-      {loading && (
+      {/* Loading skeleton — só na PRIMEIRA carga (sem dados). No refetch em
+          background a lista já renderizada permanece (evita "pisque"). */}
+      {loading && produtos.length === 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-4">
           {Array.from({ length: 10 }).map((_, i) => (
             <div key={i} className="bg-white rounded-2xl border border-[#efefef] overflow-hidden">
@@ -435,44 +436,47 @@ export function ProdutosPage() {
         </div>
       )}
 
+      {/* Modais FORA do gate !loading (HOTFIX): dentro do gate, qualquer
+          refetch do useProdutos desmontava o form e o cadastro do produto
+          composto (recheio) perdia tudo no meio da digitação. */}
+      {showNovoProduto && (
+        <ProdutoFormModal
+          categorias={categoriasConfig}
+          onClose={() => setShowNovoProduto(false)}
+          onSuccess={() => {
+            setShowNovoProduto(false);
+            showToast("Produto cadastrado com sucesso! 🎉");
+            recarregar();
+          }}
+        />
+      )}
+      {produtoParaEditar && (
+        <ProdutoFormModal
+          produto={produtoParaEditar}
+          categorias={categoriasConfig}
+          onClose={() => setProdutoParaEditar(null)}
+          onSuccess={() => {
+            setProdutoParaEditar(null);
+            showToast("Produto atualizado com sucesso!");
+            recarregar();
+          }}
+        />
+      )}
+      {produtoParaDuplicar && (
+        <ProdutoFormModal
+          produtoBase={produtoParaDuplicar}
+          categorias={categoriasConfig}
+          onClose={() => setProdutoParaDuplicar(null)}
+          onSuccess={() => {
+            setProdutoParaDuplicar(null);
+            showToast("Produto duplicado com sucesso!");
+            recarregar();
+          }}
+        />
+      )}
+
       {!loading && (
         <>
-          {showNovoProduto && (
-            <ProdutoFormModal
-              categorias={categoriasConfig}
-              onClose={() => setShowNovoProduto(false)}
-              onSuccess={() => {
-                setShowNovoProduto(false);
-                showToast("Produto cadastrado com sucesso! 🎉");
-                recarregar();
-              }}
-            />
-          )}
-          {produtoParaEditar && (
-            <ProdutoFormModal
-              produto={produtoParaEditar}
-              categorias={categoriasConfig}
-              onClose={() => setProdutoParaEditar(null)}
-              onSuccess={() => {
-                setProdutoParaEditar(null);
-                showToast("Produto atualizado com sucesso!");
-                recarregar();
-              }}
-            />
-          )}
-          {produtoParaDuplicar && (
-            <ProdutoFormModal
-              produtoBase={produtoParaDuplicar}
-              categorias={categoriasConfig}
-              onClose={() => setProdutoParaDuplicar(null)}
-              onSuccess={() => {
-                setProdutoParaDuplicar(null);
-                showToast("Produto duplicado com sucesso!");
-                recarregar();
-              }}
-            />
-          )}
-
           {/* Header */}
           <div className="flex items-center justify-between mb-5">
             <div>

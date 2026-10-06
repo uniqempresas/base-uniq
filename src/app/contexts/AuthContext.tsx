@@ -173,7 +173,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       aplicarSessao(sessionAtual);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, sessionAtual) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, sessionAtual) => {
+      // HOTFIX (pisca no cadastro): TOKEN_REFRESHED não muda user/perfil/empresa.
+      // Antes ele recriava o objeto `empresa` -> todo hook com `useCallback`
+      // [empresa, ...] reconsultava -> telas com gate `!loading` desmontavam
+      // modais abertos (cadastro de produto perdia tudo). Renovação de token é
+      // transparente: nada a recarregar.
+      if (event === "TOKEN_REFRESHED") return;
       aplicarSessao(sessionAtual);
     });
 

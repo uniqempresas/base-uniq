@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import {
@@ -850,6 +850,7 @@ function PassoFichaTecnica({
   const { produtos } = useProdutos();
   const [termo, setTermo] = useState("");
   const [aberto, setAberto] = useState(false);
+  const buscaRef = useRef<HTMLDivElement>(null);
 
   // Busca CLIENT-SIDE sobre useProdutos (mesmo padrão da busca de clientes do B3):
   // fora o próprio pai e os já adicionados (UNIQUE componente por pai no banco).
@@ -897,14 +898,20 @@ function PassoFichaTecnica({
       </div>
 
       {/* Busca de componente (dropdown client-side) */}
-      <div className="relative">
+      <div className="relative" ref={buscaRef}>
         <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#627271]" />
         <input
           type="text"
           value={termo}
           onChange={(e) => { setTermo(e.target.value); setAberto(true); }}
           onFocus={() => setAberto(true)}
-          onBlur={() => window.setTimeout(() => setAberto(false), 120)}
+          onBlur={(e) => {
+            // HOTFIX (recheio): só fecha quando o foco sai de TUDO (input + dropdown).
+            // O setTimeout(120ms) anterior fechava o dropdown antes do toque no
+            // candidato no celular: blur disparava, o <button> desmontava e o
+            // mouseup/click caiam em nada -> "clico e a tela fecha" sem inserir.
+            if (!buscaRef.current?.contains(e.relatedTarget as Node | null)) setAberto(false);
+          }}
           onKeyDown={(e) => {
             // Enter adiciona o primeiro candidato (WIRE §2) e NUNCA submete o form.
             if (e.key === "Enter") {
@@ -928,7 +935,9 @@ function PassoFichaTecnica({
                 <button
                   key={p.id}
                   type="button"
-                  // mousedown: dispara antes do blur do input fechar o dropdown
+                  // pointerdown: dispara antes do blur do input em mouse E touch;
+                  // preventDefault impede o roubo de foco e o fechamento do dropdown
+                  onPointerDown={(e) => { e.preventDefault(); adicionar(p); }}
                   onMouseDown={(e) => { e.preventDefault(); adicionar(p); }}
                   className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[#efefef] transition-colors text-left"
                 >
