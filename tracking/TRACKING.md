@@ -809,7 +809,23 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 | **F** | itens **8** e **9** + emenda do clique na linha (18/09) | ✅ **CONCLUÍDA** — `tsc` **13** (zero novos) · `build` OK · artefatos de teste removidos |
 | **E** | pendência **D'**, `tsconfig`, migrations untracked, ESLint | ⏸️ aguarda decisão do fundador |
 
-### 🎯 Próximos passos acordados (ordem)
+### 🧹 RESET DA DOCEÊ — recadastramento do zero (07/10/2026)
+
+> **Pedido do fundador:** limpar produtos, pedidos, compras, clientes, conversas e financeiro da Doceê — ele vai **recadastrar tudo desde o início** (a operação agora é a vitrine real; os dados de teste viram sujeira).
+>
+> **Backup ANTES de apagar** (rede de segurança no próprio banco, `_bk_20261007_*`): `me_cliente` 15 · `me_venda` 12 · `me_itens_venda` 19 · `me_contas_receber` 12 · `crm_chat_conversas` 15 · `crm_chat_mensagens` 359 · `me_produto` 16 — contagens conferidas backups = origem antes do DELETE.
+>
+> **Apagado em transação única** (filho → pai, filtro `empresa_id` da Doceê `52aa05bf-…`): mensagens 359→0 · conversas 15→0 · histórico de venda→0 · itens 19→0 · contas a receber 12→0 · vendas 12→0 · ficha técnica 0 · `est_movimentacao`→0 · produtos 16→0 · clientes 15→0. (Primeira tentativa abortou inteira por erro meu de placeholder — zero efeito, transação atômica.)
+>
+> **Preservados (cadastro/config, não foram pedidos):** `me_fornecedor` (3) · `me_categoria` (5 da Doceê) · `me_tag` · `me_forma_pagamento` · `mel_chat` (sem tenant).
+>
+> **Restaurar, se precisar:** `INSERT INTO <tabela> SELECT * FROM _bk_20261007_<tabela>;` (7 tabelas).
+>
+> ⚠️ **Órfãos de Storage:** ~20 fotos de produtos/clientes em `uniq_me_produtos/` sem dono (inofensivas, precedença 17/09). ⚠️ **`crm_chat_conversas.cliente_id`:** as conversas novas do WhatsApp vão se re-vincular sozinhо via trigger `trg_conversa_vincula_cliente` (18/09) — nada a migrar.
+
+---
+
+## 🎯 Próximos passos acordados (ordem)
 
 1. ✅ ~~Fechar as lanes `des-1` e `fix-7`~~ **feito** — reconciliadas e verificadas.
 2. ✅ ~~Commit + push de tudo~~ **feito** — push `4a434bf` + `876683d`; **deploy verificado em produção**.
