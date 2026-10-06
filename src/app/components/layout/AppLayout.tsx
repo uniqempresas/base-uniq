@@ -17,6 +17,7 @@ import {
   Truck,
   Scissors,
   MessageCircle,
+  ArrowRightLeft,
   Store,
   Palette,
   LayoutGrid,
@@ -64,6 +65,10 @@ interface SubNavSection {
 
 const RAIL_ITEMS: NavRailItem[] = [
   { id: "minha-empresa", label: "Minha Empresa", icon: Fingerprint, path: "/configuracoes/empresa", moduloCodigo: "minha_empresa" },
+  // Estoque de volta ao rail (pedido do fundador, 06/10/2026) — o Menu Enxuto o
+  // tinha removido; o único acesso era "Cadastros ▸ Produtos" e o card em
+  // Meus Módulos. Módulo é core: sempre visível. Ver TRACKING_ESTOQUE.md.
+  { id: "estoque", label: "Estoque", icon: Package, path: "/estoque/dashboard", moduloCodigo: "estoque" },
   { id: "financeiro", label: "Financeiro", icon: DollarSign, path: "/financeiro", moduloCodigo: "financeiro" },
   { id: "chatbot", label: "Chatbot", icon: MessageCircle, path: "/chatbot", moduloCodigo: "chatbot" },
   { id: "loja", label: "Loja Virtual", icon: Store, path: "/loja-virtual", moduloCodigo: "loja_virtual" },
@@ -95,6 +100,17 @@ const SUBNAV_SECTIONS: SubNavSection[] = [
           { id: "colaboradores", label: "Colaboradores", path: "/configuracoes/colaboradores", icon: Users, moduloCodigo: "colaboradores" },
         ],
       },
+    ],
+  },
+  {
+    railId: "estoque",
+    title: "Estoque",
+    subtitle: "Produtos e movimentações",
+    items: [
+      { id: "e-dashboard", label: "Dashboard", path: "/estoque/dashboard", icon: LayoutDashboard },
+      { id: "e-produtos", label: "Produtos", path: "/estoque/produtos", icon: Box },
+      { id: "e-mov", label: "Movimentações", path: "/estoque/movimentacoes", icon: ArrowRightLeft },
+      { id: "e-categorias", label: "Categorias", path: "/estoque/configuracoes", icon: Settings },
     ],
   },
   {
@@ -170,7 +186,7 @@ const SUBNAV_SECTIONS: SubNavSection[] = [
   },
 ];
 
-const CORE_MODULES = new Set(["minha_empresa", "mel", "modulos", "configuracoes", "chatbot"]);
+const CORE_MODULES = new Set(["minha_empresa", "mel", "modulos", "configuracoes", "chatbot", "estoque"]);
 
 export function AppLayout() {
   const navigate = useNavigate();
