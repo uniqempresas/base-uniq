@@ -25,8 +25,6 @@ import {
   MoreVertical,
   Barcode,
   ShoppingBag,
-  ToggleLeft,
-  ToggleRight,
   RefreshCw,
   type LucideIcon,
 } from "lucide-react";
@@ -214,17 +212,6 @@ function AjustarEstoqueModal({
               ))}
             </div>
           </div>
-
-          {tipo === "entrada" && (
-            <div>
-              <label className="block text-[#1f2937] text-xs mb-1.5" style={{ fontWeight: 500 }}>Custo unitário</label>
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#627271] text-sm">R$</span>
-                <input type="number" step="0.01" placeholder="0,00"
-                  className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92]" />
-              </div>
-            </div>
-          )}
 
           <div>
             <label className="block text-[#1f2937] text-xs mb-1.5" style={{ fontWeight: 500 }}>Observação</label>
@@ -590,8 +577,6 @@ export function ProdutoDetalhePage() {
                     { label: "Ajustar estoque", icon: RefreshCw, action: () => setShowAjuste(true), color: "#0EA5E9" },
                     { label: "Editar produto", icon: Edit2, action: () => setProdutoParaEditar(produto), color: "#8B5CF6" },
                     { label: "Duplicar produto", icon: Copy, action: () => setProdutoParaDuplicar(produto), color: "#F59E0B" },
-                    { label: "Imprimir etiqueta", icon: Barcode, action: () => {}, color: "#627271" },
-                    { label: produto.status === "ativo" ? "Inativar produto" : "Ativar produto", icon: produto.status === "ativo" ? ToggleLeft : ToggleRight, action: () => {}, color: produto.status === "ativo" ? "#EF4444" : "#86cb92" },
                   ].map((a) => {
                     const Icon = a.icon;
                     return (
@@ -675,9 +660,6 @@ export function ProdutoDetalhePage() {
                 ) : (
                   <p className="text-[#627271] text-sm">Nenhum fornecedor vinculado</p>
                 )}
-                <button className="w-full mt-3 py-2 rounded-xl bg-[#efefef] text-[#1f2937] text-xs hover:bg-[#efefef] transition-colors" style={{ fontWeight: 500 }}>
-                  Fazer pedido ao fornecedor
-                </button>
               </div>
 
               <div className="bg-white rounded-2xl border border-[#efefef] shadow-sm p-5">

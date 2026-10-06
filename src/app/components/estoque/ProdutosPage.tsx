@@ -11,8 +11,6 @@ import {
   Edit2,
   Trash2,
   Copy,
-  Download,
-  Upload,
   X,
   CheckCircle2,
   Layers,
@@ -302,8 +300,13 @@ export function ProdutosPage() {
     }
   };
 
-  // Categorias dinâmicas baseadas nos produtos
-  const CATEGORIAS_DINAMICAS = [...new Set(produtos.map((p) => p.categoria))];
+  // Chips do filtro de categoria:
+  // - modo demo (isFallback): derivadas do mock, pois os produtos exibidos são mock
+  // - modo real: as categorias DA EMPRESA vindas do hook real (nome + cor reais),
+  //   para as chips baterem com o catálogo exibido
+  const chipCategorias = isFallback
+    ? CATEGORIAS.map((nome) => ({ nome, cor: null as string | null }))
+    : categoriasConfig.map((c) => ({ nome: c.nome, cor: c.cor }));
 
   const filteredProdutos = produtos.filter((p) => {
     const matchBusca =
@@ -465,12 +468,6 @@ export function ProdutosPage() {
             <Settings size={13} />
             <span className="hidden sm:inline">Categorias</span>
           </button>
-          <button className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#efefef] bg-white text-[#1f2937] text-xs hover:bg-[#efefef] transition-colors" style={{ fontWeight: 500 }}>
-            <Upload size={13} />Importar
-          </button>
-          <button className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#efefef] bg-white text-[#1f2937] text-xs hover:bg-[#efefef] transition-colors" style={{ fontWeight: 500 }}>
-            <Download size={13} />Exportar
-          </button>
           <button
             onClick={() => setShowNovoProduto(true)}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[#1f2937] text-sm" style={{ background: "#86cb92", fontWeight: 600 }}
@@ -550,18 +547,28 @@ export function ProdutosPage() {
             <div>
               <label className="block text-[#627271] text-xs mb-2" style={{ fontWeight: 500 }}>Categoria</label>
               <div className="flex flex-wrap gap-1.5">
-                {["Todas", ...CATEGORIAS].map((cat) => {
-                  const colors = cat !== "Todas" ? (CATEGORIA_COLORS[cat] || {}) : { bg: "#efefef", text: "#627271" };
+                <button
+                  onClick={() => setCatFiltro("Todas")}
+                  className="px-2.5 py-1 rounded-lg text-xs transition-all"
+                  style={{
+                    background: "#efefef",
+                    color: "#627271",
+                    border: catFiltro === "Todas" ? "1px solid #62727140" : "1px solid transparent",
+                    fontWeight: catFiltro === "Todas" ? 600 : 400,
+                  }}
+                >Todas</button>
+                {chipCategorias.map(({ nome, cor }) => {
+                  const colors = corCategoria(cor, nome);
                   return (
-                    <button key={cat} onClick={() => setCatFiltro(cat)}
+                    <button key={nome} onClick={() => setCatFiltro(nome)}
                       className="px-2.5 py-1 rounded-lg text-xs transition-all"
                       style={{
-                        background: catFiltro === cat ? (colors as any).bg : "#efefef",
-                        color: catFiltro === cat ? (colors as any).text : "#627271",
-                        border: catFiltro === cat ? `1px solid ${(colors as any).text}40` : "1px solid transparent",
-                        fontWeight: catFiltro === cat ? 600 : 400,
+                        background: catFiltro === nome ? colors.bg : "#efefef",
+                        color: catFiltro === nome ? colors.text : "#627271",
+                        border: catFiltro === nome ? `1px solid ${colors.text}40` : "1px solid transparent",
+                        fontWeight: catFiltro === nome ? 600 : 400,
                       }}
-                    >{cat}</button>
+                    >{nome}</button>
                   );
                 })}
               </div>
