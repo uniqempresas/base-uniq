@@ -438,7 +438,7 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, onClose, on
                     onChange={(e) => setForm((f) => ({ ...f, unidade: e.target.value }))}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92] appearance-none bg-white"
                   >
-                    {["Peça", "Par", "Kit", "Kg", "Metro", "Litro", "Frasco", "Caixa", "Pacote"].map((u) => (
+                    {["Unidade", "Peça", "Par", "Kit", "Kg", "g", "Metro", "Litro", "ml", "Frasco", "Caixa", "Pacote"].map((u) => (
                       <option key={u} value={u}>{u}</option>
                     ))}
                   </select>
