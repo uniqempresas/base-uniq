@@ -64,6 +64,15 @@
 
 ---
 
+## 🛠️ Evoluções do fluxo n8n (atendente_Docee)
+
+| Item | Descrição | Status |
+|------|-----------|--------|
+| **Numeração determinística dos produtos do cardápio (Solução 2)** | Hoje a numeração do cardápio da MEL é instruída **só no prompt** (Solução 1, implementada em 23/09/2026): a IA numera e resolve "item N" pelo nome. Para garantir 100% de fidelidade em listas longas, converter a tool `Consulta_Produtos` de `supabaseTool` para **toolWorkflow** (mesmo padrão do `docee_grava-pedido`): node Supabase busca produtos → node Code adiciona `numero: 1..N` + mantém `id` por item → prompt manda usar o `id_referencia` no fechamento. Banco continua gravando só o nome/id — o número é referência de conversa. | 🔜 Backlog |
+| **Estado do pedido fora da memória de conversa (memória híbrida)** | Prática de mercado (Kore.ai, LangChain/LangGraph, mem0, Cloudflare): a fonte da verdade do pedido **não deve ser a memória da conversa** — o estado transacional vive no banco e é consultado via tool (ex.: tool `docee_status-pedido` lendo `me_venda`), enquanto a memória carrega só o fluxo imediato com **resumo das conversas antigas** (janela + summarization, não transcript bruto). Sessão por dia + janela 20 já aplicadas em 23/09/2026 como paliativo (níveis 1+2); este item é a evolução completa (nível 3) para a MEL lembrar do último pedido do cliente entre dias sem confundir com o atual. | 🔜 Backlog |
+
+---
+
 ## 📈 Aquisição e presença digital
 
 | Item | Fase | Nota |
@@ -76,4 +85,4 @@
 
 ---
 
-*Backlog mantido pelo CEO. Última atualização: 07/09/2026.*
+*Backlog mantido pelo CEO. Última atualização: 23/09/2026.*

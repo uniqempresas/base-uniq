@@ -84,10 +84,24 @@ Cada elemento visual existe para reduzir atrito e aumentar confiança. Nada é d
 
 ## Imagery
 
-- **Style:** (none yet)
-- **Subjects:** (none yet)
-- **Treatment:** (none yet)
-- **Avoid:** (none yet)
+> Direção aprovada pelo fundador em 24/09/2026.
+
+- **Style:** **Sóbria e real.** Preferir **ilustração vetorial simples** (traço limpo, poucas cores) ou foto documental local. Nunca estética de banco de imagens.
+- **Subjects:** O cotidiano real do microempresário de Suzano — balcão, WhatsApp, vitrine, caderno, caixa. Quando o conceito for abstrato, usar **metáfora visual** (ex.: *fórmula sob medida* para representar consultoria personalizada).
+- **Treatment:** Enquadramento próximo e luz natural. Ilustrações usam `#86cb92` (verde menta) e `#1f2937` (grafite) sobre `#efefef`. Poucos elementos, muito respiro — coerente com a filosofia *"nada é decorativo sem função"*.
+- **Avoid:**
+  - Banco de imagens genérico (aperto de mão, reunião, pessoas sorrindo para a câmera).
+  - **Estereótipos de "empresário de sucesso"** (terno, carro, dinheiro) — a marca se posiciona **contra** esse clichê.
+  - Ícones de tecnologia (robô, chip, engrenagem, código) — reforçam "empresa de tecnologia", que a marca nega.
+  - Gráficos de crescimento, setas para cima e cifrões — sugerem resultado garantido.
+  - Qualquer elemento decorativo sem função.
+
+### Assets oficiais
+| Asset | Caminho | Observação |
+|---|---|---|
+| **Avatar da MEL** | `src/assets/mel-full.png` | É o usado **em produção** (`MelDashboardPage.tsx`, `MelConversaPage.tsx`) |
+| Variante recortada da MEL | `src/assets/mel-avatar.png` | Versão reduzida, mesmo personagem |
+| Logo UNIQ | `tracking/apresentacao/referencia/logo-uniq.png` | Único asset de logo encontrado no projeto |
 
 ## Layout
 

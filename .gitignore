@@ -32,5 +32,8 @@ teste-login.png
 # Misc
 commit_vendas.sh
 
+# Local scripts (não versionados)
+.local/
+
 # Deepwork progress
 .slim/deepwork/

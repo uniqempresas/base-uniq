@@ -83,6 +83,17 @@ src/app/
   - https://base-uniq-uniq-empresas-projects.vercel.app
 - **Validação obrigatória:** após todo commit que altere telas, o agente deve verificar na Vercel se o deploy foi bem-sucedido (`state: READY`) antes de marcar a tarefa como concluída. O fundador valida pelo celular durante o dia.
 
+### 🔄 Reinício do OpenCode (quando o fundador pedir)
+
+Existe um `.bat` na área de trabalho do fundador que reinicia o OpenCode:
+
+- **Arquivo:** `C:\Users\henri\OneDrive\Área de Trabalho\restart_opencode.bat`
+- **Uso:** o fundador pode pedir a qualquer agente: *"chama o `restart_opencode.bat`"* — sempre que o OpenCode ficar instável, MCPs não subirem, etc.
+- **Como executar (regra obrigatória):** disparar com `Start-Process` (processo desacoplado do OpenCode) e **encerrar o turno imediatamente após** — o `.bat` tem **delay de 40s** antes de matar o processo, justamente para o agente terminar a resposta e o fundador lê-la. NÃO continuar trabalhando depois de chamar, pois o processo morrerá no meio do delay.
+- **O que ele faz:** mata somente o processo `LISTENING` na porta 4096 (filtro que preserva `cloudflared.exe` e navegador), espera 3s e sobe `opencode web --port 4096 --hostname 127.0.0.1` **no mesmo diretório do projeto** (`uniq-app`).
+- **Túnel:** o Cloudflare Tunnel roda como serviço Windows separado — **não cai** no restart. O fundador mantém o acesso pelo mesmo link e só precisa recarregar a página.
+- **Depois do restart:** verificar se os MCPs subiram (ex.: Supabase `supabase_uat_04`) antes de retomar trabalho que dependa deles.
+
 ### Regras de implementação
 
 - **Frontend-first:** sprints atuais são UI + mock data; backend/API vem em sprints futuras — nunca invente chamadas de API.
@@ -107,11 +118,12 @@ src/app/
 
 Estas decisões estão **fechadas** e devem ser respeitadas por todos os agentes:
 
-- **Pricing (Fase 1 — co-fundadores):** o contrato mostra o preço de tabela (setup **R$ 1.500** + **R$ 297/mês**) e concede **isenção do setup + R$ 197/mês** como condição de co-fundador, em troca de uso real + feedback + depoimento. Fallback R$ 107/mês só em emergência. **Setup R$ 1.500 é hipótese de trabalho** — o mercado valida nas primeiras 3–5 propostas.
+- **Pricing (Fase 1 — co-fundadores):** o contrato mostra o preço de tabela (setup **R$ 1.500** + **R$ 297/mês**). A condição de co-fundador concede **setup R$ 500 (sinal de compromisso — não desconto)** + **R$ 197/mês**, em troca de uso real + feedback + depoimento. **Valor concedido no 1º ano: R$ 2.200.** Fallback R$ 107/mês só em emergência. **Setup R$ 1.500 é hipótese de trabalho** — o mercado valida nas primeiras 3–5 propostas.
+  - **Por que R$ 500 e não grátis (fundador, 24/09/2026):** gratuito desvaloriza ("parece que tem algo errado"), o valor cobre o tempo investido no cliente e cria compromisso dos dois lados. É **sinal que reserva a vaga**, não abatimento de preço.
 - **Data de faturamento:** dia **5, 15 ou 25** à escolha do cliente; **padrão dia 5**. Cobrança inicia após a entrega do MVP.
 - **Exit Safe:** saída do CLT no **fim de março/2027**, com reserva para **18 meses** sem retirar dinheiro da UNIQ. Lançamento oficial em **julho/2027**. Metas numéricas de MRR são **referência, não gatilho**.
 - **Fases:** 1 Fundação Silenciosa (Set–Dez/2026) · 2 Prova Social (Jan–Mar/2027) · 3 Transição (Abr–Jun/2027) · 4 Lançamento (Jul/2027+).
-- **Co-fundadores:** **4 na Fase 1**, em **ondas de 4 + 4** com pausa de productização entre elas.
+- **Co-fundadores:** **12 em 3 ondas de 4** (atualizado em 24/09/2026) — **Out/2026** (4, Fase 1) → **Jan/2027** (+4, Fase 2) → **Mar–Abr/2027** (+4, fundador já 100% no projeto). **Cada onda abre por prontidão, não por calendário:** a seguinte só começa com a anterior entregue e o sistema fechado.
 - **Identidade:** **`DESIGN.md` (raiz do projeto) é a fonte oficial** de paleta, tipografia e layout. Em conflito de tokens, vale ele.
 - **Processo visual:** no repositório entrega-se **wireframe — estrutura e função**. O **design real é criado no OpenDesign**. Não tentar polir visual em código.
 - **Arquitetura de módulos:** **default + vertical** (ex.: `CRM` → `CRM_OTICA`). Vertical só se for replicável para 2–3 negócios do nicho.
@@ -133,4 +145,4 @@ Estas decisões estão **fechadas** e devem ser respeitadas por todos os agentes
 
 ---
 
-*Última atualização: 07/09/2026 — v1.2*
+*Última atualização: 29/09/2026 — v1.3*
