@@ -121,6 +121,27 @@
 
 **Fatos do schema real (fonte para o B14):** `id uuid PK default gen_random_uuid()` · `empresa_id uuid NOT NULL FK me_empresa CASCADE` · `produto_id integer NOT NULL FK me_produto CASCADE` (embed PostgREST funciona) · `tipo text CHECK ('entrada','saida','ajuste')` · `quantidade numeric NOT NULL` · `data_movimentacao timestamptz NOT NULL default now()` (data de negócio) · `motivo text` · `observacao text` · `usuario_id uuid FK auth.users` (não `me_usuario`) · `created_at timestamptz` · índices `(empresa_id, data_movimentacao DESC)` e `(produto_id)` · **sem** `venda_id`/custo.
 
+## 🏭 PRODUÇÃO COM BOM — viabilidade aprovada, Fase 1 aberta (06/10/2026)
+
+> **Documento do domínio:** a especificação funcional completa do fluxo (livro-razão + ficha técnica/BOM + OP + custo médio) está na conversa com o fundador; os docs SDD por fase vivem em `tracking/plans|specs|wireframe/` com prefixo `*-Producao-*`.
+
+**Veredicto da análise:** viável integralmente no Supabase atual (padrão RPC transacional idêntico ao `registrar_venda`); `est_compra`/`est_compra_item` já existem no banco ociosas; `est_movimentacao` evolui para ledger (tabela vazia = migração segura). Risco real = escopo (trata-se com fases + piloto de 1 produto).
+
+**Decisões do fundador (06/10/2026):**
+| # | Decisão |
+|---|---|
+| P1 | No cadastro de produto: **natureza simples × composto** — simples = "compro 1, vendo 1" (fluxo atual); composto = tem **ficha técnica** com insumos do estoque (barra de chocolate etc.) |
+| P2 | Custo = **média ponderada móvel** (aplicação na Fase 2) |
+| P3 | Processo: **cada fase sobe WIRE no GitHub** para o fundador validar (celular) antes da implementação |
+| P4 | Eixo NOVO `natureza` (`simples\|composto\|insumo`) — **não** sobrescreve o `me_produto.tipo` legado (simples/variavel — colisão de nome resolvida; lição D-V2.1) |
+| P5 | Semiacabado = **composto aninhado** (composto que serve de componente) — sem enum próprio |
+
+**Cronograma de fases (MVPs sequenciais, cada um com PRD/SPEC/WIRE próprio):**
+1. **Fase 1 (em SDD):** `natureza` no cadastro + ficha técnica/BOM (estrutura) — **sem custo**.
+2. **Fase 2 — Custo entra:** Compras (`est_compra` + tela) com conversão de embalagem → custo médio móvel → compra cria **conta a pagar** automática.
+3. **Fase 3 — Produção:** Ordem de Produção transacional (baixa insumos + entrada do acabado com custo apurado) — piloto na Trufa de Maracujá da ficha de referência.
+4. **Fase 4 — Ciclo fechado:** venda grava CMV no ledger + DRE lê custo exato (aposenta a heurística de categorias — B12 fecha junto).
+
 ---
 
 *Documento gerado do recon de 06/10/2026. Referências: `TRACKING.md` (B1, B11, F3, item 3 do lote), `TRACKING_MODULOS.md:198` (A12 — dependência vitrine↔estoque), `BACKLOG_SEGURANCA.md:68,:76,:99` (drenagem de estoque via `anon` — P5).*
