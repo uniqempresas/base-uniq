@@ -1092,6 +1092,7 @@ Após criar uma conversa de teste (Henriq Silva, `5511941484562`, 23:20) e valid
 | **B14 — SDD** | ✅ PRD/SPEC/WIRE escritos (`PRD-Estoque-B14-MovimentacoesReais.md` · `SPEC-Estoque-B14-MovimentacoesReais.md` · `WIRE-Estoque-B14-Movimentacoes.md`). **WIRE no GitHub aguardando aprovação do fundador** (validação pelo celular) |
 | **RLS `est_movimentacao`** | 🔎 LIGADA com 4 políticas permissivas (SELECT público, INSERT/UPDATE/DELETE authenticated **sem escopo de tenant**) — melhor que o padrão P5, mas anotada em `BACKLOG_SEGURANCA.md` |
 | **Área do Cliente (E1–E6)** | ✅ Verificada implementada em 06/10 (o TRACKING defasava desde 16/09) — falta validação do fundador no celular + OTP (E1) antes de cliente real |
+| **Módulo Estoque inativo para a Doceê (achado do fundador, 06/10)** | ✅ **Corrigido (commit `319a402`)** — causa: no catálogo do app o Estoque era `trial` **vencido desde 28/04/2026** (`lib/modulos.ts:26`); único ponto de menu que depende dele = **Cadastros ▸ Produtos** (`AppLayout.tsx:91`, `moduloCodigo: 'estoque'`). Estoque virou **core** + migração de localStorage `uniq-estoque-core-v1` (padrão Agenda/Chatbot; `'cancelado'` NÃO ressuscita — se no telefone da esposa não aparecer, verificar `'cancelado'` no localStorage e decidir como no precedente do Chatbot). Banco: Doceê segue com **0 módulos em `unq_empresa_modulos`** — gelado até a Opção B (B10), pois o app ignora o banco |
 
 ---
 

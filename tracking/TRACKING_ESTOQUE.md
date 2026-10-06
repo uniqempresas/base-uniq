@@ -111,7 +111,7 @@
 | **B17b** | ✅ Feito — `use-registrar-venda.ts` apagado (0 importações), botões mortos removidos (Importar/Exportar, Imprimir etiqueta, Inativar, Fazer pedido ao fornecedor) |
 | **B16** | ✅ Migration `20261006090000_estoque_catchup.sql` escrita com o schema **real** (information_schema/pg_constraint — zero inferência) e aplicada em produção via MCP |
 | **F5** | ✅ **Já resolvido em 21/09** (migrations `registrar_venda_fix_forma_pagamento_deterministica` + `_nulls_last`); re-verificado na função viva em 06/10 |
-| **B14** | 🟡 SDD pronto (PRD/SPEC/WIRE) — **WIRE aguardando aprovação do fundador** (GitHub) |
+| **B14** | ✅ **Implementado** (WIRE aprovado pelo fundador no GitHub) — commit `7f78d1d`: `types/estoque.ts` · `use-movimentacoes.ts` (leitura embed produto + responsável via `me_usuario` 2ª query) · `use-registrar-movimentacao.ts` (escrita compartilhada, ordem estoque→histórico, com `observacao` N10) · `AjustarEstoqueModal` único compartilhado detalhe/extrato (bottom-sheet mobile) · extrato/dashboard/detalhe reais · "Cancelar" removido (D4) · prova no banco OK (INSERT + ROLLBACK). **Faltando apenas validação do fundador no celular** |
 
 **Correções de registro (honestidade) sobre o mapeamento de ontem:**
 1. **N2 era outro problema:** `est_movimentacao` (`create_est_movimentacao_v2`, 25/11/2025) e `estoque_minimo` (`add_estoque_minimo_me_produto`, 18/09) **existem no histórico de migrations remoto** — o que faltava era o **arquivo no repo** (`supabase/migrations/` tem só 13 dos ~150 aplicados). Drift é **repo ↔ histórico**, não schema faltante.
