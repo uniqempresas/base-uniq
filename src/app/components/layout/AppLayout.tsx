@@ -109,6 +109,7 @@ const SUBNAV_SECTIONS: SubNavSection[] = [
     items: [
       { id: "e-dashboard", label: "Dashboard", path: "/estoque/dashboard", icon: LayoutDashboard },
       { id: "e-produtos", label: "Produtos", path: "/estoque/produtos", icon: Box },
+      { id: "e-compras", label: "Compras", path: "/estoque/compras", icon: ShoppingCart },
       { id: "e-mov", label: "Movimentações", path: "/estoque/movimentacoes", icon: ArrowRightLeft },
       { id: "e-categorias", label: "Categorias", path: "/estoque/configuracoes", icon: Settings },
     ],

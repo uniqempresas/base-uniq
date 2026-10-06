@@ -44,6 +44,9 @@ function stepsPara(natureza: NaturezaProduto): string[] {
 
 const NATUREZAS: NaturezaProduto[] = ["simples", "composto", "insumo"];
 
+/** Unidades comuns do datalist "Compra por" (F2 — WIRE §3). */
+const UNIDADES_COMPRA = ["kg", "g", "L", "ml", "un", "lata", "caixa", "pacote", "m"];
+
 interface ProdutoFormModalProps {
   produto?: Produto | null; // null/undefined = modo criar; Produto = modo editar
   produtoBase?: Produto | null; // null/undefined = modo criar normal; Produto = modo duplicar
@@ -86,6 +89,10 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, onClose, on
       // Produção F1: eixo de produção. Editar → radio pré-selecionado;
       // mock/produto antigo sem o campo → "simples" (SPEC §3).
       natureza: (base?.natureza ?? "simples") as NaturezaProduto,
+      // Produção F2 (WIRE §3): conversão de compra do insumo. Vazio = compra
+      // direto na unidade do estoque.
+      unidadeCompra: base?.unidadeCompra || "",
+      fatorConversao: base?.fatorConversao != null ? String(base.fatorConversao) : "",
     };
   });
   const [fotoArquivo, setFotoArquivo] = useState<File | null>(null);
@@ -95,6 +102,8 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, onClose, on
   const [fotoRemovida, setFotoRemovida] = useState(false);
   const [erroFoto, setErroFoto] = useState("");
   const [erroPromocional, setErroPromocional] = useState("");
+  // Produção F2: erro inline do grupo "Compra e conversão" (só insumo)
+  const [erroConversao, setErroConversao] = useState("");
 
   // ── Produção F1: ficha técnica (BOM) ──────────────────────────────────────
   // Rules-of-hooks: o hook roda SEMPRE no topo — o que é condicional é o step
@@ -158,6 +167,18 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, onClose, on
     }
     setErroPromocional("");
 
+    // Produção F2 (insumo): unidade de compra preenchida exige fator > 0 (WIRE §5.1).
+    // Fora de insumo as chaves vão null → limpam a conversão no banco.
+    const unidadeCompraFinal = form.natureza === "insumo" ? form.unidadeCompra.trim() : "";
+    const fatorFinal =
+      form.natureza === "insumo" && unidadeCompraFinal ? parseFloat(form.fatorConversao) : null;
+    if (unidadeCompraFinal && !(fatorFinal !== null && Number.isFinite(fatorFinal) && fatorFinal > 0)) {
+      setErroConversao(`Informe quantas unidades de estoque tem 1 "${unidadeCompraFinal}".`);
+      setStep(1);
+      return;
+    }
+    setErroConversao("");
+
     // Produção F1: composto com componente sem quantidade (> 0) não pode ir ao
     // banco — volta para o passo da ficha em vez de gravar produto inconsistente.
     if (ehComposto) {
@@ -202,6 +223,9 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, onClose, on
         precoPromocional,
         unidade: form.unidade,
         natureza: form.natureza,
+        // Produção F2: conversão de compra do insumo (null limpa as colunas)
+        unidadeCompra: unidadeCompraFinal || null,
+        fatorConversao: fatorFinal,
       });
 
       if (!resultado.success) {
@@ -235,6 +259,9 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, onClose, on
       precoPromocional,
       unidade: form.unidade,
       natureza: form.natureza,
+      // Produção F2: conversão de compra do insumo (null limpa as colunas)
+      unidadeCompra: unidadeCompraFinal || null,
+      fatorConversao: fatorFinal,
     });
 
     if (!resultado.success) {
@@ -545,6 +572,106 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, onClose, on
                 </div>
               </div>
 
+              {/* ── Compra e conversão (Produção F2 — WIRE §3, só insumo) ─────
+                  "No estoque você usa X; compre por Y e o sistema converte."
+                  Vazio = a compra já é na unidade do estoque. */}
+              {form.natureza === "insumo" && (
+                <div className="rounded-xl border border-[#efefef] p-4 space-y-3">
+                  <div>
+                    <p className="text-[#1f2937] text-xs" style={{ fontWeight: 600 }}>
+                      Compra e conversão
+                    </p>
+                    <p className="text-[#627271] text-[11px] mt-0.5">
+                      No estoque você usa <strong>{form.unidade || "un"}</strong>. Compre por{" "}
+                      <strong>{form.unidadeCompra.trim() || form.unidade || "un"}</strong> e o sistema
+                      converte.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label
+                        htmlFor="unidade-compra"
+                        className="block text-[#1f2937] text-xs mb-1.5"
+                        style={{ fontWeight: 500 }}
+                      >
+                        Compra por
+                      </label>
+                      <input
+                        id="unidade-compra"
+                        type="text"
+                        list="unidades-compra-datalist"
+                        autoComplete="off"
+                        value={form.unidadeCompra}
+                        onChange={(e) => {
+                          setForm((f) => ({ ...f, unidadeCompra: e.target.value }));
+                          setErroConversao("");
+                        }}
+                        placeholder="Ex.: kg"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92] focus:ring-2 focus:ring-[#86cb92]/20"
+                      />
+                      <datalist id="unidades-compra-datalist">
+                        {UNIDADES_COMPRA.map((u) => (
+                          <option key={u} value={u} />
+                        ))}
+                      </datalist>
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="fator-conversao"
+                        className="block text-[#1f2937] text-xs mb-1.5"
+                        style={{ fontWeight: 500 }}
+                      >
+                        1 unidade vale (no estoque)
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="fator-conversao"
+                          type="number"
+                          min="0"
+                          step="any"
+                          inputMode="decimal"
+                          value={form.fatorConversao}
+                          onChange={(e) => {
+                            setForm((f) => ({ ...f, fatorConversao: e.target.value }));
+                            setErroConversao("");
+                          }}
+                          placeholder="1000"
+                          aria-label={`Quantas unidades de estoque equivalem a 1 ${form.unidadeCompra.trim() || "unidade de compra"}`}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92]"
+                        />
+                        <span
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#627271] text-[10px]"
+                          style={{ fontWeight: 600 }}
+                        >
+                          {form.unidade || "un"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* resumo em tempo real (WIRE: "compra por kg = 1.000 g") */}
+                  {form.unidadeCompra.trim() && Number(form.fatorConversao) > 0 && (
+                    <p className="text-[11px]" style={{ color: "#1f2937", fontWeight: 600 }} role="status">
+                      1 {form.unidadeCompra.trim()} ={" "}
+                      {Number(form.fatorConversao).toLocaleString("pt-BR")} {form.unidade || "un"} no
+                      estoque
+                    </p>
+                  )}
+
+                  {erroConversao ? (
+                    <p className="text-xs text-red-600" style={{ fontWeight: 500 }}>
+                      {erroConversao}
+                    </p>
+                  ) : (
+                    <p className="text-[#627271] text-[11px]">
+                      Vazio = a compra já é na unidade do estoque. Ex.: compra barras de 1 kg →
+                      informe "kg" e fator "1000"; ao receber 2 kg, entram 2.000 g no estoque.
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div>
                 <label className="block text-[#1f2937] text-xs mb-1.5" style={{ fontWeight: 500 }}>
                   Código de Barras
@@ -628,10 +755,10 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, onClose, on
                       type="number"
                       step="0.01"
                       value={form.precoVenda}
-                      onChange={(e) => {
-                        setForm((f) => ({ ...f, precoVenda: e.target.value }));
-                        setErroPromocional("");
-                      }}
+                       onChange={(e) => {
+                         setForm((f) => ({ ...f, precoVenda: e.target.value }));
+                         setErroPromocional("");
+                       }}
                       placeholder="0,00"
                       className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92]"
                       required

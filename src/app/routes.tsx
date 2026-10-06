@@ -92,6 +92,8 @@ export const router = createBrowserRouter([
       { path: "/estoque/produtos", lazy: pagina(() => import("./components/estoque/ProdutosPage"), "ProdutosPage") },
       { path: "/estoque/produtos/:id", lazy: pagina(() => import("./components/estoque/ProdutoDetalhePage"), "ProdutoDetalhePage") },
       { path: "/estoque/movimentacoes", lazy: pagina(() => import("./components/estoque/MovimentacoesPage"), "MovimentacoesPage") },
+      // Produção Fase 2: compras de insumo + custo médio + conta a pagar (WIRE v1.1)
+      { path: "/estoque/compras", lazy: pagina(() => import("./components/estoque/ComprasPage"), "ComprasPage") },
       { path: "/estoque/configuracoes", lazy: pagina(() => import("./components/estoque/ConfiguracoesProdutosPage"), "ConfiguracoesProdutosPage") },
       // Loja Virtual — módulo: catálogo + aparência da loja (SPEC-LojaVirtual-CompletarModulo §5)
       { path: "/loja-virtual", lazy: pagina(() => import("./components/loja-virtual/LojaVirtualHubPage"), "LojaVirtualHubPage") },

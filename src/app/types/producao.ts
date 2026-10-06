@@ -44,3 +44,84 @@ export interface FichaTecnica {
   natureza: NaturezaProduto;
   itens: ItemFichaTecnica[];
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Produção Fase 2 — Compras + Custo Médio + Conta a Pagar
+ * (SPEC-Producao-BOM-Fase2-ComprasCusto §3)
+ * ───────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Status da compra — domínio EXATO do CHECK `est_compra_status_check` no banco:
+ * SEMPRE maiúsculo. O app grava só estes literais (via `normalizarStatusCompra`).
+ */
+export type StatusCompra = "PENDENTE" | "RECEBIDO" | "CANCELADO";
+
+export const ESTADO_COMPRA: Record<StatusCompra, StatusCompra> = {
+  PENDENTE: "PENDENTE",
+  RECEBIDO: "RECEBIDO",
+  CANCELADO: "CANCELADO",
+};
+
+/** Domínio real da coluna; linha/embed inesperado cai em PENDENTE (nunca quebra a UI). */
+export function normalizarStatusCompra(valor: string | null | undefined): StatusCompra {
+  return valor === "RECEBIDO" || valor === "CANCELADO" ? valor : "PENDENTE";
+}
+
+/** Rótulos da UI (WIRE §2.5) — badge nunca depende de cor sozinha. */
+export const STATUS_COMPRA_LABELS: Record<StatusCompra, string> = {
+  PENDENTE: "Pendente",
+  RECEBIDO: "Recebido",
+  CANCELADO: "Cancelado",
+};
+
+/**
+ * Item da compra no formato da UI. `quantidade`/`valorUnitario` estão na unidade
+ * de COMPRA (o que o fornecedor entrega); a conversão para o estoque vem do
+ * produto (`unidadeCompra` + `fatorConversao` de `me_produto`).
+ */
+export interface ItemCompra {
+  id: string;
+  /** `me_produto.id` (integer no banco, string na UI — contrato de `Produto.id`) */
+  produtoId: string;
+  produtoNome: string;
+  produtoSku: string;
+  /** unidade de ESTOQUE (`me_produto.unidade`) */
+  unidadeEstoque: string;
+  /** `me_produto.unidade_compra` — null = compra na unidade do estoque */
+  unidadeCompra: string | null;
+  /** `me_produto.fator_conversao` — null = 1 (ex.: 'kg' com 1000 → 1 kg = 1000 g) */
+  fatorConversao: number | null;
+  /** quantidade na unidade de COMPRA (> 0, CHECK do banco) */
+  quantidade: number;
+  /** valor unitário na unidade de COMPRA (>= 0, CHECK do banco) */
+  valorUnitario: number;
+}
+
+export interface Compra {
+  id: string;
+  fornecedorId: string;
+  fornecedorNome: string;
+  status: StatusCompra;
+  /** ISO (`est_compra.data_compra` timestamptz) */
+  dataCompra: string;
+  /** `est_compra.data_prevista` (emenda D11) —yyyy-mm-dd ou null */
+  dataPrevista: string | null;
+  /** `est_compra.data_recebimento` — yyyy-mm-dd ou null */
+  dataRecebimento: string | null;
+  valorTotal: number;
+  notaFiscal: string | null;
+  itens: ItemCompra[];
+}
+
+/** Quantidade que entra no estoque: `quantidade × (fatorConversao ?? 1)` (SPEC D6). */
+export function qtdEstoque(item: Pick<ItemCompra, "quantidade" | "fatorConversao">): number {
+  return item.quantidade * (item.fatorConversao ?? 1);
+}
+
+/** Custo por unidade de ESTOQUE: `valorUnitario ÷ (fatorConversao ?? 1)` (SPEC D9). */
+export function custoPorUnidadeEstoque(
+  item: Pick<ItemCompra, "valorUnitario" | "fatorConversao">
+): number {
+  const fator = item.fatorConversao ?? 1;
+  return fator > 0 ? item.valorUnitario / fator : item.valorUnitario;
+}

@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import type { NaturezaProduto } from "../types/producao";
+import { validarConversaoCompra } from "./use-criar-produto";
 
 export interface AtualizarProdutoParams {
   id: number;
@@ -29,6 +30,13 @@ export interface AtualizarProdutoParams {
    * modal (default `'simples'`); omitido = coluna intocada.
    */
   natureza?: NaturezaProduto;
+  /**
+   * `me_produto.unidade_compra` — unidade de compra do insumo (Produção F2).
+   * O modal sempre envia a chave; `null` LIMPA a coluna (SPEC §4).
+   */
+  unidadeCompra?: string | null;
+  /** `me_produto.fator_conversao` — > 0; `null` LIMPA (= 1) (Produção F2) */
+  fatorConversao?: number | null;
 }
 
 export interface AtualizarProdutoResult {
@@ -58,6 +66,13 @@ export function useAtualizarProduto() {
       try {
         const { id, ...campos } = params;
 
+        // F2: unidade de compra preenchida exige fator > 0 — falha antes da rede
+        // (só quando a chave é enviada; chamadas parciais como { ativo: false } seguem).
+        if (campos.unidadeCompra !== undefined) {
+          const erroConversao = validarConversaoCompra(campos.unidadeCompra, campos.fatorConversao);
+          if (erroConversao) throw new Error(erroConversao);
+        }
+
         const updateData: Record<string, unknown> = {};
         if (campos.nome !== undefined) updateData.nome_produto = campos.nome;
         if (campos.sku !== undefined) updateData.sku = campos.sku;
@@ -76,6 +91,11 @@ export function useAtualizarProduto() {
         if (campos.unidade !== undefined) updateData.unidade = campos.unidade;
         // Produção F1: eixo de produção — o legado `tipo` (variações) não é tocado (PRD D5).
         if (campos.natureza !== undefined) updateData.natureza = campos.natureza;
+        // Produção F2: conversão de embalagem — o modal sempre envia as chaves; null LIMPA a coluna.
+        if (campos.unidadeCompra !== undefined) {
+          updateData.unidade_compra = campos.unidadeCompra?.trim() || null;
+        }
+        if (campos.fatorConversao !== undefined) updateData.fator_conversao = campos.fatorConversao;
         // Insumo = matéria-prima, nunca vitrine (SPEC §6.3). Depois do mapeamento de
         // exibir_vitrine para valer sobre o que veio da UI.
         if (campos.natureza === "insumo") updateData.exibir_vitrine = false;

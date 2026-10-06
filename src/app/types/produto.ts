@@ -57,4 +57,15 @@ export interface Produto {
    * o ausente como `'simples'` (SPEC-Producao-BOM-Fase1 §3).
    */
   natureza?: NaturezaProduto;
+  /**
+   * `me_produto.unidade_compra` — unidade de COMPRA do insumo (ex.: 'kg').
+   * null = compra direto na unidade do estoque. Opcional no tipo porque o
+   * mock antigo não tem o campo (SPEC-Producao-BOM-Fase2 §3).
+   */
+  unidadeCompra?: string | null;
+  /**
+   * `me_produto.fator_conversao` — quanto 1 unidade de compra vale no estoque
+   * (ex.: 1000 para 'kg' com estoque em 'g'). null = 1.
+   */
+  fatorConversao?: number | null;
 }

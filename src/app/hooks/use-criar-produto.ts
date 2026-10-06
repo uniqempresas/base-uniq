@@ -33,6 +33,27 @@ export interface CriarProdutoParams {
   unidade?: string | null;
   /** `me_produto.natureza` — default 'simples' quando omitido (Produção F1) */
   natureza?: NaturezaProduto;
+  /**
+   * `me_produto.unidade_compra` — unidade de compra do insumo (Produção F2).
+   * null/omitido = compra direto na unidade do estoque.
+   */
+  unidadeCompra?: string | null;
+  /** `me_produto.fator_conversao` — > 0; null = 1 (Produção F2) */
+  fatorConversao?: number | null;
+}
+
+/**
+ * Regra F2 (SPEC §5.1): unidade de compra preenchida exige fator > 0.
+ * Validação client — o CHECK do banco é a segunda linha de defesa.
+ */
+export function validarConversaoCompra(
+  unidadeCompra?: string | null,
+  fatorConversao?: number | null
+): string | null {
+  if (unidadeCompra?.trim() && !(Number(fatorConversao) > 0)) {
+    return `Informe quantas unidades de estoque equivalem a 1 "${unidadeCompra.trim()}" — o fator de conversão precisa ser maior que zero.`;
+  }
+  return null;
 }
 
 export interface CriarProdutoResult {
@@ -61,6 +82,10 @@ export function useCriarProduto() {
 
         const natureza: NaturezaProduto = params.natureza ?? "simples";
 
+        // F2: unidade de compra exige fator > 0 — falha antes da rede com mensagem clara.
+        const erroConversao = validarConversaoCompra(params.unidadeCompra, params.fatorConversao);
+        if (erroConversao) throw new Error(erroConversao);
+
         const { data: novoProduto, error: produtoError } = await supabase
           .from("me_produto")
           .insert({
@@ -86,6 +111,9 @@ export function useCriarProduto() {
             exibir_vitrine: natureza === "insumo" ? false : params.exibirVitrine ?? true,
             preco_varejo: params.precoPromocional ?? null,
             unidade: params.unidade ?? null,
+            // Produção F2: conversão de embalagem do insumo (null = compra na unidade do estoque)
+            unidade_compra: params.unidadeCompra?.trim() || null,
+            fator_conversao: params.fatorConversao ?? null,
           })
           .select("id")
           .single();

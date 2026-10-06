@@ -31,8 +31,18 @@ interface DBProduto {
   exibir_vitrine: boolean | null;
   /** Produção F1: eixo simples/composto/insumo (NÃO confundir com `tipo`, legado) */
   natureza: string | null;
+  /** Produção F2: unidade de compra + fator de conversão (SPEC §2.1/§4) */
+  unidade_compra: string | null;
+  fator_conversao: number | string | null;
   /** Embed do PostgREST: me_produto.categoria_id → me_categoria */
   me_categoria: { id_categoria: number; nome_categoria: string | null; cor: string | null } | null;
+}
+
+/** `numeric` pode chegar como string no client; null/ausente = sem conversão (F2). */
+function normalizarFator(valor: number | string | null | undefined): number | null {
+  if (valor === null || valor === undefined || valor === "") return null;
+  const n = Number(valor);
+  return Number.isFinite(n) ? n : null;
 }
 
 /**
@@ -80,6 +90,9 @@ function mapProduto(db: DBProduto): Produto {
     exibirVitrine: db.exibir_vitrine ?? false,
     // natureza — eixo de produção (SPEC-Producao-BOM-Fase1 §4); ausente = 'simples'
     natureza: normalizarNatureza(db.natureza),
+    // conversão de compra do insumo (SPEC-Producao-BOM-Fase2 §4); ausente = null
+    unidadeCompra: db.unidade_compra ?? null,
+    fatorConversao: normalizarFator(db.fator_conversao),
     estoqueStatus: calcEstoqueStatus(estoque, estoqueMinimo),
     possuiVariacoes: false,
     descricaoCurta: db.descricao || undefined,
