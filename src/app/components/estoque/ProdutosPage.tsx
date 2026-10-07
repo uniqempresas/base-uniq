@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import {
   Search,
   Plus,
@@ -89,9 +89,14 @@ function MargemChip({ pct }: { pct: number }) {
  * Simples NÃO ganha chip (é a maioria — não polui a lista). Cores da paleta já
  * usada no módulo (mesma combinação do banner `bg-amber-50/border-amber-200/
  * text-amber-700` desta tela e do `blue-*` do EstoqueDashboard).
+ *
+ * M1 (WIRE INSUMOS_MENU_M1): o chip "Insumo" só aparece em contexto MISTO. Nas
+ * duas visões a lista já é homogênea (Produtos exclui insumo; Insumos só tem
+ * insumo), então na visão Insumos o chip é redundante e some (`ocultarInsumo`).
  */
-function NaturezaChip({ natureza }: { natureza?: NaturezaProduto }) {
+function NaturezaChip({ natureza, ocultarInsumo = false }: { natureza?: NaturezaProduto; ocultarInsumo?: boolean }) {
   if (!natureza || natureza === "simples") return null;
+  if (ocultarInsumo && natureza === "insumo") return null;
   const composto = natureza === "composto";
   return (
     <span
@@ -106,7 +111,7 @@ function NaturezaChip({ natureza }: { natureza?: NaturezaProduto }) {
 }
 
 /* ─────────── Product Grid Card ─────────── */
-function ProdutoGridCard({ produto, onClick, onDelete, onEdit, onDuplicate }: { produto: Produto; onClick: () => void; onDelete: () => void; onEdit: () => void; onDuplicate: () => void }) {
+function ProdutoGridCard({ produto, ocultarInsumo = false, onClick, onDelete, onEdit, onDuplicate }: { produto: Produto; ocultarInsumo?: boolean; onClick: () => void; onDelete: () => void; onEdit: () => void; onDuplicate: () => void }) {
   const [hovered, setHovered] = useState(false);
   const [imgFalhou, setImgFalhou] = useState(false);
   const catColors = corCategoria(produto.categoriaCor, produto.categoria);
@@ -207,7 +212,7 @@ function ProdutoGridCard({ produto, onClick, onDelete, onEdit, onDuplicate }: { 
             <p className="text-[#627271] text-[11px] mt-0.5 truncate">{produto.sku}</p>
           </div>
           <div className="flex flex-col items-end gap-1 shrink-0">
-            <NaturezaChip natureza={produto.natureza} />
+            <NaturezaChip natureza={produto.natureza} ocultarInsumo={ocultarInsumo} />
             <span
               className="text-[10px] px-1.5 py-0.5 rounded-md"
               style={{ background: catColors.bg, color: catColors.text, fontWeight: 600 }}
@@ -288,12 +293,21 @@ function ProdutoGridCard({ produto, onClick, onDelete, onEdit, onDuplicate }: { 
 /* ─────────── Main Page ─────────── */
 export function ProdutosPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  // M1 (WIRE INSUMOS_MENU_M1): a MESMA tela atende duas rotas. /estoque/insumos
+  // = "o que você compra" (natureza=insumo); /estoque/produtos = "o que você
+  // vende" (simples+composto). Filtro client-side no escopo — tabela/hooks
+  // intocados (use-produtos já retorna `natureza`).
+  const ehInsumos = location.pathname.startsWith("/estoque/insumos");
+  const termo = ehInsumos ? "insumo" : "produto";
   const { produtos, loading, isFallback, recarregar } = useProdutos();
   const { atualizarProduto, loading: atualizandoProduto } = useAtualizarProduto();
   const { categorias: categoriasConfig } = useCategorias();
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [busca, setBusca] = useState("");
-  const [catFiltro, setCatFiltro] = useState("Todas");
+  // W1 (PRODUTOS_FILTRO_MULTI): categoria vira MULTI-seleção (toggle, união).
+  // [] = Todas (sem filtro). Antes era string única `catFiltro`.
+  const [catsFiltro, setCatsFiltro] = useState<string[]>([]);
   const [statusEstoque, setStatusEstoque] = useState("Todos");
   const [statusProduto, setStatusProduto] = useState("Todos");
   const [showFiltros, setShowFiltros] = useState(false);
@@ -333,13 +347,21 @@ export function ProdutosPage() {
     ? CATEGORIAS.map((nome) => ({ nome, cor: null as string | null }))
     : categoriasConfig.map((c) => ({ nome: c.nome, cor: c.cor }));
 
-  const filteredProdutos = produtos.filter((p) => {
+  // Escopo da visão (M1): insumos = só natureza insumo; produtos = simples+composto.
+  const escopo = produtos.filter((p) => (ehInsumos ? p.natureza === "insumo" : p.natureza !== "insumo"));
+
+  // W1: multi-categoria em UNIÃO — o produto aparece se pertence a QUALQUER
+  // categoria marcada (subtração nenhuma).
+  const toggleCat = (nome: string) =>
+    setCatsFiltro((prev) => (prev.includes(nome) ? prev.filter((c) => c !== nome) : [...prev, nome]));
+
+  const filteredProdutos = escopo.filter((p) => {
     const matchBusca =
       !busca ||
       p.nome.toLowerCase().includes(busca.toLowerCase()) ||
       p.sku.toLowerCase().includes(busca.toLowerCase()) ||
       (p.codigoBarras || "").includes(busca);
-    const matchCat = catFiltro === "Todas" || p.categoria === catFiltro;
+    const matchCat = catsFiltro.length === 0 || catsFiltro.includes(p.categoria);
     const matchEstoque =
       statusEstoque === "Todos" ||
       (statusEstoque === "OK" && p.estoqueStatus === "ok") ||
@@ -353,7 +375,7 @@ export function ProdutosPage() {
   });
 
   const activeFilters = [
-    catFiltro !== "Todas" && catFiltro,
+    ...catsFiltro,
     statusEstoque !== "Todos" && statusEstoque,
     statusProduto !== "Todos" && statusProduto,
   ].filter(Boolean) as string[];
@@ -442,10 +464,13 @@ export function ProdutosPage() {
       {showNovoProduto && (
         <ProdutoFormModal
           categorias={categoriasConfig}
+          // M1: na visão Insumos o modal abre pré-selecionado como Insumo
+          // (padrão ComprasPage/useCriarProduto: natureza forçada por contexto)
+          naturezaInicial={ehInsumos ? "insumo" : "simples"}
           onClose={() => setShowNovoProduto(false)}
           onSuccess={() => {
             setShowNovoProduto(false);
-            showToast("Produto cadastrado com sucesso! 🎉");
+            showToast(`${ehInsumos ? "Insumo" : "Produto"} cadastrado com sucesso! 🎉`);
             recarregar();
           }}
         />
@@ -481,10 +506,14 @@ export function ProdutosPage() {
           <div className="flex items-center justify-between mb-5">
             <div>
               <h1 className="text-[#1f2937]" style={{ fontWeight: 700, fontSize: "1.2rem" }}>
-                Produtos
+                {ehInsumos ? "Insumos" : "Produtos"}
               </h1>
+              {/* W1: contador "N produtos · X categorias no filtro" */}
               <p className="text-[#627271] text-sm">
-                {filteredProdutos.length} de {produtos.length} produtos
+                {filteredProdutos.length} de {escopo.length} {ehInsumos ? "insumos" : "produtos"}
+                {catsFiltro.length > 0 && (
+                  <> · {catsFiltro.length} {catsFiltro.length === 1 ? "categoria" : "categorias"} no filtro</>
+                )}
               </p>
             </div>
         <div className="flex items-center gap-2">
@@ -502,29 +531,29 @@ export function ProdutosPage() {
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[#1f2937] text-sm" style={{ background: "#86cb92", fontWeight: 600 }}
           >
             <Plus size={15} />
-            <span className="hidden sm:inline">Novo Produto</span>
+            <span className="hidden sm:inline">{ehInsumos ? "Novo Insumo" : "Novo Produto"}</span>
             <span className="sm:hidden">Novo</span>
           </button>
         </div>
       </div>
 
-      {/* Alertas rápidos */}
-      {(produtos.some((p) => p.estoqueStatus === "zerado") || produtos.some((p) => p.estoqueStatus === "baixo")) && (
+      {/* Alertas rápidos — no escopo da visão (M1) */}
+      {(escopo.some((p) => p.estoqueStatus === "zerado") || escopo.some((p) => p.estoqueStatus === "baixo")) && (
         <div className="flex flex-wrap gap-2 mb-4">
-          {produtos.some((p) => p.estoqueStatus === "zerado") && (
+          {escopo.some((p) => p.estoqueStatus === "zerado") && (
             <span className="flex items-center gap-1 text-xs text-red-600">
               <AlertTriangle size={12} />
-              {produtos.filter((p) => p.estoqueStatus === "zerado").length} zerado(s)
+              {escopo.filter((p) => p.estoqueStatus === "zerado").length} zerado(s)
             </span>
           )}
-          {produtos.some((p) => p.estoqueStatus === "baixo") && (
+          {escopo.some((p) => p.estoqueStatus === "baixo") && (
             <button
               onClick={() => setStatusEstoque("Baixo")}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs"
               style={{ background: "#FFFBEB", color: "#B45309", fontWeight: 600, border: "1px solid #FDE68A" }}
             >
               <span className="w-2 h-2 rounded-full bg-amber-500" />
-              {produtos.filter((p) => p.estoqueStatus === "baixo").length} estoque baixo
+              {escopo.filter((p) => p.estoqueStatus === "baixo").length} estoque baixo
             </button>
           )}
         </div>
@@ -576,30 +605,40 @@ export function ProdutosPage() {
             <div>
               <label className="block text-[#627271] text-xs mb-2" style={{ fontWeight: 500 }}>Categoria</label>
               <div className="flex flex-wrap gap-1.5">
+                {/* W1: toggle multi-seleção. "Todas" = desmarcar tudo. */}
                 <button
-                  onClick={() => setCatFiltro("Todas")}
+                  onClick={() => setCatsFiltro([])}
                   className="px-2.5 py-1 rounded-lg text-xs transition-all"
                   style={{
                     background: "#efefef",
                     color: "#627271",
-                    border: catFiltro === "Todas" ? "1px solid #62727140" : "1px solid transparent",
-                    fontWeight: catFiltro === "Todas" ? 600 : 400,
+                    border: catsFiltro.length === 0 ? "1px solid #62727140" : "1px solid transparent",
+                    fontWeight: catsFiltro.length === 0 ? 600 : 400,
                   }}
                 >Todas</button>
                 {chipCategorias.map(({ nome, cor }) => {
                   const colors = corCategoria(cor, nome);
+                  const marcada = catsFiltro.includes(nome);
                   return (
-                    <button key={nome} onClick={() => setCatFiltro(nome)}
+                    <button key={nome} onClick={() => toggleCat(nome)} aria-pressed={marcada}
                       className="px-2.5 py-1 rounded-lg text-xs transition-all"
                       style={{
-                        background: catFiltro === nome ? colors.bg : "#efefef",
-                        color: catFiltro === nome ? colors.text : "#627271",
-                        border: catFiltro === nome ? `1px solid ${colors.text}40` : "1px solid transparent",
-                        fontWeight: catFiltro === nome ? 600 : 400,
+                        background: marcada ? colors.bg : "#efefef",
+                        color: marcada ? colors.text : "#627271",
+                        border: marcada ? `1px solid ${colors.text}40` : "1px solid transparent",
+                        fontWeight: marcada ? 600 : 400,
                       }}
                     >{nome}</button>
                   );
                 })}
+                {/* W1: "Limpar" só com ≥2 categorias ativas */}
+                {catsFiltro.length >= 2 && (
+                  <button
+                    onClick={() => setCatsFiltro([])}
+                    className="px-2.5 py-1 rounded-lg text-xs underline underline-offset-2 transition-all"
+                    style={{ color: "#B45309", background: "#FFFBEB", border: "1px solid #FDE68A", fontWeight: 600 }}
+                  >Limpar</button>
+                )}
               </div>
             </div>
             <div>
@@ -625,7 +664,7 @@ export function ProdutosPage() {
               </div>
             </div>
             {activeFilters.length > 0 && (
-              <button onClick={() => { setCatFiltro("Todas"); setStatusEstoque("Todos"); setStatusProduto("Todos"); }}
+              <button onClick={() => { setCatsFiltro([]); setStatusEstoque("Todos"); setStatusProduto("Todos"); }}
                 className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 mt-auto" style={{ fontWeight: 500 }}>
                 <X size={12} />Limpar filtros
               </button>
@@ -639,7 +678,7 @@ export function ProdutosPage() {
             {activeFilters.map((f) => (
               <span key={f} className="flex items-center gap-1 px-2 py-1 rounded-full bg-[#efefef] text-[#1f2937] text-xs" style={{ fontWeight: 500 }}>
                 {f}
-                <button onClick={() => { if (catFiltro === f) setCatFiltro("Todas"); else if (statusEstoque === f) setStatusEstoque("Todos"); else setStatusProduto("Todos"); }}>
+                <button onClick={() => { if (catsFiltro.includes(f)) setCatsFiltro((prev) => prev.filter((c) => c !== f)); else if (statusEstoque === f) setStatusEstoque("Todos"); else setStatusProduto("Todos"); }}>
                   <X size={11} />
                 </button>
               </span>
@@ -655,20 +694,31 @@ export function ProdutosPage() {
             <Package size={28} className="text-[#627271]" />
           </div>
           <h3 className="text-[#1f2937] mb-2" style={{ fontWeight: 600 }}>
-            {busca || activeFilters.length > 0 ? "Nenhum produto encontrado" : "Nenhum produto cadastrado"}
+            {busca || activeFilters.length > 0
+              ? // W1: filtro multi-categoria ativo e nada casa → mensagem própria
+                catsFiltro.length >= 2
+                ? "Nada nesta combinação"
+                : catsFiltro.length === 1
+                  ? `Nenhum ${termo} nesta categoria`
+                  : `Nenhum ${termo} encontrado`
+              : `Nenhum ${termo} cadastrado`}
           </h3>
           <p className="text-[#627271] text-sm mb-5">
-            {busca || activeFilters.length > 0 ? "Tente ajustar seus filtros ou termos de busca" : "Comece adicionando seu primeiro produto ao estoque"}
+            {busca || activeFilters.length > 0
+              ? "Tente ajustar seus filtros ou termos de busca"
+              : ehInsumos
+                ? "Cadastre o que você compra: caixas, embalagens, matéria-prima"
+                : "Comece adicionando seu primeiro produto ao estoque"}
           </p>
           {busca || activeFilters.length > 0 ? (
-            <button onClick={() => { setBusca(""); setCatFiltro("Todas"); setStatusEstoque("Todos"); setStatusProduto("Todos"); }}
+            <button onClick={() => { setBusca(""); setCatsFiltro([]); setStatusEstoque("Todos"); setStatusProduto("Todos"); }}
               className="px-5 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm" style={{ fontWeight: 500 }}>
               Limpar filtros
             </button>
           ) : (
             <button onClick={() => setShowNovoProduto(true)}
               className="px-5 py-2.5 rounded-xl text-[#1f2937] text-sm" style={{ background: "#86cb92", fontWeight: 600 }}>
-              Cadastrar primeiro produto
+              Cadastrar primeiro {termo}
             </button>
           )}
         </div>
@@ -678,6 +728,8 @@ export function ProdutosPage() {
             <ProdutoGridCard
               key={p.id}
               produto={p}
+              // M1: chip "Insumo" só em contexto misto — aqui a lista já é de insumos
+              ocultarInsumo={ehInsumos}
               onClick={() => navigate(`/estoque/produtos/${p.id}`)}
               onDelete={() => setProdutoParaExcluir(p)}
               onEdit={() => setProdutoParaEditar(p)}
@@ -711,7 +763,7 @@ export function ProdutosPage() {
                           <div>
                             <div className="flex items-center gap-1.5">
                               <p className="text-[#1f2937] text-sm whitespace-nowrap" style={{ fontWeight: 600 }}>{p.nome}</p>
-                              <NaturezaChip natureza={p.natureza} />
+                              <NaturezaChip natureza={p.natureza} ocultarInsumo={ehInsumos} />
                             </div>
                             {p.possuiVariacoes && <p className="text-[#627271] text-[10px]">{p.variacoes?.length} variações</p>}
                           </div>

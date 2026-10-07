@@ -90,9 +90,15 @@ export const router = createBrowserRouter([
       { path: "/estoque", element: <Navigate to="/estoque/dashboard" replace /> },
       { path: "/estoque/dashboard", lazy: pagina(() => import("./components/estoque/EstoqueDashboardPage"), "EstoqueDashboardPage") },
       { path: "/estoque/produtos", lazy: pagina(() => import("./components/estoque/ProdutosPage"), "ProdutosPage") },
+      // M1 (WIRE INSUMOS_MENU_M1): mesma ProdutosPage, visão natureza=insumo
+      // (a tela decide a visão pelo pathname — nenhum componente novo).
+      { path: "/estoque/insumos", lazy: pagina(() => import("./components/estoque/ProdutosPage"), "ProdutosPage") },
       { path: "/estoque/produtos/:id", lazy: pagina(() => import("./components/estoque/ProdutoDetalhePage"), "ProdutoDetalhePage") },
       { path: "/estoque/movimentacoes", lazy: pagina(() => import("./components/estoque/MovimentacoesPage"), "MovimentacoesPage") },
       // Produção Fase 2: compras de insumo + custo médio + conta a pagar (WIRE v1.1)
+      // C1 (WIRE COMPRA_TELA_C1_C2): "Nova compra" é TELA própria mobile-first —
+      // rota estática ANTES da lista por clareza (React Router já pontua estática)
+      { path: "/estoque/compras/nova", lazy: pagina(() => import("./components/estoque/NovaCompraPage"), "NovaCompraPage") },
       { path: "/estoque/compras", lazy: pagina(() => import("./components/estoque/ComprasPage"), "ComprasPage") },
       { path: "/estoque/configuracoes", lazy: pagina(() => import("./components/estoque/ConfiguracoesProdutosPage"), "ConfiguracoesProdutosPage") },
       // Loja Virtual — módulo: catálogo + aparência da loja (SPEC-LojaVirtual-CompletarModulo §5)

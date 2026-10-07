@@ -162,4 +162,21 @@
 
 ---
 
+## 🖨️ ORDEM DE PRODUÇÃO (OP Documento) — Fase 5 · 📋 BACKLOG (decisão do fundador 07/10/2026)
+
+> **Pergunta do fundador:** "discutir ter uma ordem de produção — um documento que me diga **quantos itens de cada eu preciso produzir**, seja pegando de **pedidos** ou **criado por mim mesmo** na hora de produzir."
+> **Status:** ideia registrada para discussão futura — **não especificar nem implementar sem PRD/SPEC/WIRE aprovados.**
+
+**Esboço para a discussão (não aprovado):**
+- **Conceito:** um "chão de fábrica" em papel — documento que consolida o que precisa ser produzido e de onde veio cada quantidade: (a) **demandados por pedidos/venda** (agendados para data/alvo) e (b) **planejados manualmente** pelo fundador; níveis sugerem reposição por `estoque_minimo`.
+- **Diferença do "Produzir lote" (Fase 3):** a Fase 3 **executa** consumo+entrada de UM composto, na hora, item a item. A OP é **planejamento agregado**: várias fichas numa lista única, com status (rascunho → em produção → concluída), fonte da quantidade (pedidos × manual × sugestão de mínimo) e execução parcial por item.
+- **Perguntas em aberto para o fundador (quando decidir):**
+  1. A OP puxa do **Pedido/Web n8n** (`me_venda`) automaticamente? Por data de entrega?
+  2. `est_ordem_producao` (Fase 3) vira a mesma tabela (op única da vez) ou tabela nova `est_op_documento` com partes independentes?
+  3. Concluída a OP, toda a quantidade é baixa de uma vez ou em lotes parciais (fornecer rastreabilidade por baía)?
+  4. Impressão/sharing (PDF/WhatsApp) do documento para produzir na cozinha?
+- **Dependência natural:** Fase 4 (CMV real) não bloqueia, mas dá a lista de produtos ativos e custo de referência para a OP ser útil economicamente.
+
+---
+
 *Documento gerado do recon de 06/10/2026. Referências: `TRACKING.md` (B1, B11, F3, item 3 do lote), `TRACKING_MODULOS.md:198` (A12 — dependência vitrine↔estoque), `BACKLOG_SEGURANCA.md:68,:76,:99` (drenagem de estoque via `anon` — P5).*

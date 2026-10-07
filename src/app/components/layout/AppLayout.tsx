@@ -26,6 +26,7 @@ import {
   Keyboard,
   ChevronDown,
   Box,
+  Layers,
   UserRound,
   Briefcase,
   ChevronsLeft,
@@ -109,6 +110,9 @@ const SUBNAV_SECTIONS: SubNavSection[] = [
     items: [
       { id: "e-dashboard", label: "Dashboard", path: "/estoque/dashboard", icon: LayoutDashboard },
       { id: "e-produtos", label: "Produtos", path: "/estoque/produtos", icon: Box },
+      // M1 (WIRE INSUMOS_MENU_M1): "o que você compra" vira item próprio ao
+      // lado de Produtos — mesma tela, visão natureza=insumo.
+      { id: "e-insumos", label: "Insumos", path: "/estoque/insumos", icon: Layers },
       { id: "e-compras", label: "Compras", path: "/estoque/compras", icon: ShoppingCart },
       { id: "e-mov", label: "Movimentações", path: "/estoque/movimentacoes", icon: ArrowRightLeft },
       { id: "e-categorias", label: "Categorias", path: "/estoque/configuracoes", icon: Settings },
@@ -210,18 +214,27 @@ export function AppLayout() {
   const { modulos: modulosAtivos } = useModulosAtivos();
   const currentPath = location.pathname;
 
-  // Determina qual rail está ativo com base na rota atual
+  // Determina qual rail está ativo com base na rota atual.
+  // BUGFIX (fundador, 07/10/2026): antes o match usava o path de DESTINO do rail
+  // (ex.: estoque → /estoque/dashboard). /estoque/produtos não começa com
+  // /estoque/dashboard e caía no fallback "minha-empresa" — clicando Produtos
+  // dentro do Estoque a subnav trocava para Minha Empresa. Agora a seção ativa é
+  // decidida pelo PREFIXO DE MÓDULO da rota: tudo sob /estoque/* (produtos,
+  // insumos, compras, movimentacoes, configuracoes) mantém o rail Estoque aceso.
   const activeRailId = useMemo(() => {
-    // Ordena por comprimento de path descendente para match mais específico primeiro
-    const sorted = [...RAIL_ITEMS].sort((a, b) => b.path.length - a.path.length);
-    const matched = sorted.find((item) => currentPath.startsWith(item.path));
-    if (matched) return matched.id;
-    if (currentPath.startsWith("/configuracoes")) return "configuracoes";
-    if (["/estoque", "/servicos", "/fornecedores"].some((path) => currentPath.startsWith(path))) {
-      return "minha-empresa";
-    }
-    if (currentPath.startsWith("/chatbot")) return "chatbot";
-    return "minha-empresa";
+    const RAIL_BY_PREFIX: Array<[string, string]> = [
+      ["/estoque", "estoque"],
+      ["/financeiro", "financeiro"],
+      ["/chatbot", "chatbot"],
+      ["/loja-virtual", "loja"],
+      ["/mel", "mel"],
+      ["/meus-modulos", "modulos"],
+      ["/configuracoes", "configuracoes"],
+    ];
+    const matched = RAIL_BY_PREFIX.find(([prefix]) => currentPath.startsWith(prefix));
+    // Restante (/dashboard, /vendas, /servicos, /crm, /agenda, /fornecedores…)
+    // pertence à visão da empresa — comportamento anterior preservado.
+    return matched ? matched[1] : "minha-empresa";
   }, [currentPath]);
 
   const activeSubnav = useMemo(() => {

@@ -51,11 +51,18 @@ interface ProdutoFormModalProps {
   produto?: Produto | null; // null/undefined = modo criar; Produto = modo editar
   produtoBase?: Produto | null; // null/undefined = modo criar normal; Produto = modo duplicar
   categorias: CategoriaProduto[]; // catálogo via useCategorias (o CRUD fica em /estoque/configuracoes)
+  /**
+   * M1 (WIRE INSUMOS_MENU_M1): pré-seleção do rádio Natureza no modo CRIAR —
+   * a visão Insumos abre o modal com "insumo" marcado (mesmo padrão da
+   * mini-criação de ComprasPage, que força natureza=insumo). Em edição/
+   * duplicação a natureza da base sempre vence.
+   */
+  naturezaInicial?: NaturezaProduto;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export function ProdutoFormModal({ produto, produtoBase, categorias, onClose, onSuccess }: ProdutoFormModalProps) {
+export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaInicial: naturezaInicialProp, onClose, onSuccess }: ProdutoFormModalProps) {
   const ehEdicao = Boolean(produto);
   const ehDuplicacao = Boolean(produtoBase);
   const { empresa } = useAuth();
@@ -68,6 +75,10 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, onClose, on
   const [erro, setErro] = useState("");
   const [form, setForm] = useState(() => {
     const base = produtoBase || produto || null;
+    // Produção F1: eixo de produção. Editar/duplicar → natureza da base vence;
+    // criar → pré-seleção da visão (M1: Insumos abre "insumo"; senão "simples",
+    // SPEC §3). mock/produto antigo sem o campo → "simples".
+    const naturezaInicial: NaturezaProduto = base?.natureza ?? naturezaInicialProp ?? "simples";
     return {
       nome: produtoBase ? `${produtoBase.nome} (cópia)` : base?.nome || "",
       sku: produtoBase ? (produtoBase.sku ? `${produtoBase.sku}-COPIA` : "") : base?.sku || "",
@@ -81,14 +92,16 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, onClose, on
       // Persiste só quando > preço de venda; vazio → null.
       precoPromocional: base?.precoPromocional ? String(base.precoPromocional) : "",
       // "Mostrar na vitrine" = me_produto.exibir_vitrine. Default true (banco alinhado).
-      exibirVitrine: base?.exibirVitrine ?? true,
+      // Insumo nunca vai para a vitrine (SPEC §6.3) — vale também quando a
+      // pré-seleção vem da visão Insumos (M1).
+      exibirVitrine: base?.exibirVitrine ?? naturezaInicial !== "insumo",
       estoque: produtoBase ? "0" : base ? String(base.estoque ?? 0) : "",
       estoqueMinimo: base ? String(base.estoqueMinimo ?? 0) : "5",
       codigoBarras: base?.codigoBarras || "",
       descricao: base?.descricaoCurta || "",
-      // Produção F1: eixo de produção. Editar → radio pré-selecionado;
-      // mock/produto antigo sem o campo → "simples" (SPEC §3).
-      natureza: (base?.natureza ?? "simples") as NaturezaProduto,
+      // Produção F1: eixo de produção (pré-seleção resolvida acima; o usuário
+      // ainda pode trocar no rádio Natureza do step 1).
+      natureza: naturezaInicial,
       // Produção F2 (WIRE §3): conversão de compra do insumo. Vazio = compra
       // direto na unidade do estoque.
       unidadeCompra: base?.unidadeCompra || "",
