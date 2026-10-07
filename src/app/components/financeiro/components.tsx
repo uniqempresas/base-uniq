@@ -474,25 +474,50 @@ export function BottomSheet({
   const painelRef = useRef<HTMLDivElement>(null);
   const temBlocos = header != null || footer != null;
 
+  // HOTFIX (mini-sheet aninhado "pisca/não deixa digitar", 06/10): `onClose`
+  // estava nas dependências do efeito de abertura. Toda chamada é inline/
+  // recriada por render, então o "foco inicial" re-RODAVA a cada re-render do
+  // sheet — não só na abertura. Com um sheet filho por cima (Nova Compra +
+  // mini-sheet de item/fornecedor), o timer do PAI disparava depois do filho
+  // na mesma commit e roubava o foco do input recém-focado do filho (teclado
+  // fechava = "não deixa digitar") e scrollava o painel do pai atrás do
+  // backdrop (= "a tela pisca / não deixa clicar"). Dentro do próprio sheet,
+  // cada tecla digitada também chutava o caret para o [data-sheet-foco].
+  // onClose vive num ref: o efeito depende SÓ de `open` (dispara uma vez por
+  // abertura) e o Esc continua chamando o handler mais recente.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
   // Esc fecha + foco inicial para navegação por teclado
   useEffect(() => {
     if (!open) return undefined;
 
     const fecharPorEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onCloseRef.current();
     };
     window.addEventListener("keydown", fecharPorEsc);
 
     const t = window.setTimeout(() => {
-      const alvo = painelRef.current?.querySelector<HTMLElement>("[data-sheet-foco]");
-      (alvo ?? painelRef.current)?.focus();
+      const painel = painelRef.current;
+      if (!painel) return;
+      // Sheet aninhado pode montar na MESMA commit em que o pai re-renderiza:
+      // só assume o foco se este painel é ainda o dialog por cima de todos.
+      const dialogs = document.querySelectorAll<HTMLElement>(
+        '[role="dialog"][aria-modal="true"]'
+      );
+      const doTopo = dialogs.length > 0 ? dialogs[dialogs.length - 1] : null;
+      if (doTopo && doTopo !== painel) return;
+      const alvo = painel.querySelector<HTMLElement>("[data-sheet-foco]");
+      (alvo ?? painel).focus();
     }, 0);
 
     return () => {
       window.clearTimeout(t);
       window.removeEventListener("keydown", fecharPorEsc);
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
