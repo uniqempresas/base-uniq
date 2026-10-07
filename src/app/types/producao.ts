@@ -125,3 +125,41 @@ export function custoPorUnidadeEstoque(
   const fator = item.fatorConversao ?? 1;
   return fator > 0 ? item.valorUnitario / fator : item.valorUnitario;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Produção Fase 3 — Ordem de Produção (SPEC-Producao-BOM-Fase3-Producao §3)
+ * ───────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Linha do acabamento (Produção Fase 3) no formato da UI.
+ */
+export interface OrdemProducao {
+  id: string;
+  /** `me_produto.id` do pai (integer no banco, string na UI — contrato de `Produto.id`) */
+  produtoPaiId: string;
+  /** embed `me_produto.nome_produto` (opcional: lista filtrada por pai já sabe o nome) */
+  produtoNome?: string;
+  /** lote — unidades do acabado (numeric > 0 no banco) */
+  quantidade: number;
+  custoTotal: number;
+  custoUnit: number;
+  /** ISO (`est_ordem_producao.data_producao` timestamptz) */
+  dataProducao: string;
+  observacao?: string | null;
+}
+
+/**
+ * Consumo previsto de um insumo para um lote (pré-visualização do modal —
+ * `consumo = qtdPorUnidade × lote × (1 + perda/100)`, unidade de ESTOQUE).
+ */
+export interface ConsumoPrevisto {
+  produtoId: string;
+  nome: string;
+  sku: string;
+  unidade: string;
+  estoqueAtual: number;
+  consumo: number;
+  custoMedio: number;
+  suficiente: boolean;
+  linhaTotal: number;
+}

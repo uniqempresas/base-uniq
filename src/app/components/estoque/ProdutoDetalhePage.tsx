@@ -26,6 +26,7 @@ import {
   ShoppingBag,
   RefreshCw,
   ClipboardList,
+  Factory,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -43,6 +44,7 @@ import { getTagPalette } from "../../hooks/use-tags";
 import { ProdutoFormModal } from "../produto/ProdutoFormModal";
 import { useCategorias } from "../../hooks/use-categorias";
 import { AjustarEstoqueModal } from "./AjustarEstoqueModal";
+import { ProducaoTab } from "./ProducaoTab";
 
 /**
  * Cor do chip de categoria de um produto.
@@ -54,7 +56,7 @@ function corCategoria(cor?: string | null, nome?: string) {
   return CATEGORIA_COLORS[nome || ""] || CATEGORIA_COLORS["Outros"];
 }
 
-type TabType = "geral" | "estoque" | "variacoes" | "movimentacoes" | "ficha";
+type TabType = "geral" | "estoque" | "variacoes" | "movimentacoes" | "ficha" | "producao";
 
 export function ProdutoDetalhePage() {
   const { id } = useParams();
@@ -161,6 +163,10 @@ export function ProdutoDetalhePage() {
     ...(ehComposto
       ? [{ id: "ficha", label: "Ficha Técnica", icon: ClipboardList, badge: itensDaFicha.length }]
       : []),
+    // Produção F3 (WIRE-Produzir §2): aba "Produção" só para composto — mesma
+    // regra da ficha: aba é condicional no RENDER, hooks da aba vivem no topo
+    // do ProducaoTab (que só monta quando a aba existe).
+    ...(ehComposto ? [{ id: "producao", label: "Produção", icon: Factory }] : []),
     ...(produto.possuiVariacoes ? [{ id: "variacoes", label: "Variações", icon: Layers }] : []),
     { id: "movimentacoes", label: "Movimentações", icon: RefreshCw, badge: movimentacoes.length },
   ];
@@ -676,6 +682,12 @@ export function ProdutoDetalhePage() {
               </div>
             )}
           </div>
+        )}
+
+        {/* PRODUÇÃO (Produção F3 — WIRE-Produzir §2): só composto. O ProducaoTab
+            carrega os próprios hooks no topo — a condição fica toda aqui. */}
+        {activeTab === "producao" && ehComposto && (
+          <ProducaoTab produto={produto} onSuccess={recarregar} />
         )}
 
         {/* MOVIMENTAÇÕES */}
