@@ -1,13 +1,13 @@
 /**
  * Tela "Nova compra" — página própria mobile-first (WIREs COMPRA_TELA_C1_C2
- * → C3 → COMPRA_TELA_C4_LINHA_RAPIDA; o C4 é o contrato VISUAL atual do topo
- * da tela — parágrafo C4 no fim deste bloco).
+ * → C3 → COMPRA_TELA_C4_LINHA_RAPIDA + ajustes C5; o parágrafo C5 no fim
+ * deste bloco é o estado ATUAL da tela — C4 continua o contrato do topo).
  *
  * C1 — experiência de mercado, uma mão: rota `/estoque/compras/nova` substitui
  * o antigo modal NovaCompraSheet. Estrutura top→bottom: header (título +
  * fornecedor + total até agora) → bloco Fornecedor (select + "+ Novo
  * fornecedor" em mini-sheet) → busca de ITEM SOMENTE natureza=insumo (WIRE M1;
- * "cadastrar na hora" força insumo) → itens linha-a-linha (nunca tabela) →
+ * "cadastrar na hora" força insumo) → itens linha-a-linha (lista única — C5) →
  * rodapé sticky com total + "Salvar compra", que cria a compra PENDENTE pelo
  * hook atual (use-criar-compra) e volta para /estoque/compras com toast.
  * Receber / Cancelar / Detalhe continuam modais sobre a lista.
@@ -20,9 +20,9 @@
  *   1 caixa" — nunca "caixas" para o estoque (bug reportado);
  * - valor unitário com máscara R$ (`lib/masks.ts`), alvo ≥ 44px, input 16px.
  *
- * Rascunho em memória (variável do módulo — sem localStorage): ir para o
- * cadastro completo de fornecedor e voltar NÃO perde as linhas digitadas;
- * salvar a compra limpa o rascunho.
+ * Rascunho: variável do módulo (sobrevive à navegação SPA) + sessionStorage
+ * (C5 — sobrevive ao F5): ir para o cadastro completo de fornecedor e voltar
+ * NÃO perde as linhas digitadas; salvar a compra limpa memória E sessão.
  *
  * C3 — inserção padrão CARRINHO (fundador, 07/10/2026): cada resultado da
  * busca de insumo ganha botão verde "Adicionar" que põe a linha no carrinho
@@ -70,6 +70,25 @@
  * empurra o document e o scroller interno ignoraria o teclado). Fornecedor,
  * NF, total, rascunho em memória, flash, mini-sheets de cadastro na hora e
  * estados loading/saving/erro/vazio continuam como no C1–C3.
+ *
+ * C5 — ajustes reportados pelo fundador (07/10/2026, esta passada): (1) o
+ * FORNECEDOR entra no bloco congelado como PRIMEIRA fileira compacta (label
+ * 10px + busca/autocomplete com TODO o comportamento do C1 + botão "+ Novo"
+ * ≥44px ao lado), e a Nota fiscal vira a segunda fileira do congelado — a
+ * section "1 · Fornecedor" de baixo sai da tela e os itens viram o único
+ * bloco rolável. (2) A linha 2 da Linha Rápida NUNCA herda o valor digitado
+ * para o item anterior: reconhecer(), editar/esvaziar o nome e o pós-
+ * adicionar aplicam a regra determinística qtd=1 + valor do histórico do
+ * PRÓPRIO item (ou vazio). (3) O carrinho sobrevive ao F5: rascunho +
+ * seqLinha persistidos em sessionStorage (chave uniq.nova-compra.rascunho-v1;
+ * try/catch em toda leitura/escrita e shape inválido = descarte silencioso —
+ * storage corrompido ou modo privado nunca quebra a tela); salvar limpa
+ * memória E sessão. (4) Os itens do carrinho viram UMA lista compacta estilo
+ * "nota de papelaria" (container único, linhas divide-y): nome + remover no
+ * topo da linha, fileira de edição Qtd · Valor · subtotal sempre aberta,
+ * conversão em texto pequeno (aviso amarelo quando falta o fator). O chip de
+ * último preço sai das linhas — a informação continua na autocomplete da
+ * Linha Rápida.
  */
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router";
@@ -86,7 +105,6 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { format, parseISO } from "date-fns";
 import { formatCurrency } from "../../lib/produto-utils";
 import { mascararMoeda, moedaDeValor, parsearMoeda } from "../../lib/masks";
 import { useProdutos } from "../../hooks/use-produtos";
@@ -142,28 +160,6 @@ type LinhaNova = Pick<
   | "ultimaCompraEm"
 >;
 
-/** U2.1 — chip discreto do último preço pago. Sem histórico: "Primeira compra". */
-function ChipUltimoPreco({ produto, className = "" }: { produto: LinhaNova; className?: string }) {
-  const ultimo = produto.ultimoPrecoCompra;
-  const tem = ultimo != null && ultimo > 0;
-  let data = "";
-  if (tem && produto.ultimaCompraEm) {
-    try {
-      data = ` · ${format(parseISO(produto.ultimaCompraEm), "dd/MM")}`;
-    } catch {
-      data = ""; // data em formato inesperado nunca deve quebrar a tela
-    }
-  }
-  const un = produto.unidadeCompra?.trim() || produto.unidade;
-  return (
-    <span
-      className={`inline-flex items-center rounded-full bg-[#efefef] px-2 py-0.5 text-[11px] leading-snug text-[#627271] ${className}`}
-    >
-      {tem ? `Última vez: ${formatCurrency(ultimo)}/${un}${data}` : "Primeira compra deste item"}
-    </span>
-  );
-}
-
 /* ─────────────────────────── rascunho (memória) ─────────────────────────── */
 
 interface LinhaItem {
@@ -191,9 +187,81 @@ const rascunhoVazio = (): RascunhoCompra => ({
 });
 
 /**
- * Rascunho em MEMÓRIA (WIRE — não precisa localStorage): sobrevive à
- * navegação dentro da sessão (ex.: ir cadastrar o fornecedor completo e
- * voltar). Limpo quando a compra é salva.
+ * C5 §3 — chave fixa do rascunho no sessionStorage: o carrinho sobrevive ao
+ * F5 do fundador no mercado. TODA leitura/escrita é try/catch — modo privado
+ * ou quota cheia nunca podem quebrar a tela — e o shape inválido é descartado
+ * em silêncio (a compra recomeça vazia).
+ */
+const RASCUNHO_KEY = "uniq.nova-compra.rascunho-v1";
+
+/** Lê e valida o rascunho persistido; desvio de shape → null (descarte). */
+function lerRascunhoDoStorage(): { rascunho: RascunhoCompra; seq: number } | null {
+  try {
+    const bruto = sessionStorage.getItem(RASCUNHO_KEY);
+    if (!bruto) return null;
+    const d = JSON.parse(bruto) as Record<string, unknown> | null;
+    const itensRaw = d && Array.isArray(d.itens) ? (d.itens as unknown[]) : null;
+    // breakage check: linha sem chave/strings ou sem produto.id é rascunho de
+    // outra versão — descarta TUDO em vez de montar meia tela
+    const itensOk =
+      !!itensRaw &&
+      itensRaw.every((l) => {
+        if (!l || typeof l !== "object") return false;
+        const it = l as Record<string, unknown>;
+        const p = it.produto as Record<string, unknown> | null | undefined;
+        return (
+          typeof it.chave === "string" &&
+          typeof it.quantidade === "string" &&
+          typeof it.valorUnitario === "string" &&
+          !!p &&
+          typeof p.id === "string" &&
+          typeof p.nome === "string"
+        );
+      });
+    if (!d || !itensRaw || !itensOk) {
+      limparRascunhoNoStorage();
+      return null;
+    }
+    const fn = d.fornecedorNovo as Record<string, unknown> | null | undefined;
+    return {
+      rascunho: {
+        fornecedorId: typeof d.fornecedorId === "string" ? d.fornecedorId : null,
+        fornecedorNovo:
+          fn && typeof fn.id === "string" && typeof fn.nome === "string" ? (fn as unknown as FornecedorSimples) : null,
+        notaFiscal: typeof d.notaFiscal === "string" ? d.notaFiscal : "",
+        itens: itensRaw as unknown as LinhaItem[],
+      },
+      seq: typeof d.seq === "number" && Number.isFinite(d.seq) ? Math.floor(d.seq) : 0,
+    };
+  } catch {
+    // JSON corrompido / storage inacessível → começa vazio, silencioso
+    return null;
+  }
+}
+
+/** Grava rascunho + contador; quota/modo privado = seguir só na memória. */
+function gravarRascunhoNoStorage(r: RascunhoCompra, seq: number): void {
+  try {
+    sessionStorage.setItem(RASCUNHO_KEY, JSON.stringify({ ...r, seq }));
+  } catch {
+    /* storage indisponível: nada a fazer — a tela não depende dele */
+  }
+}
+
+/** salvar() bem-sucedido: o rascunho morre na memória E na sessão. */
+function limparRascunhoNoStorage(): void {
+  try {
+    sessionStorage.removeItem(RASCUNHO_KEY);
+  } catch {
+    /* sem storage, sem o que limpar */
+  }
+}
+
+/**
+ * Rascunho em MEMÓRIA (variável do módulo — sobrevive à navegação SPA, ex.:
+ * ir cadastrar o fornecedor completo e voltar) com camada de sessionStorage
+ * por cima (C5 §3 — sobrevive também ao F5). Hidratado na carga do módulo;
+ * limpo quando a compra é salva.
  */
 let rascunhoAtual: RascunhoCompra = rascunhoVazio();
 
@@ -201,10 +269,27 @@ let rascunhoAtual: RascunhoCompra = rascunhoVazio();
  * C3 — chave ÚNICA por linha. Com o mesmo item podendo entrar duas vezes,
  * `novo-${id}` colidiria e `atualizarLinha`/`remover` (que buscam por chave)
  * atingiriam as duas linhas de uma vez. Contador do módulo: sobrevive à
- * navegação junto com o rascunho e nunca repete.
+ * navegação junto com o rascunho e nunca repete — e volta do storage no F5
+ * (C5 §3), sempre acima da maior chave restaurada.
  */
 let seqLinha = 0;
 const novaChave = (produtoId: string) => `linha-${++seqLinha}-${produtoId}`;
+
+// C5 §3 — hidratação ÚNICA na carga do módulo (roda antes do primeiro mount)
+{
+  const salvo = lerRascunhoDoStorage();
+  if (salvo) {
+    rascunhoAtual = salvo.rascunho;
+    // nada de colisão de chave pós-refresh: o seq nunca fica abaixo da maior
+    // chave "linha-N-..." que voltou do storage
+    let maior = 0;
+    for (const l of rascunhoAtual.itens) {
+      const n = Number(l.chave.split("-")[1]);
+      if (Number.isFinite(n) && n > maior) maior = n;
+    }
+    seqLinha = Math.max(salvo.seq, maior);
+  }
+}
 
 /* ─────────────────────────────── página ─────────────────────────────────── */
 
@@ -230,7 +315,7 @@ export function NovaCompraPage() {
   // flag para limpar a tela (pill "Salvar" some enquanto se digita)
   const { tecladoAberto, inset: insetTeclado } = useViewportTeclado();
 
-  // ---------- rascunho (hidrata do módulo, grava de volta a cada mudança) ----
+  // ---------- rascunho (hidrata do módulo/sessionStorage, grava de volta) ----
   const [fornecedorId, setFornecedorId] = useState<string | null>(rascunhoAtual.fornecedorId);
   const [fornecedorExtra, setFornecedorExtra] = useState<FornecedorSimples | null>(rascunhoAtual.fornecedorNovo);
   const [notaFiscal, setNotaFiscal] = useState(rascunhoAtual.notaFiscal);
@@ -238,6 +323,9 @@ export function NovaCompraPage() {
 
   useEffect(() => {
     rascunhoAtual = { fornecedorId, fornecedorNovo: fornecedorExtra, notaFiscal, itens };
+    // C5 §3 — espelha na sessão junto com a memória: o F5 no mercado não
+    // apaga o carrinho (o seq vai junto para a próxima chave não colidir)
+    gravarRascunhoNoStorage(rascunhoAtual, seqLinha);
   }, [fornecedorId, fornecedorExtra, notaFiscal, itens]);
 
   // ---------- estado de UI (efêmero — não faz parte do rascunho) ────────────
@@ -326,17 +414,17 @@ export function NovaCompraPage() {
   /**
    * C4 — RECONHECER um insumo na linha rápida (tap no candidato ou Enter):
    * nome preenche o campo, qtd volta a 1 e o ÚLTIMO PREÇO PAGO entra pré-cheio
-   * (U2.1) quando existe — "o toque é conferir e adicionar". O cursor cai na
-   * Qtd. O teclado NUNCA toca em blur aqui: candidatos usam pointerdown
-   * preventDefault (padrão provado no C3).
+   * (U2.1) quando existe — "o toque é conferir e adicionar". C5 §2: SEM
+   * histórico o valor volta VAZIO (nunca o digitado para o item anterior —
+   * bug reportado). O cursor cai na Qtd. O teclado NUNCA toca em blur aqui:
+   * candidatos usam pointerdown preventDefault (padrão provado no C3).
    */
   const reconhecer = (p: Produto | LinhaNova) => {
     setSelInsumo(p);
     setTermoNome(p.nome);
     setRapidoQtd("1");
-    if (p.ultimoPrecoCompra != null && p.ultimoPrecoCompra > 0) {
-      setRapidoValor(moedaDeValor(p.ultimoPrecoCompra));
-    }
+    // C5 §2 — regra determinística: o valor é o histórico DESTE item, ou nada
+    setRapidoValor(p.ultimoPrecoCompra != null && p.ultimoPrecoCompra > 0 ? moedaDeValor(p.ultimoPrecoCompra) : "");
     setInsumosAberto(false);
     setErro("");
     setFocoQtdRapido(true);
@@ -405,6 +493,15 @@ export function NovaCompraPage() {
       // teclado — estamos em outro input da MESMA linha, o ponteiro nunca
       // saiu da linha rápida.
       setRapidoQtd("1");
+      // C5 §2 — o valor volta ao PADRÃO do item reconhecido: o histórico dele,
+      // se existir (repetir o MESMO item segue sendo 1 toque); sem histórico,
+      // vazio. OUTRO item nunca herda este valor — reconhecer()/onChange do
+      // nome refazem a regra na troca de item.
+      setRapidoValor(
+        insumoReconhecido.ultimoPrecoCompra != null && insumoReconhecido.ultimoPrecoCompra > 0
+          ? moedaDeValor(insumoReconhecido.ultimoPrecoCompra)
+          : ""
+      );
       nomeInputRef.current?.focus();
     }
   };
@@ -529,7 +626,11 @@ export function NovaCompraPage() {
       return;
     }
 
+    // C5 §3 — limpa MEMÓRIA e sessionStorage: F5 depois de salvar não
+    // ressuscita o carrinho já registrado.
     rascunhoAtual = rascunhoVazio();
+    seqLinha = 0;
+    limparRascunhoNoStorage();
     toast.success(`Compra de ${formatCurrency(total)} registrada — aguardando recebimento.`);
     voltar();
   };
@@ -547,10 +648,12 @@ export function NovaCompraPage() {
       // sem esconder a linha rápida (que fica no topo, longe das teclas).
       style={{ fontFamily: "Poppins, sans-serif", "--nc-kb": `${insetTeclado}px` } as CSSProperties}
     >
-      {/* ══ BLOCO CONGELADO (WIRE C4 §1/§4): header + Linha Rápida. Frozen no
-          topo — a lista rola POR BAIXO deste retângulo, nunca por cima; o
-          teclado abre embaixo e nada aqui embaixo existe. ══ */}
-      <div className="sticky top-0 z-40 -mx-3 -mt-3 border-b border-[#e3e3e3] bg-[#efefef]/95 px-3 pb-2.5 pt-3 backdrop-blur-sm sm:-mx-6 sm:-mt-6 sm:px-6 sm:pt-6">
+      {/* ══ BLOCO CONGELADO (WIRE C4 §1/§4 + C5 §1): header + FORNECEDOR + NF +
+          Linha Rápida. Frozen no topo — a lista rola POR BAIXO deste retângulo,
+          nunca por cima; o teclado abre embaixo e nada aqui embaixo existe.
+          C5: tudo compacto aqui dentro (labels 10px, fileiras coladas, sem
+          títulos numerados) — cada px do congelado é px de lista visível. ══ */}
+      <div className="sticky top-0 z-40 -mx-3 -mt-3 border-b border-[#e3e3e3] bg-[#efefef]/95 px-3 pb-2 pt-2.5 backdrop-blur-sm sm:-mx-6 sm:-mt-6 sm:px-6 sm:pt-5">
         {/* Header (WIRE C1 §1 + C4 §4): voltar + título + sublinha viva +
             pill Salvar. Salvar SAIU do rodapé fixo: é pill discreto no topo,
             só habilitado com ≥1 item, e some enquanto o teclado está aberto
@@ -608,6 +711,175 @@ export function NovaCompraPage() {
           )}
         </header>
 
+        {/* ── Fornecedor (C5 §1): PRIMEIRO item do congelado, fileira compacta
+            — o fundador escolhe o fornecedor ANTES do primeiro item, sem
+            rolar. Mantém TODO o comportamento do C1: autocomplete (hotfix
+            pointerdown + mousedown preventDefault, Enter no primeiro
+            candidato, Check verde no selecionado), mini-sheet "+ Novo" na hora
+            e loading/erro/vazio — agora em versão curta. ── */}
+        <div className="mt-2" ref={fornecedorRef} role="group" aria-labelledby="nc-fornecedor-label">
+          <span id="nc-fornecedor-label" className="mb-1 block text-[10px] leading-none text-[#627271]" style={{ fontWeight: 600 }}>
+            Fornecedor <span className="text-red-500">*</span>
+          </span>
+
+          {fornecedoresLoading && listaFornecedores.length === 0 ? (
+            <div className="h-11 animate-pulse rounded-xl bg-white" aria-hidden="true" />
+          ) : fornecedoresError && listaFornecedores.length === 0 ? (
+            <div className="flex min-h-[44px] items-center justify-between gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-1.5" role="alert">
+              <p className="min-w-0 flex-1 truncate text-[11px] text-red-700">
+                Erro ao carregar fornecedores: {fornecedoresError}
+              </p>
+              <button
+                type="button"
+                onClick={recarregarFornecedores}
+                className="flex min-h-[44px] shrink-0 items-center rounded-lg border border-red-200 bg-white px-2.5 text-xs text-red-700 transition-colors hover:bg-red-50"
+                style={{ fontWeight: 600 }}
+              >
+                Tentar novamente
+              </button>
+            </div>
+          ) : listaFornecedores.length === 0 ? (
+            <div className="rounded-xl border border-[#efefef] bg-[#FAFAFA] px-3 py-2">
+              <p className="text-[11px] leading-snug text-[#627271]">
+                Nenhum fornecedor cadastrado ainda — cadastre aqui mesmo, sem sair da compra.
+              </p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5">
+                <button
+                  type="button"
+                  onClick={() => setMiniFornecedorAberto(true)}
+                  className="flex min-h-[44px] items-center gap-1.5 rounded-xl bg-[#86cb92] px-3.5 text-sm text-[#1f2937] transition-colors hover:bg-[#1f2937] hover:text-white"
+                  style={{ fontWeight: 600 }}
+                >
+                  <Plus size={15} />
+                  Novo fornecedor
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/fornecedores/novo")}
+                  className="flex min-h-[44px] items-center text-left text-[11px] text-[#627271] underline transition-colors hover:text-[#1f2937]"
+                >
+                  ou cadastro completo em Fornecedores (o rascunho é mantido)
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-start gap-1.5">
+              <div className="relative min-w-0 flex-1">
+                <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#627271]" aria-hidden="true" />
+                <input
+                  type="text"
+                  value={fornecedorSelecionado ? fornecedorSelecionado.nome : buscaFornecedor}
+                  onChange={(e) => {
+                    setFornecedorId(null);
+                    setBuscaFornecedor(e.target.value);
+                    setFornecedorAberto(true);
+                    setErro("");
+                  }}
+                  onFocus={() => setFornecedorAberto(true)}
+                  onBlur={(e) => {
+                    // fecha só quando o foco sai de tudo (HOTFIX recheio da ficha)
+                    if (!fornecedorRef.current?.contains(e.relatedTarget as Node | null)) setFornecedorAberto(false);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      if (candidatosFornecedor[0]) selecionarFornecedor(candidatosFornecedor[0].id);
+                    }
+                  }}
+                  placeholder="Buscar fornecedor..."
+                  aria-label="Selecionar fornecedor"
+                  autoComplete="off"
+                  className={`${campoFormSheet} pl-9 text-base ${fornecedorSelecionado ? "pr-10" : ""}`}
+                />
+                {fornecedorSelecionado && (
+                  <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#059669]" aria-hidden="true">
+                    <Check size={16} />
+                  </span>
+                )}
+                {fornecedorAberto && !fornecedorSelecionado && (
+                  <div
+                    className={
+                      candidatosFornecedor.length > 0
+                        ? "absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-y-auto rounded-xl border border-[#efefef] bg-white shadow-lg"
+                        : "relative mt-1 rounded-xl border border-[#efefef] bg-white shadow-lg"
+                    }
+                  >
+                    {candidatosFornecedor.length === 0 ? (
+                      <div className="p-3 text-center">
+                        <p className="text-sm text-[#627271]">
+                          {qFornecedor ? "Nenhum fornecedor encontrado." : "Nenhum fornecedor cadastrado ainda."}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setMiniFornecedorAberto(true)}
+                          className="mt-3 min-h-[48px] w-full rounded-xl bg-[#86cb92] px-3 py-2.5 text-sm text-[#1f2937] transition-colors hover:bg-[#1f2937] hover:text-white"
+                          style={{ fontWeight: 600 }}
+                        >
+                          {qFornecedor
+                            ? `+ Cadastrar fornecedor “${buscaFornecedor.trim()}”`
+                            : "+ Cadastrar novo fornecedor"}
+                        </button>
+                      </div>
+                    ) : (
+                      candidatosFornecedor.map((f) => (
+                        <button
+                          key={f.id}
+                          type="button"
+                          // C1: escolher o fornecedor com o teclado vivo — o
+                          // hotfix antigo mantém pointerdown E mousedown
+                          // preventDefault (a seleção é idempotente).
+                          onPointerDown={(e) => {
+                            e.preventDefault();
+                            selecionarFornecedor(f.id);
+                          }}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            selecionarFornecedor(f.id);
+                          }}
+                          className="flex min-h-[48px] w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[#efefef]"
+                        >
+                          <Truck size={14} className="shrink-0 text-[#627271]" />
+                          <span className="min-w-0 truncate text-sm text-[#1f2937]" style={{ fontWeight: 600 }}>
+                            {f.nome}
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+              {/* "+ Novo" SEMPRE ao lado do campo (mercado: o fornecedor do dia
+                  quase nunca está cadastrado) — alvo ≥ 44px */}
+              <button
+                type="button"
+                onClick={() => setMiniFornecedorAberto(true)}
+                aria-label="Cadastrar novo fornecedor na hora"
+                className="mt-1 flex min-h-[44px] shrink-0 items-center gap-1 rounded-xl border border-[#efefef] bg-white px-2.5 text-sm text-[#1f2937] transition-colors hover:bg-[#efefef]"
+                style={{ fontWeight: 500 }}
+              >
+                <Plus size={14} />
+                Novo
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Nota fiscal (C5 §1): segunda fileira compacta do congelado — o
+            mesmo campo de antes, placeholder e comportamento iguais */}
+        <label className="mt-1 block">
+          <span className="mb-1 block text-[10px] leading-none text-[#627271]" style={{ fontWeight: 600 }}>
+            Nota fiscal (opcional)
+          </span>
+          <input
+            type="text"
+            value={notaFiscal}
+            onChange={(e) => setNotaFiscal(e.target.value)}
+            placeholder="Ex.: 1042"
+            autoComplete="off"
+            className={`${campoFormSheet} text-base`}
+          />
+        </label>
+
         {/* ── Linha Rápida (WIRE C4 §1): nome + autocomplete em cima; quando o
             item é reconhecido, a linha 2 COLADA libera `Qtd (unidade)` · R$ ·
             [＋ Adicionar]. Teclado não fecha no ciclo: todas as ações da linha
@@ -619,7 +891,7 @@ export function NovaCompraPage() {
             e.preventDefault();
             adicionarDaLinhaRapida();
           }}
-          className="relative mt-2.5 rounded-2xl border border-[#efefef] bg-white p-2.5 shadow-sm"
+          className="relative mt-2 rounded-2xl border border-[#efefef] bg-white p-2.5 shadow-sm"
           aria-label="Linha rápida de compra"
         >
           {/* Linha 1 — nome do item */}
@@ -630,12 +902,21 @@ export function NovaCompraPage() {
               type="text"
               value={termoNome}
               onChange={(e) => {
-                setTermoNome(e.target.value);
+                const v = e.target.value;
+                setTermoNome(v);
                 setInsumosAberto(true);
                 // editar o texto quebra o reconhecimento — a seleção explícita
                 // só sobrevive se o texto ainda for o nome do item
-                if (selInsumo && e.target.value.trim().toLowerCase() !== selInsumo.nome.trim().toLowerCase()) {
+                // C5 §2 — quebrou o reconhecimento (ou o nome foi esvaziado):
+                // a linha 2 volta ao estado limpo (qtd 1, valor VAZIO) — o
+                // preço do item anterior nunca fica pendurado no próximo
+                if (
+                  v.trim() === "" ||
+                  (selInsumo && v.trim().toLowerCase() !== selInsumo.nome.trim().toLowerCase())
+                ) {
                   setSelInsumo(null);
+                  setRapidoQtd("1");
+                  setRapidoValor("");
                 }
                 setErro("");
               }}
@@ -844,161 +1125,20 @@ export function NovaCompraPage() {
         </form>
       </div>
 
-      {/* ── 1 · Fornecedor (bloco obrigatório — D10; + novo na hora — U2.3) ── */}
-      <section className="mb-3 rounded-2xl border border-[#efefef] bg-white p-3.5 shadow-sm sm:p-4" aria-labelledby="nc-fornecedor-label">
-        <BlocoTitulo n={1} id="nc-fornecedor-label" texto="Fornecedor" obrigatorio />
+      {/* C5 §1 — a antiga section "1 · Fornecedor" saiu daqui: a escolha do
+          fornecedor e a Nota fiscal agora vivem COMPACTAS no bloco congelado,
+          ANTES da Linha Rápida. Autocomplete, mini-sheet "+ Novo", estados
+          loading/erro/vazio e o link do cadastro completo (que preserva o
+          rascunho via sessão) migraram juntos. */}
 
-        {fornecedoresLoading && listaFornecedores.length === 0 ? (
-          <div className="mt-2 h-12 animate-pulse rounded-xl bg-[#efefef]" aria-hidden="true" />
-        ) : fornecedoresError && listaFornecedores.length === 0 ? (
-          <div className="mt-2 rounded-xl border border-red-200 bg-red-50 p-3.5" role="alert">
-            <p className="text-xs text-red-700">Não foi possível carregar os fornecedores: {fornecedoresError}</p>
-            <button
-              type="button"
-              onClick={recarregarFornecedores}
-              className="mt-2 min-h-[44px] rounded-xl border border-red-200 bg-white px-3 text-sm text-red-700 transition-colors hover:bg-red-50"
-              style={{ fontWeight: 600 }}
-            >
-              Tentar novamente
-            </button>
-          </div>
-        ) : listaFornecedores.length === 0 ? (
-          <div className="mt-2 space-y-2 rounded-xl border border-[#efefef] bg-[#FAFAFA] p-3.5">
-            <p className="text-xs text-[#627271]">
-              Nenhum fornecedor cadastrado ainda — cadastre aqui mesmo, sem sair da compra.
-            </p>
-            <button
-              type="button"
-              onClick={() => setMiniFornecedorAberto(true)}
-              className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl bg-[#86cb92] px-4 py-2.5 text-sm text-[#1f2937] transition-colors hover:bg-[#1f2937] hover:text-white"
-              style={{ fontWeight: 600 }}
-            >
-              <Plus size={15} />
-              Novo fornecedor
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate("/fornecedores/novo")}
-              className="min-h-[36px] w-full text-center text-xs text-[#627271] underline transition-colors hover:text-[#1f2937]"
-            >
-              ou faça o cadastro completo em Fornecedores (o rascunho da compra é mantido)
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className="relative mt-2" ref={fornecedorRef}>
-              <Search size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#627271]" />
-              <input
-                type="text"
-                value={fornecedorSelecionado ? fornecedorSelecionado.nome : buscaFornecedor}
-                onChange={(e) => {
-                  setFornecedorId(null);
-                  setBuscaFornecedor(e.target.value);
-                  setFornecedorAberto(true);
-                  setErro("");
-                }}
-                onFocus={() => setFornecedorAberto(true)}
-                onBlur={(e) => {
-                  // fecha só quando o foco sai de tudo (HOTFIX recheio da ficha)
-                  if (!fornecedorRef.current?.contains(e.relatedTarget as Node | null)) setFornecedorAberto(false);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    if (candidatosFornecedor[0]) selecionarFornecedor(candidatosFornecedor[0].id);
-                  }
-                }}
-                placeholder="Buscar fornecedor..."
-                aria-label="Selecionar fornecedor"
-                className={`${campoFormSheet} pl-10 text-base ${fornecedorSelecionado ? "pr-11" : ""}`}
-              />
-              {fornecedorSelecionado && (
-                <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#059669]" aria-hidden="true">
-                  <Check size={16} />
-                </span>
-              )}
-              {fornecedorAberto && !fornecedorSelecionado && (
-                <div
-                  className={
-                    candidatosFornecedor.length > 0
-                      ? "absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-y-auto rounded-xl border border-[#efefef] bg-white shadow-lg"
-                      : "relative mt-1 rounded-xl border border-[#efefef] bg-white shadow-lg"
-                  }
-                >
-                  {candidatosFornecedor.length === 0 ? (
-                    <div className="p-3 text-center">
-                      <p className="text-sm text-[#627271]">
-                        {qFornecedor ? "Nenhum fornecedor encontrado." : "Nenhum fornecedor cadastrado ainda."}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setMiniFornecedorAberto(true)}
-                        className="mt-3 min-h-[48px] w-full rounded-xl bg-[#86cb92] px-3 py-2.5 text-sm text-[#1f2937] transition-colors hover:bg-[#1f2937] hover:text-white"
-                        style={{ fontWeight: 600 }}
-                      >
-                        {qFornecedor
-                          ? `+ Cadastrar fornecedor “${buscaFornecedor.trim()}”`
-                          : "+ Cadastrar novo fornecedor"}
-                      </button>
-                    </div>
-                  ) : (
-                    candidatosFornecedor.map((f) => (
-                      <button
-                        key={f.id}
-                        type="button"
-                        onPointerDown={(e) => {
-                          e.preventDefault();
-                          selecionarFornecedor(f.id);
-                        }}
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          selecionarFornecedor(f.id);
-                        }}
-                        className="flex min-h-[48px] w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[#efefef]"
-                      >
-                        <Truck size={14} className="shrink-0 text-[#627271]" />
-                        <span className="min-w-0 truncate text-sm text-[#1f2937]" style={{ fontWeight: 600 }}>
-                          {f.nome}
-                        </span>
-                      </button>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-            {/* "+ Novo fornecedor" SEMPRE visível (mercado: o fornecedor do dia
-                quase nunca está cadastrado) */}
-            <button
-              type="button"
-              onClick={() => setMiniFornecedorAberto(true)}
-              className="mt-1.5 inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-2.5 text-sm text-[#1f2937] transition-colors hover:bg-[#efefef]"
-              style={{ fontWeight: 500 }}
-            >
-              <Plus size={14} />
-              Novo fornecedor
-            </button>
-          </>
-        )}
-
-        {/* NF dentro do bloco fornecedor — opcional, campo do hook atual */}
-        <label className="mt-3 block text-sm font-medium text-[#1f2937]">
-          Nota fiscal (opcional)
-          <input
-            type="text"
-            value={notaFiscal}
-            onChange={(e) => setNotaFiscal(e.target.value)}
-            placeholder="Ex.: 1042"
-            autoComplete="off"
-            className={`${campoFormSheet} text-base`}
-          />
-        </label>
-      </section>
-
-      {/* ── 2 · Itens da compra — linha-a-linha, nunca tabela (WIRE C1 §4 / C4 §2) ── */}
-      {/* C4: o editor da linha continua AQUI (qtd/valor no corpo, excluir) — a
-          linha rápida só cria/soma; ajustar fino é neste card. O card pode
-          ficar parcialmente atrás do teclado: a lista rola livre, e o
-          padding-bottom dinâmico do <main> garante rolagem até o fim. */}
+      {/* ── 2 · Itens da compra — lista única compacta estilo "nota de
+          papelaria" (C5 §4 substitui os cards grandes do C1/C4; o bloco 1 —
+          Fornecedor — agora mora congelado acima da Linha Rápida) ── */}
+      {/* O editor da linha continua AQUI na própria fileira (qtd/valor sempre
+          editáveis, excluir no topo da linha) — a linha rápida só cria/soma;
+          ajustar fino é nesta lista. A linha pode ficar parcialmente atrás do
+          teclado: ela rola livre, e o padding-bottom dinâmico do <main>
+          garante rolagem até o fim. */}
       <section className="mb-3 scroll-mt-3" aria-labelledby="nc-itens-label">
         <div className="mb-2 flex items-baseline justify-between gap-3 px-1">
           <BlocoTitulo n={2} id="nc-itens-label" texto="Itens da compra" inline />
@@ -1017,8 +1157,11 @@ export function NovaCompraPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-2.5">
-            {linhasCalculadas.map(({ linha, qtd, vu, uc, fator, conversionOk, entra, subtotal }) => {
+          // C5 §4 — UMA lista estilo "nota de papelaria": container único,
+          // uma linha divide-y por item, editor sempre aberto na própria
+          // linha (nada de card grande por produto).
+          <div className="divide-y divide-[#efefef] overflow-hidden rounded-2xl border border-[#efefef] bg-white shadow-sm">
+            {linhasCalculadas.map(({ linha, qtd, uc, fator, conversionOk, entra, subtotal }) => {
               const unidade = linha.produto.unidade;
               // C2: helper "1 caixa = 500 g" só quando a conversão não é 1:1
               const mostrarHelper = Boolean(uc) && conversionOk && Number.isFinite(fator) && fator !== 1;
@@ -1027,39 +1170,34 @@ export function NovaCompraPage() {
                   key={linha.chave}
                   // C3: flash de 1x na linha recém-jogada no carrinho (CSS
                   // global nc-flash; desliga em prefers-reduced-motion)
-                  className={`rounded-2xl border border-[#efefef] bg-white p-3.5 shadow-sm${
-                    linha.chave === flashChave ? " nc-flash" : ""
-                  }`}
+                  className={`px-3 py-2.5${linha.chave === flashChave ? " nc-flash" : ""}`}
                 >
-                  {/* Nome + remover. O remover fica NO CABEÇALHO do card (44px,
-                      canto superior) — nunca ao lado da digitação (mobile). */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm text-[#1f2937]" style={{ fontWeight: 600 }}>
-                        {linha.produto.nome}
-                      </p>
-                      <p className="mt-0.5 text-[11px] text-[#627271]">
-                        estoque em {unidade}
-                        {uc ? ` · compra por ${uc}` : ""}
-                      </p>
-                      <ChipUltimoPreco produto={linha.produto} className="mt-1.5 max-w-full" />
-                    </div>
+                  {/* topo da linha: nome (truncado, 600) + remover 44px à
+                      direita */}
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="min-w-0 flex-1 truncate text-sm text-[#1f2937]" style={{ fontWeight: 600 }}>
+                      {linha.produto.nome}
+                    </p>
                     <button
                       type="button"
                       onClick={() => remover(linha.chave)}
                       aria-label={`Remover ${linha.produto.nome} da compra`}
-                      className="-mr-1 -mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-500 transition-colors hover:bg-red-100"
+                      className="-mr-1.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-500 transition-colors hover:bg-red-100"
                     >
                       <Trash2 size={16} />
                     </button>
                   </div>
 
-                  {/* Qtd + valor em grid 2 colunas: 16px no input (sem zoom do
-                      iOS) e alvo ≥ 44px de altura. */}
-                  <div className="mt-3 grid grid-cols-2 gap-2.5">
-                    <label className="block text-xs font-medium text-[#1f2937]">
-                      {/* C2: a label NOMEA a unidade de compra — "Qtd (caixa)" */}
-                      Qtd ({uc || unidade}) *
+                  {/* fileira de edição — Qtd (unidade de compra) · Valor ·
+                      subtotal à direita. Input 16px (sem zoom do iOS) e este
+                      input É o editor da linha no carrinho (a linha rápida
+                      só cria/soma). C5: o chip de último preço saiu da
+                      linha — a informação continua na autocomplete. */}
+                  <div className="mt-1.5 grid grid-cols-[minmax(0,6.5rem)_minmax(0,1fr)_auto] items-end gap-1.5">
+                    <label className="block">
+                      <span className="mb-1 block text-[10px] leading-none text-[#627271]" style={{ fontWeight: 600 }}>
+                        Qtd ({uc || unidade}) *
+                      </span>
                       <input
                         type="number"
                         min="0"
@@ -1068,19 +1206,14 @@ export function NovaCompraPage() {
                         value={linha.quantidade}
                         onChange={(e) => atualizarLinha(linha.chave, { quantidade: e.target.value })}
                         placeholder="0"
-                        // C4: este input É o editor do corpo da linha — a linha
-                        // rápida cria/soma, aqui se ajusta um item já no carrinho.
-                        className={`${campoFormSheet} text-base`}
+                        aria-label={`Quantidade de ${linha.produto.nome} em ${uc || unidade}`}
+                        className={`${campoFormSheet} px-2.5 text-base`}
                       />
-                      {/* C2: helper de conversão — unidade do produto no estoque */}
-                      {mostrarHelper && (
-                        <span className="mt-1 block text-[11px] text-[#627271]">
-                          1 {uc} = {fmtNum(fator)} {unidade}
-                        </span>
-                      )}
                     </label>
-                    <label className="block text-xs font-medium text-[#1f2937]">
-                      Valor unitário (R$)
+                    <label className="block">
+                      <span className="mb-1 block text-[10px] leading-none text-[#627271]" style={{ fontWeight: 600 }}>
+                        Valor
+                      </span>
                       {/* C2: máscara monetária do masks.ts — dígitos viram centavos */}
                       <input
                         type="text"
@@ -1089,49 +1222,42 @@ export function NovaCompraPage() {
                         value={linha.valorUnitario}
                         onChange={(e) => atualizarLinha(linha.chave, { valorUnitario: mascararMoeda(e.target.value) })}
                         placeholder="R$ 0,00"
-                        className={`${campoFormSheet} text-base`}
+                        aria-label={`Valor unitário de ${linha.produto.nome} em reais`}
+                        className={`${campoFormSheet} px-2.5 text-base`}
                       />
                     </label>
+                    <span className="block text-right">
+                      <span className="mb-1 block text-[10px] leading-none text-[#627271]" style={{ fontWeight: 600 }}>
+                        Subtotal
+                      </span>
+                      {/* mt-1 + leading 46px = mesma caixa do input → número
+                          centrado na altura do campo, alinhado à direita */}
+                      <span className="mt-1 block text-sm leading-[46px] text-[#1f2937]" style={{ fontWeight: 700 }}>
+                        {formatCurrency(subtotal)}
+                      </span>
+                    </span>
                   </div>
 
-                  {/* Prova da conversão: SEMPRE a unidade do produto no estoque
-                      ("+500 g ao estoque · 1 caixa") — nunca "caixas" (bug
-                      reportado no uso real). */}
-                  <div className="mt-2.5 flex items-center justify-between gap-2">
-                    <span className="min-w-0 text-[11px]">
-                      {uc ? (
-                        conversionOk ? (
-                          qtd > 0 && (
-                            <span
-                              className="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5"
-                              style={{ background: "#F0FDF4", borderColor: "#A7F3D0", color: "#059669", fontWeight: 600 }}
-                            >
-                              +{fmtNum(entra)} {unidade} ao estoque · {fmtNum(qtd)} {uc}
-                            </span>
-                          )
-                        ) : (
-                          <span
-                            className="rounded-md border px-1.5 py-0.5"
-                            style={{ background: "#FFFBEB", borderColor: "#FDE68A", color: "#B45309", fontWeight: 600 }}
-                          >
-                            sem fator de conversão — corrija o cadastro
-                          </span>
-                        )
-                      ) : (
-                        <span className="text-[#627271]">entra direto em {unidade}</span>
-                      )}
-                    </span>
-                    <span className="shrink-0 text-right text-[11px]">
-                      <span className="text-[#1f2937]" style={{ fontWeight: 700 }}>
-                        subtotal {formatCurrency(subtotal)}
-                      </span>
-                      {uc && conversionOk && qtd > 0 && vu >= 0 ? (
-                        <span className="ml-1 block font-normal text-[#627271]">
-                          {formatCurrency(fator > 0 ? vu / fator : vu)}/{unidade}
-                        </span>
-                      ) : null}
-                    </span>
-                  </div>
+                  {/* conversão SEMPRE na unidade do produto (C2): fator ≠ 1
+                      = texto pequeno "1 caixa = 500 g · +500 g ao estoque";
+                      fator faltante = aviso amarelo visível */}
+                  {uc ? (
+                    conversionOk ? (
+                      mostrarHelper && (
+                        <p className="mt-1 text-[11px] leading-snug text-[#627271]">
+                          1 {uc} = {fmtNum(fator)} {unidade}
+                          {qtd > 0 ? ` · +${fmtNum(entra)} ${unidade} ao estoque` : ""}
+                        </p>
+                      )
+                    ) : (
+                      <p
+                        className="mt-1 inline-block rounded-md border px-1.5 py-0.5 text-[11px]"
+                        style={{ background: "#FFFBEB", borderColor: "#FDE68A", color: "#B45309", fontWeight: 600 }}
+                      >
+                        sem fator de conversão — corrija o cadastro
+                      </p>
+                    )
+                  ) : null}
                 </div>
               );
             })}
@@ -1177,7 +1303,10 @@ export function NovaCompraPage() {
 
 /* ───────────────────────── blocos auxiliares ───────────────────────── */
 
-/** Título numerado dos blocos da tela (1 fornecedor · 2 busca · 3 itens). */
+/**
+ * Título numerado do bloco rolável (C5: o bloco 1 — Fornecedor — vive
+ * congelado no topo, sem título numerado; a lista de itens é o bloco 2).
+ */
 function BlocoTitulo({
   n,
   id,
