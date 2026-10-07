@@ -66,10 +66,15 @@ export function useAtualizarProduto() {
       try {
         const { id, ...campos } = params;
 
-        // F2: unidade de compra preenchida exige fator > 0 — falha antes da rede
-        // (só quando a chave é enviada; chamadas parciais como { ativo: false } seguem).
+        // F2 + anti-inversão: unidade de compra preenchida exige fator coerente
+        // com a unidade do estoque — falha antes da rede (só quando a chave é
+        // enviada; chamadas parciais como { ativo: false } seguem).
         if (campos.unidadeCompra !== undefined) {
-          const erroConversao = validarConversaoCompra(campos.unidadeCompra, campos.fatorConversao);
+          const erroConversao = validarConversaoCompra(
+            campos.unidadeCompra,
+            campos.fatorConversao,
+            campos.unidade
+          );
           if (erroConversao) throw new Error(erroConversao);
         }
 

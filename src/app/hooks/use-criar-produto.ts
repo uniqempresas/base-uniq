@@ -43,15 +43,51 @@ export interface CriarProdutoParams {
 }
 
 /**
- * Regra F2 (SPEC §5.1): unidade de compra preenchida exige fator > 0.
- * Validação client — o CHECK do banco é a segunda linha de defesa.
+ * Regra F2 (SPEC §5.1) + à-prova-de-inversão (Caixa de Uva, 07/10/2026):
+ * a compra é SEMPRE na unidade de compra e o estoque na unidade de estoque.
+ *
+ * Validação client-side única, usada pelo ProdutoFormModal, pelo MiniSheet da
+ * NovaCompraPage e pelos dois hooks de escrita — o CHECK do banco é a segunda
+ * linha de defesa.
+ *
+ * Regras:
+ * - sem unidade de compra → sem conversão (fator avulso é ignorado);
+ * - unidade de compra preenchida exige unidade de estoque informada;
+ * - mesma unidade (ignorando caixa) → fator precisa ser 1 (vazio = 1);
+ * - unidades diferentes → fator OBRIGATORIAMENTE > 1 (bloqueia o 0/1/invertido
+ *   que gravou "1 g = 500 Caixa" no cadastro da caixa de uva).
  */
 export function validarConversaoCompra(
   unidadeCompra?: string | null,
-  fatorConversao?: number | null
+  fatorConversao?: number | null,
+  unidade?: string | null
 ): string | null {
-  if (unidadeCompra?.trim() && !(Number(fatorConversao) > 0)) {
-    return `Informe quantas unidades de estoque equivalem a 1 "${unidadeCompra.trim()}" — o fator de conversão precisa ser maior que zero.`;
+  const uc = unidadeCompra?.trim() ?? "";
+  if (!uc) return null;
+
+  const est = unidade?.trim() ?? "";
+  if (!est) {
+    return `Informe a unidade do estoque (o que você guarda lá — ex.: g, un, kg) para converter compras por "${uc}".`;
+  }
+
+  const fatorValido = fatorConversao != null && Number.isFinite(Number(fatorConversao))
+    ? Number(fatorConversao)
+    : null;
+
+  const mesmaUnidade = uc.toLowerCase() === est.toLowerCase();
+  if (mesmaUnidade) {
+    if (fatorValido === null || fatorValido === 1) return null;
+    return (
+      `1 ${uc} já É a unidade do estoque — o fator é 1. ` +
+      `Se você compra em "${uc}" mas guarda em outra unidade, ajuste a Unidade do estoque.`
+    );
+  }
+
+  if (fatorValido === null || !(fatorValido > 1)) {
+    return (
+      `Se 1 ${uc} ≠ 1 ${est}, diga quantos ${est} tem em 1 ${uc} ` +
+      `(ex.: 1 Caixa = 500 g → fator 500). O fator precisa ser maior que 1.`
+    );
   }
   return null;
 }
@@ -82,8 +118,9 @@ export function useCriarProduto() {
 
         const natureza: NaturezaProduto = params.natureza ?? "simples";
 
-        // F2: unidade de compra exige fator > 0 — falha antes da rede com mensagem clara.
-        const erroConversao = validarConversaoCompra(params.unidadeCompra, params.fatorConversao);
+        // F2 + anti-inversão: unidade de compra exige fator coerente com a
+        // unidade do estoque — falha antes da rede com mensagem clara.
+        const erroConversao = validarConversaoCompra(params.unidadeCompra, params.fatorConversao, params.unidade);
         if (erroConversao) throw new Error(erroConversao);
 
         const { data: novoProduto, error: produtoError } = await supabase

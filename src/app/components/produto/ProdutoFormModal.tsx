@@ -20,7 +20,7 @@ import type { Produto } from "../../types/produto";
 import type { ItemFichaTecnica, NaturezaProduto } from "../../types/producao";
 import { NATUREZA_AJUDA, NATUREZA_LABELS } from "../../types/producao";
 import { Switch } from "../ui/switch";
-import { useCriarProduto } from "../../hooks/use-criar-produto";
+import { useCriarProduto, validarConversaoCompra } from "../../hooks/use-criar-produto";
 import { useAtualizarProduto } from "../../hooks/use-atualizar-produto";
 import { useProdutos } from "../../hooks/use-produtos";
 import { useFichaTecnica, type UseFichaTecnicaReturn } from "../../hooks/use-ficha-tecnica";
@@ -43,6 +43,16 @@ function stepsPara(natureza: NaturezaProduto): string[] {
 }
 
 const NATUREZAS: NaturezaProduto[] = ["simples", "composto", "insumo"];
+
+/**
+ * Anti-inversão (Caixa de Uva, 07/10/2026): "medidas" são unidades de peso/
+ * volume/comprimento — se a COMPRA é uma medida mas o ESTOQUE é embalagem
+ * (Caixa/Pacote/Fardo/un…), os campos quase certainly foram trocados.
+ * O zod/hook não consegue provar isso numericamente (500 > 1 passa), então a
+ * UI avisa em tempo real — heurística de copy, nunca bloqueia sozinho.
+ */
+const UNIDADES_MEDIDA = ["kg", "g", "mg", "l", "ml", "m", "litro", "metro"];
+const UNIDADES_EMBALAGEM = ["caixa", "pacote", "fardo", "unidade", "un", "peça", "par", "kit", "frasco", "lata", "garrafa", "saco", "pote"];
 
 /** Unidades comuns do datalist "Compra por" (F2 — WIRE §3). */
 const UNIDADES_COMPRA = ["kg", "g", "L", "ml", "un", "lata", "caixa", "pacote", "m"];
@@ -163,6 +173,17 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
       ? calcMargem(parseFloat(form.precoCusto), parseFloat(form.precoVenda))
       : null;
 
+  // Anti-inversão (só grupo "Compra e conversão" do insumo): compra em medida
+  // (g, kg, ml…) + estoque em embalagem (Caixa, Pacote…) = cheiro de campos
+  // trocados. Aviso em tempo real; a recusa dura é do validarConversaoCompra.
+  const ucBaixa = form.unidadeCompra.trim().toLowerCase();
+  const unidadeBaixa = form.unidade.trim().toLowerCase();
+  const suspeitaInversao =
+    ehInsumo &&
+    ucBaixa !== "" &&
+    UNIDADES_MEDIDA.includes(ucBaixa) &&
+    UNIDADES_EMBALAGEM.includes(unidadeBaixa);
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setErro("");
@@ -180,15 +201,23 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
     }
     setErroPromocional("");
 
-    // Produção F2 (insumo): unidade de compra preenchida exige fator > 0 (WIRE §5.1).
+    // Produção F2 + anti-inversão (Caixa de Uva, 07/10/2026): validação única
+    // compartilhada com MiniSheet/hooks — unidade de compra preenchida exige
+    // fator coerente com a unidade do estoque (mesma unidade → 1; diferentes → > 1).
     // Fora de insumo as chaves vão null → limpam a conversão no banco.
     const unidadeCompraFinal = form.natureza === "insumo" ? form.unidadeCompra.trim() : "";
+    const fatorNum = parseFloat(form.fatorConversao);
     const fatorFinal =
-      form.natureza === "insumo" && unidadeCompraFinal ? parseFloat(form.fatorConversao) : null;
-    if (unidadeCompraFinal && !(fatorFinal !== null && Number.isFinite(fatorFinal) && fatorFinal > 0)) {
-      setErroConversao(`Informe quantas unidades de estoque tem 1 "${unidadeCompraFinal}".`);
-      setStep(1);
-      return;
+      form.natureza === "insumo" && unidadeCompraFinal && form.fatorConversao.trim() !== "" && Number.isFinite(fatorNum)
+        ? fatorNum
+        : null;
+    if (unidadeCompraFinal) {
+      const erroConv = validarConversaoCompra(unidadeCompraFinal, fatorFinal, form.unidade);
+      if (erroConv) {
+        setErroConversao(erroConv);
+        setStep(1);
+        return;
+      }
     }
     setErroConversao("");
 
@@ -471,7 +500,7 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
                 </div>
                 <div>
                   <label className="block text-[#1f2937] text-xs mb-1.5" style={{ fontWeight: 500 }}>
-                    Unidade *
+                    {form.natureza === "insumo" ? "Unidade do estoque *" : "Unidade *"}
                   </label>
                   <select
                     value={form.unidade}
@@ -482,6 +511,11 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
                       <option key={u} value={u}>{u}</option>
                     ))}
                   </select>
+                  {form.natureza === "insumo" && (
+                    <p className="text-[#627271] text-[11px] mt-1.5">
+                      O que você guarda no estoque (ex.: g, un, kg).
+                    </p>
+                  )}
                 </div>
               </div>
               <div>
@@ -586,7 +620,10 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
               </div>
 
               {/* ── Compra e conversão (Produção F2 — WIRE §3, só insumo) ─────
-                  "No estoque você usa X; compre por Y e o sistema converte."
+                  À prova de inversão (Caixa de Uva, 07/10/2026): cada campo diz
+                  o que é, o fator é perguntado na direção certa ("1 {compra}
+                  contém quantos {estoque}?") e a validação recusa unidades
+                  trocadas / fator ≤ 1 em unidades diferentes.
                   Vazio = a compra já é na unidade do estoque. */}
               {form.natureza === "insumo" && (
                 <div className="rounded-xl border border-[#efefef] p-4 space-y-3">
@@ -595,9 +632,9 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
                       Compra e conversão
                     </p>
                     <p className="text-[#627271] text-[11px] mt-0.5">
-                      No estoque você usa <strong>{form.unidade || "un"}</strong>. Compre por{" "}
-                      <strong>{form.unidadeCompra.trim() || form.unidade || "un"}</strong> e o sistema
-                      converte.
+                      No estoque você guarda em <strong>{form.unidade || "un"}</strong>. Você compra por{" "}
+                      <strong>{form.unidadeCompra.trim() || "a mesma unidade"}</strong> — o que paga ao
+                      fornecedor — e o sistema converte.
                     </p>
                   </div>
 
@@ -608,7 +645,7 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
                         className="block text-[#1f2937] text-xs mb-1.5"
                         style={{ fontWeight: 500 }}
                       >
-                        Compra por
+                        Unidade de compra
                       </label>
                       <input
                         id="unidade-compra"
@@ -620,7 +657,7 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
                           setForm((f) => ({ ...f, unidadeCompra: e.target.value }));
                           setErroConversao("");
                         }}
-                        placeholder="Ex.: kg"
+                        placeholder="Ex.: Caixa"
                         className="w-full px-3.5 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92] focus:ring-2 focus:ring-[#86cb92]/20"
                       />
                       <datalist id="unidades-compra-datalist">
@@ -628,6 +665,9 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
                           <option key={u} value={u} />
                         ))}
                       </datalist>
+                      <p className="text-[#627271] text-[11px] mt-1.5">
+                        Que você paga ao fornecedor (ex.: Caixa, Pacote, Fardo).
+                      </p>
                     </div>
                     <div>
                       <label
@@ -635,9 +675,19 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
                         className="block text-[#1f2937] text-xs mb-1.5"
                         style={{ fontWeight: 500 }}
                       >
-                        1 unidade vale (no estoque)
+                        {form.unidadeCompra.trim()
+                          ? `1 ${form.unidadeCompra.trim()} contém quantas ${form.unidade || "un"}?`
+                          : "1 unidade de compra contém quantas de estoque?"}
                       </label>
                       <div className="relative">
+                        {form.unidadeCompra.trim() ? (
+                          <span
+                            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#627271] text-[11px] whitespace-nowrap"
+                            style={{ fontWeight: 600 }}
+                          >
+                            1 {form.unidadeCompra.trim()} =
+                          </span>
+                        ) : null}
                         <input
                           id="fator-conversao"
                           type="number"
@@ -649,9 +699,11 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
                             setForm((f) => ({ ...f, fatorConversao: e.target.value }));
                             setErroConversao("");
                           }}
-                          placeholder="1000"
-                          aria-label={`Quantas unidades de estoque equivalem a 1 ${form.unidadeCompra.trim() || "unidade de compra"}`}
-                          className="w-full px-3.5 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92]"
+                          placeholder="500"
+                          aria-label={`Quantas ${form.unidade || "unidades de estoque"} equivalem a 1 ${form.unidadeCompra.trim() || "unidade de compra"}`}
+                          className={`w-full py-2.5 pr-10 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92] ${
+                            form.unidadeCompra.trim() ? "pl-[5.25rem]" : "pl-3.5"
+                          }`}
                         />
                         <span
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-[#627271] text-[10px]"
@@ -660,26 +712,45 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
                           {form.unidade || "un"}
                         </span>
                       </div>
+                      <p className="text-[#627271] text-[11px] mt-1.5">
+                        Sempre na direção compra → estoque. Ex.: 1 Caixa tem 500 g → fator 500.
+                      </p>
                     </div>
                   </div>
+
+                  {/* heurística anti-inversão: compra em medida + estoque em embalagem */}
+                  {suspeitaInversao && (
+                    <p
+                      className="rounded-lg px-3 py-2 text-[11px]"
+                      style={{ background: "#FFFBEB", border: "1px solid #FDE68A", color: "#B45309", fontWeight: 500 }}
+                      role="status"
+                    >
+                      Você compra por <strong>{form.unidadeCompra.trim()}</strong> mas guarda em{" "}
+                      <strong>{form.unidade}</strong>? Parece invertido: a unidade de compra é o que
+                      sai na nota do fornecedor (ex.: Caixa), a de estoque é o que sobra pra usar
+                      (ex.: g).
+                    </p>
+                  )}
 
                   {/* resumo em tempo real (WIRE: "compra por kg = 1.000 g") */}
                   {form.unidadeCompra.trim() && Number(form.fatorConversao) > 0 && (
                     <p className="text-[11px]" style={{ color: "#1f2937", fontWeight: 600 }} role="status">
                       1 {form.unidadeCompra.trim()} ={" "}
                       {Number(form.fatorConversao).toLocaleString("pt-BR")} {form.unidade || "un"} no
-                      estoque
+                      estoque — comprar 1 {form.unidadeCompra.trim()} soma{" "}
+                      {Number(form.fatorConversao).toLocaleString("pt-BR")} {form.unidade || "un"}.
                     </p>
                   )}
 
                   {erroConversao ? (
-                    <p className="text-xs text-red-600" style={{ fontWeight: 500 }}>
+                    <p className="text-xs text-red-600" style={{ fontWeight: 500 }} role="alert">
                       {erroConversao}
                     </p>
                   ) : (
                     <p className="text-[#627271] text-[11px]">
-                      Vazio = a compra já é na unidade do estoque. Ex.: compra barras de 1 kg →
-                      informe "kg" e fator "1000"; ao receber 2 kg, entram 2.000 g no estoque.
+                      Vazio = a compra já é na unidade do estoque. Ex.: estoque em g, compra Caixa de
+                      500 g → unidade de compra "Caixa", fator "500"; ao registrar 1 Caixa, entram
+                      500 g no estoque.
                     </p>
                   )}
                 </div>

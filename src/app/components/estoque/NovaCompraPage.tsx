@@ -22,12 +22,28 @@
  * cadastro completo de fornecedor e voltar NÃO perde as linhas digitadas;
  * salvar a compra limpa o rascunho.
  *
+ * C3 — inserção padrão CARRINHO (fundador, 07/10/2026): cada resultado da
+ * busca de insumo ganha botão verde "Adicionar" que põe a linha no carrinho
+ * com 1 unidade de compra + último preço num toque só, e a busca segue limpa,
+ * aberta e focada para o próximo item (mercado: buscar → adicionar → buscar).
+ * Tocar no CORPO do card é o caminho de quem quer configurar antes: cria a
+ * linha com qtd vazia e foca o editor dela — ou, se o produto já tem linha,
+ * só foca a última (o corpo nunca duplica). O MESMO item via botão outra vez
+ * = OUTRA linha separada (chave única por linha; subtotal/total somam linha a
+ * linha — nada funde, nada de expectativa furada). Microconfirmação sem
+ * ruído: a linha recém-adicionada pisca 1x, o contador "N itens" dá um pop e
+ * um toast de id fixo (nunca empilha) avisa "+1 caixa de Uva · 4 itens".
+ *
  * Padrões do módulo respeitados (ComprasPage/ContasPagarPage): paleta textual
  * #1f2937/#627271/#efefef/#86cb92, BottomSheet header/footer sticky para os
- * mini-sheets, hotfix pointerdown + mousedown + relatedTarget nos dropdowns,
- * inputs 16px (sem zoom do iOS), alvos de toque ≥ 44px, skeleton/empty/erro,
- * labels de formulário e aria-labels. Sem animação e sem chamada de API
- * inventada — hooks reais do módulo.
+ * mini-sheets, hotfix pointerdown + mousedown + relatedTarget nos dropdowns —
+ * EXCETO nas ações de item da busca: duplicar linha é intencional agora, e o
+ * mouse dispara pointerdown E mousedown (um clique viraria duas linhas),
+ * então cada botão usa só pointerdown (cobre mouse, toque e caneta), inputs
+ * 16px (sem zoom do iOS), alvos de toque ≥ 44px, skeleton/empty/erro, labels
+ * de formulário e aria-labels. Animação só na microconfirmação do carrinho
+ * (desligada em prefers-reduced-motion). Sem chamada de API inventada —
+ * hooks reais do módulo.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
@@ -154,6 +170,15 @@ const rascunhoVazio = (): RascunhoCompra => ({
  */
 let rascunhoAtual: RascunhoCompra = rascunhoVazio();
 
+/**
+ * C3 — chave ÚNICA por linha. Com o mesmo item podendo entrar duas vezes,
+ * `novo-${id}` colidiria e `atualizarLinha`/`remover` (que buscam por chave)
+ * atingiriam as duas linhas de uma vez. Contador do módulo: sobrevive à
+ * navegação junto com o rascunho e nunca repete.
+ */
+let seqLinha = 0;
+const novaChave = (produtoId: string) => `linha-${++seqLinha}-${produtoId}`;
+
 /* ─────────────────────────────── página ─────────────────────────────────── */
 
 export function NovaCompraPage() {
@@ -193,10 +218,25 @@ export function NovaCompraPage() {
   const [miniItemAberto, setMiniItemAberto] = useState(false);
   const [miniFornecedorAberto, setMiniFornecedorAberto] = useState(false);
   const [erro, setErro] = useState("");
+  // C3 — microconfirmação: chave da linha que acabou de entrar (pisca 1x) e
+  // chave da linha cujo editor "Qtd" deve receber foco depois do render.
+  const [flashChave, setFlashChave] = useState<string | null>(null);
+  const [focoQtdChave, setFocoQtdChave] = useState<string | null>(null);
 
   const fornecedorRef = useRef<HTMLDivElement>(null);
   const insumoRef = useRef<HTMLDivElement>(null);
-  const itensRef = useRef<HTMLDivElement>(null);
+
+  // C3 "editar": depois que a linha nova renderiza, rola até ela e coloca o
+  // cursor na quantidade — é ali que a pessoa confere/setta antes de seguir.
+  useEffect(() => {
+    if (!focoQtdChave) return;
+    const el = document.getElementById(`nc-qtd-${focoQtdChave}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.focus();
+    }
+    setFocoQtdChave(null);
+  }, [focoQtdChave, itens]);
 
   // ---------- fornecedores (merge do criado na hora — U2.3) ─────────────────
   const listaFornecedores = useMemo(() => {
@@ -215,10 +255,19 @@ export function NovaCompraPage() {
   // ---------- busca de ITEM: SOMENTE natureza=insumo (WIRE M1 / C1) ─────────
   const qInsumo = termoInsumo.trim().toLowerCase();
   const insumos = useMemo(() => produtos.filter((p) => p.natureza === "insumo"), [produtos]);
+  // C3: o insumo JÁ no carrinho continua na busca — adicionar de novo é
+  // legítimo (duas linhas separadas, cada uma ajusta a sua). O badge
+  // "N× no carrinho" no candidato é que avisa, não o sumiço da lista.
   const candidatosInsumo = insumos
-    .filter((p) => !itens.some((l) => l.produto.id === p.id))
     .filter((p) => !qInsumo || p.nome.toLowerCase().includes(qInsumo) || p.sku.toLowerCase().includes(qInsumo))
     .slice(0, 8);
+
+  /** C3 — quantas linhas cada produto já tem no carrinho (badge dos candidatos). */
+  const linhasPorProduto = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const l of itens) m.set(l.produto.id, (m.get(l.produto.id) ?? 0) + 1);
+    return m;
+  }, [itens]);
 
   const selecionarFornecedor = (id: string) => {
     setFornecedorId(id);
@@ -227,27 +276,66 @@ export function NovaCompraPage() {
     setErro("");
   };
 
-  const adicionar = (p: Produto | LinhaNova) => {
+  /**
+   * C3 — pôr item no carrinho, dois caminhos por toque:
+   *
+   * - `carrinho` (botão verde "Adicionar", o caminho rápido do mercado):
+   *   linha NOVA SEMPRE — quantidade 1 na unidade de compra, valor
+   *   pré-cheio com o último preço (U2.1). O MESMO item duas vezes são duas
+   *   linhas separadas; ajuste fino acontece depois, na própria linha.
+   *   A busca é limpa e CONTINUA aberta e focada para o próximo item.
+   *
+   * - `editar` (corpo do card, para quem quer configurar antes): cria a
+   *   linha com qtd vazia e foca o editor dela; se o produto já tem linha,
+   *   APENAS foca a última — o corpo nunca duplica (evita gêmea por toque
+   *   acidental em quem só queria conferir).
+   *
+   * A idempotência antiga (guard por produtoId) não existe mais de propósito:
+   * duplicar virou comportamento esperado. Por isso as ações usam só
+   * `pointerdown` — no desktop, pointerdown + mousedown somados criariam
+   * duas linhas por clique.
+   */
+  const adicionar = (p: Produto | LinhaNova, modo: "carrinho" | "editar" = "carrinho") => {
     // U2.1 — valor pré-preenchido com o último preço pago (mascarado; a pessoa
     // só corrige quando o mercado mudou o preço).
     const ultimo = p.ultimoPrecoCompra != null && p.ultimoPrecoCompra > 0 ? moedaDeValor(p.ultimoPrecoCompra) : "";
-    // IDEMPOTENTE de propósito: a seleção do dropdown usa pointerdown +
-    // mousedown (mouse dispara os dois). Sem o guard, o toque duplicaria a
-    // linha no desktop (hotfix da ficha técnica).
-    setItens((prev) =>
-      prev.some((l) => l.produto.id === p.id)
-        ? prev
-        : [
-            ...prev,
-            { chave: `novo-${p.id}`, produto: p as Produto, quantidade: "", valorUnitario: ultimo },
-          ]
-    );
+    const novaLinha = (quantidade: string): LinhaItem => ({
+      chave: novaChave(p.id),
+      produto: p as Produto,
+      quantidade,
+      valorUnitario: ultimo,
+    });
+
+    if (modo === "editar") {
+      const existente = [...itens].reverse().find((l) => l.produto.id === p.id);
+      if (existente) {
+        setFocoQtdChave(existente.chave);
+      } else {
+        const nova = novaLinha("");
+        setItens((prev) => [...prev, nova]);
+        setFocoQtdChave(nova.chave);
+      }
+      setTermoInsumo("");
+      setInsumosAberto(false);
+      setErro("");
+      return;
+    }
+
+    const nova = novaLinha("1");
+    setItens((prev) => [...prev, nova]);
     setTermoInsumo("");
-    setInsumosAberto(false);
     setErro("");
-    // foco de atenção no mercado: a linha nova entra no fim da lista — rolar
-    // suavemente até ela (sem sequestrar o teclado no mobile)
-    window.setTimeout(() => itensRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+
+    // Microconfirmação (sem over-animation): a linha pisca 1x quando ficar
+    // visível e um toast de id fixo fala a unidade + a contagem — taps
+    // seguidos substituem o mesmo toast em vez de empilhar.
+    setFlashChave(nova.chave);
+    window.setTimeout(() => setFlashChave((atual) => (atual === nova.chave ? null : atual)), 1100);
+    const n = itens.length + 1;
+    const un = p.unidadeCompra?.trim() || p.unidade;
+    toast.success(`+1 ${un} de ${p.nome} · ${n} ${n === 1 ? "item" : "itens"} no carrinho`, {
+      id: "nova-compra-carrinho",
+    });
   };
 
   /** Mini-sheet U2.2: cria o insumo e adiciona na hora via snapshot. */
@@ -271,7 +359,10 @@ export function NovaCompraPage() {
     });
     recarregarProdutos();
     setMiniItemAberto(false);
-    toast.success("Item cadastrado e adicionado à compra.");
+    // C3: o snapshot entra pelo caminho rápido (qtd 1 na unidade de compra).
+    // Mesmo id do toast → substitui o "+1 ..." que o adicionar() acabou de
+    // mostrar, em vez de empilhar dois.
+    toast.success("Item cadastrado e já no carrinho.", { id: "nova-compra-carrinho" });
   };
 
   /** Mini-sheet U2.3: seleciona o fornecedor novo na hora + recarrega. */
@@ -390,7 +481,10 @@ export function NovaCompraPage() {
           <p className="mt-0.5 truncate text-xs text-[#627271] sm:text-sm" aria-live="polite">
             {fornecedorSelecionado ? fornecedorSelecionado.nome : "Escolha o fornecedor"}
             {" · "}
-            {itens.length === 1 ? "1 item" : `${itens.length} itens`}
+            {/* C3: key=contador remonta o span a cada add → pop de 1x (nc-pop) */}
+            <span key={itens.length} className="nc-pop">
+              {itens.length === 1 ? "1 item" : `${itens.length} itens`}
+            </span>
             {" · "}
             {formatCurrency(total)} até agora
           </p>
@@ -555,7 +649,7 @@ export function NovaCompraPage() {
             ? "Carregando insumos..."
             : produtosError && produtos.length === 0
               ? "Não foi possível carregar a lista de insumos."
-              : `${insumos.length} ${insumos.length === 1 ? "insumo cadastrado" : "insumos cadastrados"} — só insumos aparecem aqui.`}
+              : `${insumos.length} ${insumos.length === 1 ? "insumo cadastrado" : "insumos cadastrados"} — toque em Adicionar para pôr 1 unidade no carrinho.`}
         </p>
         <div className="relative mt-2" ref={insumoRef}>
           <Search size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#627271]" />
@@ -571,10 +665,11 @@ export function NovaCompraPage() {
               if (!insumoRef.current?.contains(e.relatedTarget as Node | null)) setInsumosAberto(false);
             }}
             onKeyDown={(e) => {
-              // Enter adiciona o primeiro candidato e NUNCA submete
+              // C3: Enter joga o primeiro candidato no carrinho (1 un) e NUNCA
+              // submete a tela
               if (e.key === "Enter") {
                 e.preventDefault();
-                if (candidatosInsumo[0]) adicionar(candidatosInsumo[0]);
+                if (candidatosInsumo[0]) adicionar(candidatosInsumo[0], "carrinho");
               }
             }}
             placeholder="Buscar insumo (nome ou SKU)..."
@@ -585,7 +680,7 @@ export function NovaCompraPage() {
             <div
               className={
                 candidatosInsumo.length > 0
-                  ? "absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-xl border border-[#efefef] bg-white shadow-lg"
+                  ? "absolute left-0 right-0 top-full z-50 mt-1 max-h-72 divide-y divide-[#efefef] overflow-y-auto rounded-xl border border-[#efefef] bg-white shadow-lg"
                   : "relative mt-1 rounded-xl border border-[#efefef] bg-white shadow-lg"
               }
             >
@@ -634,42 +729,75 @@ export function NovaCompraPage() {
                 </div>
               ) : (
                 <>
-                  {candidatosInsumo.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      // pointerdown dispara antes do blur (mouse E touch) — hotfix da ficha
-                      onPointerDown={(e) => {
-                        e.preventDefault();
-                        adicionar(p);
-                      }}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        adicionar(p);
-                      }}
-                      className="flex min-h-[48px] w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-[#efefef]"
-                    >
-                      <Package size={14} className="mt-1 shrink-0 text-[#627271]" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm text-[#1f2937]" style={{ fontWeight: 600 }}>
-                          {p.nome}
-                        </span>
-                        <span className="block truncate text-xs text-[#627271]">
-                          {p.sku || "sem SKU"} · estoque em {p.unidade}
-                          {p.unidadeCompra ? ` · compra por ${p.unidadeCompra}` : ""}
-                        </span>
-                        <ChipUltimoPreco produto={p} className="mt-1" />
-                      </span>
-                      <Plus size={14} className="mt-1 shrink-0 text-[#627271]" />
-                    </button>
-                  ))}
+                  {candidatosInsumo.map((p) => {
+                    const noCarrinho = linhasPorProduto.get(p.id) ?? 0;
+                    return (
+                      <div key={p.id} className="flex items-stretch gap-2 pr-1.5">
+                        {/* CORPO do card → editor da linha (qtd/valor): caminho
+                            de quem configura antes. Só pointerdown (mouse E
+                            toque): com mousedown junto, um clique no desktop
+                            somaria DUAS linhas (hotfix antigo × duplicação
+                            intencional — ver docstring do adicionar). */}
+                        <button
+                          type="button"
+                          onPointerDown={(e) => {
+                            e.preventDefault();
+                            adicionar(p, "editar");
+                          }}
+                          aria-label={`Abrir editor de quantidade e valor de ${p.nome}`}
+                          className="flex min-h-[64px] min-w-0 flex-1 items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-[#efefef]"
+                        >
+                          <Package size={14} className="mt-1 shrink-0 text-[#627271]" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm text-[#1f2937]" style={{ fontWeight: 600 }}>
+                              {p.nome}
+                            </span>
+                            <span className="block truncate text-xs text-[#627271]">
+                              {p.sku || "sem SKU"} · estoque em {p.unidade}
+                              {p.unidadeCompra ? ` · compra por ${p.unidadeCompra}` : ""}
+                            </span>
+                            <span className="mt-1 flex flex-wrap items-center gap-1">
+                              <ChipUltimoPreco produto={p} />
+                              {/* o item não some da busca ao entrar — ganha o
+                                  badge, e um novo toque no botão = outra linha */}
+                              {noCarrinho > 0 && (
+                                <span
+                                  className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] leading-snug"
+                                  style={{ background: "#F0FDF4", borderColor: "#A7F3D0", color: "#059669", fontWeight: 600 }}
+                                >
+                                  <Check size={11} />
+                                  {noCarrinho}× no carrinho
+                                </span>
+                              )}
+                            </span>
+                          </span>
+                        </button>
+                        {/* BOTÃO DO CARRINHO — 1 toque: 1 unidade de compra +
+                            último preço, sem abrir nada. Verde da marca, alvo
+                            ≥ 44px, pronto pro polegar. */}
+                        <button
+                          type="button"
+                          onPointerDown={(e) => {
+                            e.preventDefault();
+                            adicionar(p, "carrinho");
+                          }}
+                          aria-label={`Adicionar ${p.nome} ao carrinho`}
+                          className="my-2 flex min-h-[44px] shrink-0 items-center self-center gap-1.5 rounded-xl bg-[#86cb92] px-3 text-[#1f2937] transition-colors hover:bg-[#1f2937] hover:text-white active:bg-[#1f2937] active:text-white"
+                          style={{ fontWeight: 600 }}
+                        >
+                          <ShoppingCart size={14} />
+                          <span className="text-xs">Adicionar</span>
+                        </button>
+                      </div>
+                    );
+                  })}
                   <button
                     type="button"
                     onClick={() => {
                       setInsumosAberto(false);
                       setMiniItemAberto(true);
                     }}
-                    className="flex min-h-[44px] w-full items-center justify-center gap-1.5 border-t border-[#efefef] px-4 text-sm text-[#627271] transition-colors hover:bg-[#efefef] hover:text-[#1f2937]"
+                    className="flex min-h-[44px] w-full items-center justify-center gap-1.5 px-4 text-sm text-[#627271] transition-colors hover:bg-[#efefef] hover:text-[#1f2937]"
                   >
                     <Plus size={14} />
                     Cadastrar novo insumo
@@ -682,7 +810,9 @@ export function NovaCompraPage() {
       </section>
 
       {/* ── 3 · Itens da compra — linha-a-linha, nunca tabela (WIRE C1 §4) ── */}
-      <section ref={itensRef} className="mb-3 scroll-mt-3" aria-labelledby="nc-itens-label">
+      {/* C3: sem mais ref/scroll programático aqui — o "abrir editor" rola e
+          foca direto no input de quantidade da linha */}
+      <section className="mb-3 scroll-mt-3" aria-labelledby="nc-itens-label">
         <div className="mb-2 flex items-baseline justify-between gap-3 px-1">
           <BlocoTitulo n={3} id="nc-itens-label" texto="Itens da compra" inline />
           <span className="text-xs text-[#627271]">{formatCurrency(total)}</span>
@@ -694,7 +824,9 @@ export function NovaCompraPage() {
               <ShoppingCart size={20} className="text-[#627271]" />
             </div>
             <p className="text-sm font-semibold text-[#1f2937]">Carrinho vazio</p>
-            <p className="mt-1 text-xs text-[#627271]">Busque um insumo acima e adicione item por item.</p>
+            <p className="mt-1 text-xs text-[#627271]">
+              Busque um insumo acima e toque em &ldquo;Adicionar&rdquo; — item por item, igual carrinho de loja.
+            </p>
           </div>
         ) : (
           <div className="space-y-2.5">
@@ -703,7 +835,14 @@ export function NovaCompraPage() {
               // C2: helper "1 caixa = 500 g" só quando a conversão não é 1:1
               const mostrarHelper = Boolean(uc) && conversionOk && Number.isFinite(fator) && fator !== 1;
               return (
-                <div key={linha.chave} className="rounded-2xl border border-[#efefef] bg-white p-3.5 shadow-sm">
+                <div
+                  key={linha.chave}
+                  // C3: flash de 1x na linha recém-jogada no carrinho (CSS
+                  // global nc-flash; desliga em prefers-reduced-motion)
+                  className={`rounded-2xl border border-[#efefef] bg-white p-3.5 shadow-sm${
+                    linha.chave === flashChave ? " nc-flash" : ""
+                  }`}
+                >
                   {/* Nome + remover. O remover fica NO CABEÇALHO do card (44px,
                       canto superior) — nunca ao lado da digitação (mobile). */}
                   <div className="flex items-start justify-between gap-3">
@@ -741,6 +880,8 @@ export function NovaCompraPage() {
                         value={linha.quantidade}
                         onChange={(e) => atualizarLinha(linha.chave, { quantidade: e.target.value })}
                         placeholder="0"
+                        // C3: id-alvo do "abrir editor" do corpo do card (adicionar modo `editar`)
+                        id={`nc-qtd-${linha.chave}`}
                         className={`${campoFormSheet} text-base`}
                       />
                       {/* C2: helper de conversão — unidade do produto no estoque */}
@@ -829,7 +970,12 @@ export function NovaCompraPage() {
         )}
         <div className="mb-3 flex items-center justify-between gap-3">
           <span className="text-sm text-[#627271]">
-            Total {itens.length === 1 ? "(1 item)" : `(${itens.length} itens)`}
+            Total{" "}
+            {/* C3: ondinha no "N itens" do rodapé — o key remonta o span a
+                cada add e o pop roda 1x */}
+            <span key={itens.length} className="nc-pop">
+              {itens.length === 1 ? "(1 item)" : `(${itens.length} itens)`}
+            </span>
           </span>
           <span className="text-2xl text-[#1f2937]" style={{ fontWeight: 700 }} role="status">
             {formatCurrency(total)}
@@ -968,9 +1114,10 @@ function MiniSheetNovoItem({
     }
     const uc = unidadeCompra.trim();
     const nFator = fator.trim() === "" ? null : Number(fator);
-    // F2/H3: unidade de compra preenchida exige fator > 0 — mesma validação
-    // do cadastro completo, client-side antes de gravar.
-    const erroConv = validarConversaoCompra(uc || null, nFator);
+    // F2/H3 + anti-inversão (Caixa de Uva, 07/10/2026): mesma validação do
+    // cadastro completo (mesma unidade → fator 1; diferentes → fator > 1),
+    // client-side antes de gravar.
+    const erroConv = validarConversaoCompra(uc || null, nFator, unidade);
     if (erroConv) {
       setErro(erroConv);
       return;
@@ -1100,7 +1247,7 @@ function MiniSheetNovoItem({
         </label>
 
         <label className="block text-sm font-medium text-[#1f2937]">
-          Unidade de estoque *
+          Unidade do estoque *
           <select
             value={unidade}
             onChange={(e) => setUnidade(e.target.value)}
@@ -1112,6 +1259,9 @@ function MiniSheetNovoItem({
               </option>
             ))}
           </select>
+          <span className="mt-1 block text-[11px] text-[#627271]">
+            O que você guarda no estoque (ex.: g, un, kg).
+          </span>
         </label>
 
         <label className="block text-sm font-medium text-[#1f2937]">
@@ -1124,7 +1274,7 @@ function MiniSheetNovoItem({
               setErro("");
             }}
             list="nova-compra-mini-unidade-compra"
-            placeholder="Ex.: pacote, caixa, kg"
+            placeholder="Ex.: Caixa, Pacote, Fardo"
             autoComplete="off"
             className={`${campoFormSheet} text-base`}
           />
@@ -1133,10 +1283,15 @@ function MiniSheetNovoItem({
               <option key={u} value={u} />
             ))}
           </datalist>
+          <span className="mt-1 block text-[11px] text-[#627271]">
+            Que você paga ao fornecedor (ex.: Caixa, Pacote, Fardo). Vazio = compra na unidade do estoque.
+          </span>
         </label>
 
         <label className="block text-sm font-medium text-[#1f2937]">
-          Fator de conversão (unidades de estoque por {unidadeCompra.trim() || "unidade de compra"})
+          {unidadeCompra.trim()
+            ? `1 ${unidadeCompra.trim()} contém quantas ${unidade}?`
+            : "1 unidade de compra contém quantas de estoque?"}
           <input
             type="number"
             min="0"
@@ -1147,11 +1302,11 @@ function MiniSheetNovoItem({
               setFator(e.target.value);
               setErro("");
             }}
-            placeholder="Ex.: 50"
+            placeholder="Ex.: 500"
             className={`${campoFormSheet} text-base`}
           />
           <span className="mt-1 block text-[11px] text-[#627271]">
-            Obrigatório quando preencher a unidade de compra — ex.: 1 pacote = 50 unidades.
+            Sempre na direção compra → estoque e maior que 1 quando as unidades diferem — ex.: 1 Caixa tem 500 g → fator 500.
           </span>
         </label>
       </div>

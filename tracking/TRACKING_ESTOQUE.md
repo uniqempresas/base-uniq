@@ -157,6 +157,8 @@
 | U4 | Experiência exclusiva de compra, mobile-first | ✅ Base já mobile (`ca00cbf`, `BottomSheet` sticky + alvos 44px); página dedicada em vez de modal fica como **U5‑futuro** (fundador: "não precisa mudar ainda") |
 
 **Banco:** catch-up versionado `20261007090000_ultimo_preco_compra_catchup.sql`. Colunas confirmadas no banco vivo.
+
+**U6 (07/10/2026, mesmas sessões):** conversão à prova de inversão no `ProdutoFormModal` (hooks `validarConversaoCompra` com validação direção/base: compra≠estoque exige fator>1; heurística âmbar "parece invertido"; copy "1 {uc} contém quantas {unidade}?") — o caso real "Caixa de Uva" (id 88) foi gravado invertido pelo usuário e corrigido no banco (`unidade='g'`, `unidade_compra='Caixa'`, fator 500, estoque 0 = seguro). E **C3 — "Adicionar ao carrinho"** na `NovaCompraPage`: pill "🛒 Adicionar" no resultado da busca (1 toque = entra qtd 1 + último preço, flash + toast), toque no corpo abre editor; linhas duplicadas intencionais (est_compra_item sem UNIQUE); keyframes `nc-add-flash`/`nc-count-pop` com `prefers-reduced-motion`.
 **Margem real por produto:** ainda não — é exatamente a Fase 4 (hoje só existe margem potencial `venda − custo médio atual`, `produto-utils.ts:10`; as Métricas por produto continuam mock). Falta: gravar CMV no ato da venda → DRE + margem por venda ler custo apurado.
 **Estoque legado (itens abertos de compras anteriores):** pendência de discussão com o fundador — candidato: ajuste de entrada genérico no `AjustarEstoqueModal` (já existe) ou lote de inventário inicial por insumo; **discutir antes de implementar**.
 
