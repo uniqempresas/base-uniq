@@ -38,10 +38,13 @@
  *
  * Padrões do módulo respeitados (ComprasPage/ContasPagarPage): paleta textual
  * #1f2937/#627271/#efefef/#86cb92, BottomSheet header/footer sticky para os
- * mini-sheets, hotfix mousedown + relatedTarget no dropdown de fornecedor —
- * nas AÇÕES DA LINHA RÁPIDA vale só pointerdown (cobre mouse, toque e caneta
- * num evento único; pointerdown + mousedown somados disparariam duas
- * inclusões por clique no desktop), inputs 16px (sem zoom do iOS), alvos de
+ * mini-sheets, hotfix relatedTarget no blur do dropdown de fornecedor —
+ * nas AÇÕES DA LINHA RÁPIDA vale só pointerdown preventDefault (cobre mouse,
+ * toque e caneta num evento único) e, nos CANDIDATOS dos dois dropdowns, o
+ * gesto tap do C6-b (pointerdown preventDefault + pointerup com threshold de
+ * 10px/500ms — o antigo hotfix pointerdown+mousedown do fornecedor marcava
+ * no início do arrasto e disparava a seleção duas vezes no desktop),
+ * inputs 16px (sem zoom do iOS), alvos de
  * toque ≥ 44px, skeleton/empty/erro, labels de formulário e aria-labels.
  * Animação só na microconfirmação do carrinho (desligada em
  * prefers-reduced-motion). Sem chamada de API inventada — hooks reais do
@@ -50,15 +53,17 @@
  * C4 — "Linha Rápida + Teclado Educado" (WIRE COMPRA_TELA_C4_LINHA_RAPIDA
  * v1.0, fundador 07/10/2026): o fluxo busca→pill vira UMA linha de trabalho
  * congelada no topo, abaixo do header. Linha 1: nome do item com autocomplete
- * do catálogo de insumos (toque/click numa sugestão — onPointerDown
- * preventDefault — ou Enter no primeiro candidato reconhece o item SEM fechar
- * o teclado). Linha 2 compacta aparece quando o item é reconhecido:
+ * do catálogo de insumos (tap numa sugestão — hoje o gesto tap do C6-b, antes
+ * o onPointerDown imediato — ou Enter no primeiro candidato reconhece o item
+ * SEM fechar o teclado). Linha 2 compacta aparece quando o item é reconhecido:
  * `Qtd (unidade de compra)` · `R$ 0,00` (mascara) · botão verde
  * [＋ Adicionar] ≥ 44px. Ao reconhecer, qty=1 e o último preço pago entram
  * pré-cheios — "o toque é conferir e adicionar". Adicionar: merge na MESMA
  * linha se o item já está no carrinho (soma a quantidade; preço do último
  * toque vence; linha pisca 1x) ou linha nova, e a linha rápida volta limpa
- * com foco no nome para o próximo item — teclado NUNCA fecha durante o ciclo
+ * com foco no nome para o próximo item (C6-a: limpa DE VERDADE — nome e
+ * seleção somem após adicionar; no C4 original o nome ficava/seleção seguia)
+ * — teclado NUNCA fecha durante o ciclo
  * (padrão pointerdown preventDefault do des-4/C3). O rodapé sticky com
  * "Salvar compra" SAI da tela (era o ladrão de altura com teclado aberto):
  * salvar vira pill discreto no header, habilitado só com ≥1 item — decisão
@@ -89,8 +94,34 @@
  * conversão em texto pequeno (aviso amarelo quando falta o fator). O chip de
  * último preço sai das linhas — a informação continua na autocomplete da
  * Linha Rápida.
+ *
+ * C6 — segunda leva do fundador (07/10/2026, passada atual): (a) RESETAR A
+ * BARRA APÓS ADICIONAR — o "nome fica/seleção segue" do C4 está SUPERSEDED
+ * (decisão em teste real): no sucesso do ＋ Adicionar, o campo nome volta
+ * VAZIO, a seleção limpa (qtd 1 · valor vazio como antes), a linha 2 some
+ * sozinha e o foco devolve ao MESMO input — teclado nunca fecha (nenhum
+ * blur é introduzido). Quer o MESMO item de novo? Digitar de novo: troca
+ * consciente, a prova do que acabou de entrar é a linha piscando no carrinho
+ * + o toast de id fixo (mantido). (b) SCROLL DE CANDIDATO NÃO SELECIONA —
+ * nos DOIS dropdowns (insumo e fornecedor) a ação saiu do pointerdown
+ * imediato: o preventDefault fica (é ele que segura o teclado), origem +
+ * tempo são registrados e a seleção só dispara no pointerup do MESMO botão
+ * com <10px de deslocamento e <500ms (tap). Em toque o "implicit pointer
+ * capture" entrega o pointerup no elemento do pointerdown mesmo depois de
+ * rolar — o threshold é o que separa tap de scroll; no desktop,
+ * press+release parado é o clique normal e o antigo onMouseDown duplicado
+ * do fornecedor foi REMOVIDO (dispararia a seleção duas vezes). Hook única
+ * no arquivo: useTapSemScroll, compartilhada pelos dois dropdowns.
  */
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { useNavigate } from "react-router";
 import {
   ArrowLeft,
@@ -159,6 +190,48 @@ type LinhaNova = Pick<
   | "ultimoPrecoCompra"
   | "ultimaCompraEm"
 >;
+
+/**
+ * C6-b — "tap que não confunde com scroll", compartilhado pelos DOIS dropdowns
+ * de candidatos (insumo e fornecedor). O bug: agir no onPointerDown marcava o
+ * item no INSTANTE do toque — encostar num candidato pra rolar a lista já
+ * selecionava. O gesto aqui: pointerdown mantém o preventDefault (é o truque
+ * que segura foco/teclado aberto — nada muda aí) e registra origem+tempo; a
+ * ação só dispara no pointerup do MESMO botão com deslocamento < 10px e
+ * duração < 500ms. Em toque vale o "implicit pointer capture": o pointerup
+ * chega no elemento do pointerdown mesmo depois de rolar — é o threshold de
+ * distância/tempo que separa tap de scroll (e o pointercancel do gesto de
+ * rolagem limpa a origem). Em desktop, press+release parado é o clique
+ * normal; o antigo onMouseDown duplicado do fornecedor saiu de cena (ele
+ * dispararia a seleção duas vezes). Uso: `const tap = useTapSemScroll();`
+ * no componente e `<button {...tap(() => selecionar(id))} />` no candidato.
+ */
+function useTapSemScroll() {
+  const inicio = useRef<{ x: number; y: number; t: number } | null>(null);
+  return useCallback((acao: () => void) => {
+    return {
+      onPointerDown: (e: ReactPointerEvent<HTMLButtonElement>) => {
+        // NUNCA deixa o teclado fechar (padrão C3/C4) — mas aqui NÃO age:
+        // só marca o início do gesto.
+        e.preventDefault();
+        inicio.current = { x: e.clientX, y: e.clientY, t: performance.now() };
+      },
+      onPointerUp: (e: ReactPointerEvent<HTMLButtonElement>) => {
+        const i = inicio.current;
+        inicio.current = null;
+        if (!i) return;
+        // tap = dedo/mouse quase parado + soltura rápida; arrasto = scroll
+        if (Math.hypot(e.clientX - i.x, e.clientY - i.y) < 10 && performance.now() - i.t < 500) {
+          acao();
+        }
+      },
+      // browser assumiu o gesto como rolagem/gesto do sistema: nada de tap
+      onPointerCancel: () => {
+        inicio.current = null;
+      },
+    };
+  }, []);
+}
 
 /* ─────────────────────────── rascunho (memória) ─────────────────────────── */
 
@@ -348,6 +421,8 @@ export function NovaCompraPage() {
   const insumoRef = useRef<HTMLFormElement>(null);
   const nomeInputRef = useRef<HTMLInputElement>(null);
   const qtdInputRef = useRef<HTMLInputElement>(null);
+  // C6-b — fábrica de handlers tap compartilhada pelos 2 dropdowns de candidatos
+  const tapCandidato = useTapSemScroll();
 
   // C4 — depois de RECONHECER um item, o cursor vai direto na Qtd da linha 2
   // ("o toque é conferir e adicionar") sem o teclado piscar entre os campos.
@@ -440,12 +515,13 @@ export function NovaCompraPage() {
    * compra é a que foi dita agora no mercado); vazio, mantém o preço da linha.
    * Nova linha: qtd/valor exatamente como na linha rápida.
    *
-   * Ciclo pós-toque (WIRE §1): teclado segue aberto (botão pointerdown
-   * preventDefault), qtd volta a 1, nome/item continuam selecionados — mais um
-   * do MESMO item é outro toque só em ＋ Adicionar; próximo item = digitar
-   * (editar o nome limpa a seleção no onChange). A linha alvo pisca 1x e um
-   * toast de id fixo avisa a soma.
-   */
+    * Ciclo pós-toque (WIRE §1 + C6-a): teclado segue aberto (botão pointerdown
+    * preventDefault) e a linha volta TOTALMENTE limpa pro próximo item —
+    * nome, seleção, qtd=1 e valor vazio (repetir o MESMO item é digitar de
+    * novo: troca consciente do fundador, o C4 "nome fica/seleção segue" está
+    * SUPERSEDED). A linha alvo pisca 1x e um toast de id fixo avisa a soma —
+    * a única microconfirmação do ciclo.
+    */
   const adicionar = (p: Produto | LinhaNova, qtdTexto: string, valorTexto: string) => {
     const q = parseFloat(qtdTexto) || 0;
     if (!(q > 0)) {
@@ -478,7 +554,8 @@ export function NovaCompraPage() {
     return true;
   };
 
-  /** C4 — gatilho do botão ＋ Adicionar / Enter: exige item reconhecido. */
+  /** C4 — gatilho do botão ＋ Adicionar / Enter: exige item reconhecido.
+   *  C6-a: no sucesso, a barra de busca volta VAZIA para o próximo item. */
   const adicionarDaLinhaRapida = () => {
     if (!insumoReconhecido) {
       if (qInsumo && candidatosInsumo.length === 0) {
@@ -488,20 +565,22 @@ export function NovaCompraPage() {
       return;
     }
     if (adicionar(insumoReconhecido, rapidoQtd, rapidoValor)) {
-      // ciclo pro próximo item: nome fica/seleção segue (repetir o mesmo é 1
-      // toque), qtd volta a 1 e o foco VOLTA pro campo nome sem fechar o
-      // teclado — estamos em outro input da MESMA linha, o ponteiro nunca
-      // saiu da linha rápida.
+      // C6-a — RESET TOTAL da barra (fundador em teste real; o "nome fica/
+      // seleção segue" do C4 está SUPERSEDED): nome limpa, seleção limpa,
+      // qtd volta a 1 e o valor some. Sem selInsumo e com o termo vazio, o
+      // memo insumoReconhecido cai sozinho e a linha 2 desaparece por própria
+      // conta — os setState abaixo são escrita direta no estado, NADA passa
+      // pelo onChange (nenhum efeito colateral no rascunho/sessionStorage).
+      setSelInsumo(null);
+      setTermoNome("");
       setRapidoQtd("1");
-      // C5 §2 — o valor volta ao PADRÃO do item reconhecido: o histórico dele,
-      // se existir (repetir o MESMO item segue sendo 1 toque); sem histórico,
-      // vazio. OUTRO item nunca herda este valor — reconhecer()/onChange do
-      // nome refazem a regra na troca de item.
-      setRapidoValor(
-        insumoReconhecido.ultimoPrecoCompra != null && insumoReconhecido.ultimoPrecoCompra > 0
-          ? moedaDeValor(insumoReconhecido.ultimoPrecoCompra)
-          : ""
-      );
+      setRapidoValor("");
+      // O foco volta ao MESMO campo nome: o ponteiro nunca saiu da linha
+      // rápida (pointerdown preventDefault no botão), não há blur a cuidar —
+      // só garantir que o teclado segue aberto. Repetir o MESMO item agora é
+      // digitar de novo: trade-off consciente; a prova do que acabou de
+      // entrar é a linha piscando 1x no carrinho + o toast de id fixo do
+      // adicionar() (única microconfirmação, mantido).
       nomeInputRef.current?.focus();
     }
   };
@@ -825,17 +904,12 @@ export function NovaCompraPage() {
                         <button
                           key={f.id}
                           type="button"
-                          // C1: escolher o fornecedor com o teclado vivo — o
-                          // hotfix antigo mantém pointerdown E mousedown
-                          // preventDefault (a seleção é idempotente).
-                          onPointerDown={(e) => {
-                            e.preventDefault();
-                            selecionarFornecedor(f.id);
-                          }}
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            selecionarFornecedor(f.id);
-                          }}
+                          // C1: escolher o fornecedor com o teclado vivo.
+                          // C6-b: tap com threshold no lugar do hotfix antigo
+                          // (pointerdown imediato marcava no INÍCIO do arrasto
+                          // para rolar, e o onMouseDown duplicado disparava a
+                          // seleção duas vezes no desktop — handler único agora).
+                          {...tapCandidato(() => selecionarFornecedor(f.id))}
                           className="flex min-h-[48px] w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[#efefef]"
                         >
                           <Truck size={14} className="shrink-0 text-[#627271]" />
@@ -994,12 +1068,12 @@ export function NovaCompraPage() {
                           key={p.id}
                           type="button"
                           // C4: escolher da lista = RECONHECER (preenche qtd/
-                          // último preço e cai na Qtd). pointerdown
-                          // preventDefault = teclado continua aberto.
-                          onPointerDown={(e) => {
-                            e.preventDefault();
-                            reconhecer(p);
-                          }}
+                          // último preço e cai na Qtd). C6-b: o tap só age no
+                          // pointerup SEM movimento — arrastar pra rolar a
+                          // lista encostando num candidato NÃO seleciona mais,
+                          // e o preventDefault do pointerdown segue segurando
+                          // o teclado aberto.
+                          {...tapCandidato(() => reconhecer(p))}
                           aria-label={`Usar ${p.nome} na linha rápida`}
                           className="flex min-h-[52px] w-full items-center gap-3 border-b border-[#efefef] px-3.5 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[#efefef]"
                         >
