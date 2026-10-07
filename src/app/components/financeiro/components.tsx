@@ -439,20 +439,40 @@ export function FinanceKpi({
 
 // ---- Bottom-sheet (mobile) / dialog centralizado (desktop) ------------------
 
+// Bloco de ações do rodapé sticky: primário 100% no topo, secundário separado
+// embaixo no mobile (mesma lógica do SheetActions, sem o mt — o rodapé já tem
+// o próprio respiro). Usado por quem passa `footer` no BottomSheet.
+export function SheetFooterActions({ children }: { children: ReactNode }) {
+  return <div className="flex flex-col-reverse gap-2 sm:flex-row">{children}</div>;
+}
+
+// `header` / `footer` / `mobileFill` são OPCIONAIS e aditivos (Produção —
+// Compras mobile, 06/10): sem eles o sheet renderiza EXATAMENTE como antes
+// (Financeiro intacto). Com eles: header sticky no topo, conteúdo rolável e
+// rodapé sticky com as ações sempre visíveis — forma correta de form longo
+// no celular. No mobile o painel ainda pode ocupar quase a tela toda
+// (`mobileFill`), com o rodapé ancorado embaixo.
 export function BottomSheet({
   open,
   onClose,
   labelledBy,
   children,
   wide = false,
+  header,
+  footer,
+  mobileFill = false,
 }: {
   open: boolean;
   onClose: () => void;
   labelledBy?: string;
   children: ReactNode;
   wide?: boolean;
+  header?: ReactNode;
+  footer?: ReactNode;
+  mobileFill?: boolean;
 }) {
   const painelRef = useRef<HTMLDivElement>(null);
+  const temBlocos = header != null || footer != null;
 
   // Esc fecha + foco inicial para navegação por teclado
   useEffect(() => {
@@ -489,12 +509,34 @@ export function BottomSheet({
         tabIndex={-1}
         className={`bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full ${
           wide ? "max-w-lg" : "max-w-md"
-        } max-h-[92vh] overflow-y-auto overflow-x-hidden`}
+        } ${
+          temBlocos
+            ? `max-h-[92dvh] overflow-y-auto overflow-x-hidden overscroll-contain sm:max-h-[92vh]${
+                mobileFill ? " min-h-[calc(100dvh_-_3rem)] sm:min-h-0" : ""
+              }`
+            : "max-h-[92vh] overflow-y-auto overflow-x-hidden"
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Handle do bottom-sheet (mobile) */}
         <div className="sm:hidden w-10 h-1 rounded-full bg-[#efefef] mx-auto mb-4" />
-        <div className="p-5 sm:p-6">{children}</div>
+        {temBlocos ? (
+          <>
+            {header != null && (
+              <div className="sticky top-0 z-30 border-b border-[#efefef] bg-white px-5 pb-3 pt-1 sm:px-6 sm:pb-4 sm:pt-5">
+                {header}
+              </div>
+            )}
+            <div className="px-5 py-4 sm:px-6 sm:py-5">{children}</div>
+            {footer != null && (
+              <div className="sticky bottom-0 z-20 border-t border-[#efefef] bg-white px-5 py-4 sm:px-6 sm:py-5">
+                {footer}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="p-5 sm:p-6">{children}</div>
+        )}
       </div>
     </div>
   );

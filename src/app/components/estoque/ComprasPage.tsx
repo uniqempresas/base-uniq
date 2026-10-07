@@ -11,8 +11,16 @@
  * - `ContasPagarPage`: BottomSheet mobile / dialog desktop, KPIs, busca+filtros.
  * Cores: só as textuais do módulo (#1f2937/#627271/#efefef/#86cb92 + âmbar e
  * vermelho de atenção já usados em Financeiro). Sem animação.
+ *
+ * Mobile (auditoria 06/10): os sheets de formulário usam o modo `header` +
+ * `footer` + `mobileFill` do `BottomSheet` — título/fechar fixos no topo,
+ * Total + "Salvar" sempre visíveis embaixo (form longo não pode esconder o
+ * submit). Inputs de valor/data em 16px (sem zoom do iOS), alvos ≥ 44px,
+ * remover de linha afastado da digitação, rádios D11 como cards e busca de
+ * insumo com o hotfix da ficha (pointerdown + mousedown + relatedTarget).
  */
 import { useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { useNavigate } from "react-router";
 import {
   AlertCircle,
@@ -42,7 +50,7 @@ import {
   BottomSheet,
   campoFormSheet,
   FinanceKpi,
-  SheetActions,
+  SheetFooterActions,
   sheetButtonPerigo,
   sheetButtonPrimario,
   sheetButtonSecundario,
@@ -491,12 +499,13 @@ export function ComprasPage() {
               Nada entra no estoque e nenhuma conta a pagar é criada. Esta ação não pode ser desfeita
               pela tela.
             </p>
-            <div className="flex gap-2">
+            {/* Mobile: perigo 100% em cima, secundário separado embaixo —
+                nada de botão lado a lado apertado ao lado do polegar */}
+            <SheetFooterActions>
               <button
                 onClick={() => setCancelarAlvo(null)}
                 disabled={cancelando}
-                className="flex-1 rounded-xl border border-[#efefef] px-4 py-2.5 text-sm text-[#1f2937] transition-colors hover:bg-[#efefef]"
-                style={{ fontWeight: 500 }}
+                className={`${sheetButtonSecundario} disabled:opacity-50`}
               >
                 Voltar
               </button>
@@ -504,19 +513,19 @@ export function ComprasPage() {
                 onClick={confirmarCancelamento}
                 data-sheet-foco
                 disabled={cancelando}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-colors disabled:opacity-50"
+                className={sheetButtonPerigo}
                 style={{ background: "#DC2626" }}
               >
                 {cancelando ? (
                   <>
-                    <Loader2 size={14} className="animate-spin" />
+                    <Loader2 size={16} className="animate-spin" />
                     Cancelando...
                   </>
                 ) : (
                   "Confirmar cancelamento"
                 )}
               </button>
-            </div>
+            </SheetFooterActions>
           </div>
         </div>
       )}
@@ -746,10 +755,17 @@ function NovaCompraSheet({
     .slice(0, 8);
 
   const adicionar = (p: Produto) => {
-    setItens((prev) => [
-      ...prev,
-      { chave: `novo-${p.id}`, produto: p, quantidade: "", valorUnitario: "" },
-    ]);
+    // IDEMPOTENTE de propósito: no hotfix da ficha, a seleção do dropdown usa
+    // pointerdown + mousedown (mouse dispara os dois). Sem o guard aqui, o
+    // mesmo toque duplicaria a linha no desktop.
+    setItens((prev) =>
+      prev.some((l) => l.produto.id === p.id)
+        ? prev
+        : [
+            ...prev,
+            { chave: `novo-${p.id}`, produto: p, quantidade: "", valorUnitario: "" },
+          ]
+    );
     setTermoInsumo("");
     setInsumosAberto(false);
     setErro("");
@@ -847,26 +863,73 @@ function NovaCompraSheet({
   };
 
   return (
-    <BottomSheet open={open} onClose={salvando ? () => undefined : onClose} labelledBy="nova-compra-titulo" wide>
-      <div className="mb-5 flex items-start justify-between gap-3">
-        <div>
-          <h2 id="nova-compra-titulo" className="text-lg font-semibold text-[#1f2937]">
-            Nova Compra
-          </h2>
-          <p className="mt-0.5 text-xs text-[#627271]">
-            Registre a compra de insumos. O estoque só sobe quando você receber.
-          </p>
+    <BottomSheet
+      open={open}
+      onClose={salvando ? () => undefined : onClose}
+      labelledBy="nova-compra-titulo"
+      wide
+      mobileFill
+      header={
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 id="nova-compra-titulo" className="text-base font-semibold text-[#1f2937] sm:text-lg">
+              Nova Compra
+            </h2>
+            <p className="mt-0.5 text-xs text-[#627271]">
+              Registre a compra de insumos. O estoque só sobe quando você receber.
+            </p>
+          </div>
+          {/* Alvo de toque 44px e colado na borda (-mr-2) para o polegar */}
+          <button
+            onClick={onClose}
+            disabled={salvando}
+            aria-label="Fechar"
+            className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[#627271] transition-colors hover:bg-[#efefef] hover:text-[#1f2937] disabled:opacity-50"
+          >
+            <X size={20} />
+          </button>
         </div>
-        <button
-          onClick={onClose}
-          disabled={salvando}
-          aria-label="Fechar"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#627271] transition-colors hover:bg-[#efefef] hover:text-[#1f2937] disabled:opacity-50"
-        >
-          <X size={18} />
-        </button>
-      </div>
-
+      }
+      footer={
+        <div>
+          {/* Erro no rodapé sticky: quem está no topo do form longo precisa
+              ver a mensagem sem rolar até o fim */}
+          {erro && (
+            <p className="mb-2 text-xs text-red-600" role="alert" style={{ fontWeight: 500 }}>
+              {erro}
+            </p>
+          )}
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <span className="text-sm text-[#627271]">Total</span>
+            <span className="text-xl text-[#1f2937]" style={{ fontWeight: 700 }}>
+              {formatCurrency(total)}
+            </span>
+          </div>
+          <SheetFooterActions>
+            <button type="button" onClick={onClose} disabled={salvando} className={sheetButtonSecundario}>
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={salvar}
+              data-sheet-foco
+              disabled={salvando}
+              className={sheetButtonPrimario}
+              style={{ background: "#86cb92" }}
+            >
+              {salvando ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Registrando...
+                </>
+              ) : (
+                "Salvar compra"
+              )}
+            </button>
+          </SheetFooterActions>
+        </div>
+      }
+    >
       <div className="space-y-5">
         {/* ── Fornecedor (obrigatório — D10) ── */}
         <section>
@@ -916,7 +979,7 @@ function NovaCompraSheet({
                 }}
                 placeholder="Buscar fornecedor..."
                 aria-label="Selecionar fornecedor"
-                className={`${campoFormSheet} pl-10`}
+                className={`${campoFormSheet} pl-10 text-base ${fornecedorSelecionado ? "pr-11" : ""}`}
               />
               {fornecedorSelecionado && (
                 <button
@@ -926,9 +989,9 @@ function NovaCompraSheet({
                     setBuscaFornecedor("");
                   }}
                   aria-label="Limpar fornecedor selecionado"
-                  className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-[#627271] hover:text-[#1f2937]"
+                  className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-[#627271] hover:text-[#1f2937]"
                 >
-                  <X size={14} />
+                  <X size={16} />
                 </button>
               )}
               {fornecedorAberto && !fornecedorSelecionado && (
@@ -947,7 +1010,17 @@ function NovaCompraSheet({
                           setFornecedorAberto(false);
                           setErro("");
                         }}
-                        className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-[#efefef]"
+                        // Hotfix da ficha (ProdutoFormModal): mousedown também,
+                        // com preventDefault — fecha antes do toque em alguns
+                        // WebViews se depender só de pointerdown.
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setFornecedorId(f.id);
+                          setBuscaFornecedor("");
+                          setFornecedorAberto(false);
+                          setErro("");
+                        }}
+                        className="flex min-h-[48px] w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[#efefef]"
                       >
                         <Truck size={14} className="shrink-0 text-[#627271]" />
                         <span className="min-w-0 truncate text-sm text-[#1f2937]" style={{ fontWeight: 600 }}>
@@ -971,7 +1044,7 @@ function NovaCompraSheet({
             onChange={(e) => setNotaFiscal(e.target.value)}
             placeholder="Ex.: 1042"
             autoComplete="off"
-            className={campoFormSheet}
+            className={`${campoFormSheet} text-base`}
           />
         </label>
 
@@ -1005,7 +1078,7 @@ function NovaCompraSheet({
               }}
               placeholder="Adicionar outro insumo (nome ou SKU)..."
               aria-label="Buscar insumo para adicionar"
-              className={`${campoFormSheet} pl-10`}
+              className={`${campoFormSheet} pl-10 text-base`}
             />
             {insumosAberto && (
               <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-y-auto rounded-xl border border-[#efefef] bg-white shadow-lg">
@@ -1025,7 +1098,14 @@ function NovaCompraSheet({
                         e.preventDefault();
                         adicionar(p);
                       }}
-                      className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-[#efefef]"
+                      // ...e mousedown com preventDefault como backup (hotfix
+                      // ProdutoFormModal): sem ele o toque no celular fechava o
+                      // dropdown antes de selecionar. adicionar() é idempotente.
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        adicionar(p);
+                      }}
+                      className="flex min-h-[48px] w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[#efefef]"
                     >
                       <Package size={14} className="shrink-0 text-[#627271]" />
                       <span className="min-w-0 flex-1">
@@ -1054,13 +1134,16 @@ function NovaCompraSheet({
               {linhasCalculadas.map(({ linha, qtd, vu, entra, subtotal, conversionOk }) => {
                 const uc = linha.produto.unidadeCompra?.trim() || null;
                 return (
-                  <div key={linha.chave} className="rounded-xl border border-[#efefef] bg-white p-3">
-                    <div className="mb-2 flex items-start justify-between gap-2">
+                  <div key={linha.chave} className="rounded-xl border border-[#efefef] bg-white p-3.5">
+                    {/* Nome + remover. O botão de remover fica NO CABEÇALHO do
+                        card (44px, canto superior) — nunca ao lado dos inputs
+                        de digitação, para evitar remoção acidental no mobile. */}
+                    <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="truncate text-sm text-[#1f2937]" style={{ fontWeight: 600 }}>
                           {linha.produto.nome}
                         </p>
-                        <p className="text-[11px] text-[#627271]">
+                        <p className="mt-0.5 text-[11px] text-[#627271]">
                           estoque em {linha.produto.unidade}
                           {uc ? ` · compra por ${uc}` : ""}
                         </p>
@@ -1069,13 +1152,40 @@ function NovaCompraSheet({
                         type="button"
                         onClick={() => remover(linha.chave)}
                         aria-label={`Remover ${linha.produto.nome} da compra`}
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-500 hover:bg-red-100"
+                        className="-mr-1 -mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-500 transition-colors hover:bg-red-100"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={16} />
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2">
+                    {/* Conversão logo abaixo do nome: o resultado fica visível
+                        ANTES/DURANTE a digitação da quantidade, não escondido
+                        embaixo dos inputs. */}
+                    <div className="mt-2.5 text-[11px]">
+                      {uc ? (
+                        conversionOk ? (
+                          <span
+                            className="rounded-md border px-1.5 py-0.5"
+                            style={{ background: "#F0FDF4", borderColor: "#A7F3D0", color: "#059669", fontWeight: 600 }}
+                          >
+                            = {fmtNum(entra)} {linha.produto.unidade} ao estoque
+                          </span>
+                        ) : (
+                          <span
+                            className="rounded-md border px-1.5 py-0.5"
+                            style={{ background: "#FFFBEB", borderColor: "#FDE68A", color: "#B45309", fontWeight: 600 }}
+                          >
+                            sem fator de conversão — corrija o cadastro
+                          </span>
+                        )
+                      ) : (
+                        <span className="text-[#627271]">entra direto em {linha.produto.unidade}</span>
+                      )}
+                    </div>
+
+                    {/* Qtd + valor em grid 2 colunas: 16px no input (sem zoom
+                        do iOS) e alvo ≥ 44px de altura. */}
+                    <div className="mt-3 grid grid-cols-2 gap-2.5">
                       <label className="block text-xs font-medium text-[#1f2937]">
                         Quantidade ({uc || linha.produto.unidade}) *
                         <input
@@ -1104,26 +1214,7 @@ function NovaCompraSheet({
                       </label>
                     </div>
 
-                    <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-[11px]">
-                      {uc ? (
-                        conversionOk ? (
-                          <span
-                            className="rounded-md border px-1.5 py-0.5"
-                            style={{ background: "#F0FDF4", borderColor: "#A7F3D0", color: "#059669", fontWeight: 600 }}
-                          >
-                            = {fmtNum(entra)} {linha.produto.unidade} ao estoque
-                          </span>
-                        ) : (
-                          <span
-                            className="rounded-md border px-1.5 py-0.5"
-                            style={{ background: "#FFFBEB", borderColor: "#FDE68A", color: "#B45309", fontWeight: 600 }}
-                          >
-                            sem fator de conversão — corrija o cadastro
-                          </span>
-                        )
-                      ) : (
-                        <span className="text-[#627271]">entra direto em {linha.produto.unidade}</span>
-                      )}
+                    <div className="mt-2.5 text-right text-[11px]">
                       <span className="text-[#1f2937]" style={{ fontWeight: 700 }}>
                         subtotal {formatCurrency(subtotal)}
                         {conversionOk && uc && qtd > 0 && vu >= 0 ? (
@@ -1140,151 +1231,120 @@ function NovaCompraSheet({
           )}
         </section>
 
-        {/* ── Quando recebe? (emenda D11) ── */}
+        {/* ── Quando recebe? (emenda D11) — cards selecionáveis, alvo grande,
+            campos dependentes aparecem DENTRO do card marcado (sem pular) ── */}
         <section role="radiogroup" aria-label="Quando recebe?">
-          <p className="mb-1.5 text-sm font-medium text-[#1f2937]">Quando recebe?</p>
-          <div className="divide-y divide-[#efefef] rounded-xl border border-[#efefef]">
-            <div className="p-3" style={{ background: modo === "AGORA" ? "#efefef" : undefined }}>
-              <label className="flex cursor-pointer items-start gap-3">
-                <input
-                  type="radio"
-                  name="modo-recebimento"
-                  checked={modo === "AGORA"}
-                  onChange={() => setModo("AGORA")}
-                  className="mt-0.5 h-4 w-4 shrink-0 accent-[#86cb92]"
-                />
-                <span className="min-w-0">
-                  <span className="block text-sm text-[#1f2937]" style={{ fontWeight: modo === "AGORA" ? 600 : 500 }}>
-                    Agora — já recebi esta compra
-                  </span>
-                  <span className="mt-0.5 block text-[11px] text-[#627271]">
-                    Estoque sobe na hora, custo médio recalcula e nasce 1 conta a pagar no Financeiro.
-                  </span>
-                </span>
-              </label>
-              {modo === "AGORA" && (
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <label className="block text-xs font-medium text-[#1f2937]">
-                    Data de recebimento *
-                    <input
-                      type="date"
-                      value={dataRecebimento}
-                      onChange={(e) => setDataRecebimento(e.target.value)}
-                      className={campoFormSheet}
-                    />
-                  </label>
-                  <label className="block text-xs font-medium text-[#1f2937]">
-                    Vencimento da conta *
-                    <input
-                      type="date"
-                      value={dataVencimento}
-                      onChange={(e) => setDataVencimento(e.target.value)}
-                      className={campoFormSheet}
-                    />
-                  </label>
-                </div>
-              )}
-            </div>
+          <p className="mb-2 text-sm font-medium text-[#1f2937]">Quando recebe?</p>
+          <div className="space-y-2.5">
+            <CardModo
+              valor="AGORA"
+              modo={modo}
+              setModo={setModo}
+              titulo="Agora — já recebi esta compra"
+              descricao="Estoque sobe na hora, custo médio recalcula e nasce 1 conta a pagar no Financeiro."
+            >
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                <label className="block text-xs font-medium text-[#1f2937]">
+                  Data de recebimento *
+                  <input
+                    type="date"
+                    value={dataRecebimento}
+                    onChange={(e) => setDataRecebimento(e.target.value)}
+                    className={`${campoFormSheet} text-base`}
+                  />
+                </label>
+                <label className="block text-xs font-medium text-[#1f2937]">
+                  Vencimento da conta *
+                  <input
+                    type="date"
+                    value={dataVencimento}
+                    onChange={(e) => setDataVencimento(e.target.value)}
+                    className={`${campoFormSheet} text-base`}
+                  />
+                </label>
+              </div>
+            </CardModo>
 
-            <div className="p-3" style={{ background: modo === "AGENDAR" ? "#efefef" : undefined }}>
-              <label className="flex cursor-pointer items-start gap-3">
+            <CardModo
+              valor="AGENDAR"
+              modo={modo}
+              setModo={setModo}
+              titulo="Agendar"
+              descricao="Compra fica pendente com data prevista visível na lista."
+            >
+              <label className="block text-xs font-medium text-[#1f2937]">
+                Data prevista *
                 <input
-                  type="radio"
-                  name="modo-recebimento"
-                  checked={modo === "AGENDAR"}
-                  onChange={() => setModo("AGENDAR")}
-                  className="mt-0.5 h-4 w-4 shrink-0 accent-[#86cb92]"
+                  type="date"
+                  value={dataPrevista}
+                  onChange={(e) => setDataPrevista(e.target.value)}
+                  className={`${campoFormSheet} text-base`}
                 />
-                <span className="min-w-0">
-                  <span className="block text-sm text-[#1f2937]" style={{ fontWeight: modo === "AGENDAR" ? 600 : 500 }}>
-                    Agendar
-                  </span>
-                  <span className="mt-0.5 block text-[11px] text-[#627271]">
-                    Compra fica pendente com data prevista visível na lista.
-                  </span>
-                </span>
               </label>
-              {modo === "AGENDAR" && (
-                <div className="mt-3">
-                  <label className="block text-xs font-medium text-[#1f2937]">
-                    Data prevista *
-                    <input
-                      type="date"
-                      value={dataPrevista}
-                      onChange={(e) => setDataPrevista(e.target.value)}
-                      className={campoFormSheet}
-                    />
-                  </label>
-                </div>
-              )}
-            </div>
+            </CardModo>
 
-            <div className="p-3" style={{ background: modo === "SÓ" ? "#efefef" : undefined }}>
-              <label className="flex cursor-pointer items-start gap-3">
-                <input
-                  type="radio"
-                  name="modo-recebimento"
-                  checked={modo === "SÓ"}
-                  onChange={() => setModo("SÓ")}
-                  className="mt-0.5 h-4 w-4 shrink-0 accent-[#86cb92]"
-                />
-                <span className="min-w-0">
-                  <span className="block text-sm text-[#1f2937]" style={{ fontWeight: modo === "SÓ" ? 600 : 500 }}>
-                    Só registrar
-                  </span>
-                  <span className="mt-0.5 block text-[11px] text-[#627271]">
-                    Pendente puro — você recebe depois pela lista.
-                  </span>
-                </span>
-              </label>
-            </div>
+            <CardModo
+              valor="SÓ"
+              modo={modo}
+              setModo={setModo}
+              titulo="Só registrar"
+              descricao="Pendente puro — você recebe depois pela lista."
+            />
           </div>
         </section>
 
-        {erro && (
-          <p className="text-xs text-red-600" role="alert" style={{ fontWeight: 500 }}>
-            {erro}
-          </p>
-        )}
-
-        {/* Rodapé: total + submit */}
-        <div className="border-t border-[#efefef] pt-4">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <span className="text-sm text-[#627271]">Total</span>
-            <span className="text-xl text-[#1f2937]" style={{ fontWeight: 700 }}>
-              {formatCurrency(total)}
-            </span>
-          </div>
-          <SheetActions>
-            <button type="button" onClick={onClose} disabled={salvando} className={sheetButtonSecundario}>
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={salvar}
-              data-sheet-foco
-              disabled={salvando}
-              className={sheetButtonPrimario}
-              style={{ background: "#86cb92" }}
-            >
-              {salvando ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  Registrando...
-                </>
-              ) : (
-                "Salvar compra"
-              )}
-            </button>
-          </SheetActions>
-          <p className="mt-2 text-center text-[11px] text-[#627271]">
-            {modo === "AGORA"
-              ? "Salvar = recebe: estoque + custo médio + conta a pagar de " + formatCurrency(total)
-              : "Registrar não mexe no estoque — use Receber quando a mercadoria chegar."}
-          </p>
-        </div>
+        <p className="text-center text-[11px] text-[#627271]">
+          {modo === "AGORA"
+            ? "Salvar = recebe: estoque + custo médio + conta a pagar de " + formatCurrency(total)
+            : "Registrar não mexe no estoque — use Receber quando a mercadoria chegar."}
+        </p>
       </div>
     </BottomSheet>
+  );
+}
+
+/** Card selecionável do "Quando recebe?" — o card inteiro é alvo de toque
+ *  (label envolve o rádio), o marcado ganha borda verde menta + fundo cinza,
+ *  e os campos dependentes entram logo abaixo, dentro do próprio card. */
+function CardModo({
+  valor,
+  modo,
+  setModo,
+  titulo,
+  descricao,
+  children,
+}: {
+  valor: ModoRecebimento;
+  modo: ModoRecebimento;
+  setModo: (m: ModoRecebimento) => void;
+  titulo: string;
+  descricao: string;
+  children?: ReactNode;
+}) {
+  const marcada = modo === valor;
+  return (
+    <div
+      className={`rounded-xl border p-4 transition-colors ${
+        marcada ? "border-[#86cb92] bg-[#efefef]" : "border-[#efefef] bg-white"
+      }`}
+    >
+      <label className="flex min-h-[44px] cursor-pointer items-start gap-3">
+        <input
+          type="radio"
+          name="modo-recebimento"
+          checked={marcada}
+          onChange={() => setModo(valor)}
+          className="mt-0.5 h-4 w-4 shrink-0 accent-[#86cb92]"
+        />
+        <span className="min-w-0">
+          <span className="block text-sm text-[#1f2937]" style={{ fontWeight: marcada ? 600 : 500 }}>
+            {titulo}
+          </span>
+          <span className="mt-0.5 block text-[11px] text-[#627271]">{descricao}</span>
+        </span>
+      </label>
+      {marcada && children != null && <div className="mt-3 pl-7">{children}</div>}
+    </div>
   );
 }
 
@@ -1325,72 +1385,42 @@ function ReceberCompraSheet({ compra, onClose, onConcluida, receberCompra, salva
     }
   };
 
+  if (!compra) return null;
+
   return (
-    <BottomSheet open={compra !== null} onClose={salvando ? () => undefined : onClose} labelledBy="receber-compra-titulo">
-      {compra && (
-        <>
-          <div className="mb-4">
-            <h2 id="receber-compra-titulo" className="text-lg font-semibold text-[#1f2937]">
-              Receber compra — {compra.fornecedorNome}
+    <BottomSheet
+      open
+      onClose={salvando ? () => undefined : onClose}
+      labelledBy="receber-compra-titulo"
+      header={
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 id="receber-compra-titulo" className="text-base font-semibold text-[#1f2937] sm:text-lg">
+              Receber compra
             </h2>
             <p className="mt-0.5 text-xs text-[#627271]">
-              NF {compra.notaFiscal || "—"} · {formatCurrency(compra.valorTotal)} ·{" "}
+              {compra.fornecedorNome} · NF {compra.notaFiscal || "—"} · {formatCurrency(compra.valorTotal)} ·{" "}
               {compra.itens.length} {compra.itens.length === 1 ? "item" : "itens"}
             </p>
           </div>
-
-          <div className="mb-4 space-y-1.5 rounded-xl bg-[#f8f9fa] p-4">
-            <p className="mb-1 text-xs text-[#1f2937]" style={{ fontWeight: 700 }}>
-              Entrará no estoque:
-            </p>
-            {compra.itens.map((item) => (
-              <p key={item.id} className="flex items-center justify-between gap-3 text-sm text-[#1f2937]">
-                <span className="min-w-0 truncate">· {item.produtoNome}</span>
-                <span className="shrink-0" style={{ fontWeight: 600 }}>
-                  +{fmtNum(qtdEstoque(item))} {item.unidadeEstoque}
-                </span>
-              </p>
-            ))}
-            <p className="pt-1 text-[11px] text-[#627271]">
-              Custo médio recalculado automaticamente · ao receber, 1 conta a pagar de{" "}
-              {formatCurrency(compra.valorTotal)} nasce no Financeiro.
-            </p>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block text-sm font-medium text-[#1f2937]">
-              Data de recebimento *
-              <input
-                type="date"
-                value={dataRecebimento}
-                onChange={(e) => {
-                  setDataRecebimento(e.target.value);
-                  setErro("");
-                }}
-                className={campoFormSheet}
-              />
-            </label>
-            <label className="block text-sm font-medium text-[#1f2937]">
-              Vencimento da conta a pagar *
-              <input
-                type="date"
-                value={dataVencimento}
-                onChange={(e) => {
-                  setDataVencimento(e.target.value);
-                  setErro("");
-                }}
-                className={campoFormSheet}
-              />
-            </label>
-          </div>
-
+          <button
+            onClick={onClose}
+            disabled={salvando}
+            aria-label="Fechar"
+            className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[#627271] transition-colors hover:bg-[#efefef] hover:text-[#1f2937] disabled:opacity-50"
+          >
+            <X size={20} />
+          </button>
+        </div>
+      }
+      footer={
+        <div>
           {erro && (
-            <p className="mt-3 text-xs text-red-600" role="alert" style={{ fontWeight: 500 }}>
+            <p className="mb-2 text-xs text-red-600" role="alert" style={{ fontWeight: 500 }}>
               {erro}
             </p>
           )}
-
-          <SheetActions>
+          <SheetFooterActions>
             <button type="button" onClick={onClose} disabled={salvando} className={sheetButtonSecundario}>
               Voltar
             </button>
@@ -1413,9 +1443,58 @@ function ReceberCompraSheet({ compra, onClose, onConcluida, receberCompra, salva
                 </>
               )}
             </button>
-          </SheetActions>
-        </>
-      )}
+          </SheetFooterActions>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <div className="space-y-1.5 rounded-xl border border-[#efefef] bg-[#f8f9fa] p-4">
+          <p className="mb-1 text-xs text-[#1f2937]" style={{ fontWeight: 700 }}>
+            Entrará no estoque:
+          </p>
+          {compra.itens.map((item) => (
+            <p key={item.id} className="flex items-center justify-between gap-3 text-sm text-[#1f2937]">
+              <span className="min-w-0 truncate">· {item.produtoNome}</span>
+              <span className="shrink-0" style={{ fontWeight: 600 }}>
+                +{fmtNum(qtdEstoque(item))} {item.unidadeEstoque}
+              </span>
+            </p>
+          ))}
+          <p className="pt-1 text-[11px] text-[#627271]">
+            Custo médio recalculado automaticamente · ao receber, 1 conta a pagar de{" "}
+            {formatCurrency(compra.valorTotal)} nasce no Financeiro.
+          </p>
+        </div>
+
+        {/* Datas empilhadas no mobile: date nativo apertado em 2 colunas é
+            praticamente impossível de ajustar com o polegar */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="block text-sm font-medium text-[#1f2937]">
+            Data de recebimento *
+            <input
+              type="date"
+              value={dataRecebimento}
+              onChange={(e) => {
+                setDataRecebimento(e.target.value);
+                setErro("");
+              }}
+              className={`${campoFormSheet} text-base`}
+            />
+          </label>
+          <label className="block text-sm font-medium text-[#1f2937]">
+            Vencimento da conta a pagar *
+            <input
+              type="date"
+              value={dataVencimento}
+              onChange={(e) => {
+                setDataVencimento(e.target.value);
+                setErro("");
+              }}
+              className={`${campoFormSheet} text-base`}
+            />
+          </label>
+        </div>
+      </div>
     </BottomSheet>
   );
 }
@@ -1423,81 +1502,86 @@ function ReceberCompraSheet({ compra, onClose, onConcluida, receberCompra, salva
 /* ───────────────────────── Sheet Detalhe Compra ──────────────────────── */
 
 function DetalheCompraSheet({ compra, onClose }: { compra: Compra | null; onClose: () => void }) {
+  if (!compra) return null;
+
   return (
-    <BottomSheet open={compra !== null} onClose={onClose} labelledBy="detalhe-compra-titulo" wide>
-      {compra && (
-        <>
-          <div className="mb-4 flex items-start justify-between gap-3">
-            <div>
-              <h2 id="detalhe-compra-titulo" className="text-lg font-semibold text-[#1f2937]">
-                {compra.fornecedorNome}
-              </h2>
+    <BottomSheet
+      open
+      onClose={onClose}
+      labelledBy="detalhe-compra-titulo"
+      wide
+      header={
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 id="detalhe-compra-titulo" className="truncate text-base font-semibold text-[#1f2937] sm:text-lg">
+              {compra.fornecedorNome}
+            </h2>
+            <p className="mt-0.5 text-xs text-[#627271]">
+              Compra em {dataCompraBR(compra.dataCompra)}
+              {compra.notaFiscal ? ` · NF ${compra.notaFiscal}` : ""}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Fechar"
+            className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[#627271] transition-colors hover:bg-[#efefef] hover:text-[#1f2937]"
+          >
+            <X size={20} />
+          </button>
+        </div>
+      }
+      footer={
+        <SheetFooterActions>
+          <button type="button" onClick={onClose} className={sheetButtonSecundario}>
+            Fechar
+          </button>
+        </SheetFooterActions>
+      }
+    >
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <BadgeCompraStatus status={compra.status} />
+        {compra.status === "PENDENTE" && compra.dataPrevista && (
+          <ChipPrevisto dataPrevista={compra.dataPrevista} />
+        )}
+        {compra.dataRecebimento && (
+          <span className="text-xs text-[#627271]">Recebida em {formatarDataBR(compra.dataRecebimento)}</span>
+        )}
+      </div>
+
+      <div className="space-y-2.5">
+        {compra.itens.map((item) => {
+          const uc = item.unidadeCompra;
+          return (
+            <div key={item.id} className="rounded-xl border border-[#efefef] p-3.5">
+              <div className="flex items-start justify-between gap-2">
+                <p className="min-w-0 text-sm text-[#1f2937]" style={{ fontWeight: 600 }}>
+                  {item.produtoNome}
+                </p>
+                <span className="shrink-0 text-sm text-[#1f2937]" style={{ fontWeight: 700 }}>
+                  {formatCurrency(item.quantidade * item.valorUnitario)}
+                </span>
+              </div>
               <p className="mt-0.5 text-xs text-[#627271]">
-                Compra em {dataCompraBR(compra.dataCompra)}
-                {compra.notaFiscal ? ` · NF ${compra.notaFiscal}` : ""}
+                {fmtNum(item.quantidade)} {uc || item.unidadeEstoque} × {formatCurrency(item.valorUnitario)}
+                {uc ? ` (${uc})` : ""}
               </p>
+              {uc && (
+                <p className="mt-1 text-[11px]" style={{ color: "#059669", fontWeight: 600 }}>
+                  = {fmtNum(qtdEstoque(item))} {item.unidadeEstoque} ao estoque · custo por unidade de estoque{" "}
+                  {formatCurrency(custoPorUnidadeEstoque(item))}
+                </p>
+              )}
             </div>
-            <button
-              onClick={onClose}
-              aria-label="Fechar"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#627271] transition-colors hover:bg-[#efefef] hover:text-[#1f2937]"
-            >
-              <X size={18} />
-            </button>
-          </div>
+          );
+        })}
+      </div>
 
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <BadgeCompraStatus status={compra.status} />
-            {compra.status === "PENDENTE" && compra.dataPrevista && (
-              <ChipPrevisto dataPrevista={compra.dataPrevista} />
-            )}
-            {compra.dataRecebimento && (
-              <span className="text-xs text-[#627271]">Recebida em {formatarDataBR(compra.dataRecebimento)}</span>
-            )}
-          </div>
-
-          <div className="space-y-2.5">
-            {compra.itens.map((item) => {
-              const uc = item.unidadeCompra;
-              return (
-                <div key={item.id} className="rounded-xl border border-[#efefef] p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="min-w-0 truncate text-sm text-[#1f2937]" style={{ fontWeight: 600 }}>
-                      {item.produtoNome}
-                    </p>
-                    <span className="shrink-0 text-sm text-[#1f2937]" style={{ fontWeight: 700 }}>
-                      {formatCurrency(item.quantidade * item.valorUnitario)}
-                    </span>
-                  </div>
-                  <p className="mt-0.5 text-xs text-[#627271]">
-                    {fmtNum(item.quantidade)} {uc || item.unidadeEstoque} × {formatCurrency(item.valorUnitario)}
-                    {uc ? ` (${uc})` : ""}
-                  </p>
-                  {uc && (
-                    <p className="mt-1 text-[11px]" style={{ color: "#059669", fontWeight: 600 }}>
-                      = {fmtNum(qtdEstoque(item))} {item.unidadeEstoque} ao estoque · custo por unidade de estoque{" "}
-                      {formatCurrency(custoPorUnidadeEstoque(item))}
-                    </p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="mt-4 flex items-center justify-between border-t border-[#efefef] pt-4">
-            <span className="text-sm text-[#627271]">Total da compra</span>
-            <span className="text-xl text-[#1f2937]" style={{ fontWeight: 700 }}>
-              {formatCurrency(compra.valorTotal)}
-            </span>
-          </div>
-
-          <SheetActions>
-            <button type="button" onClick={onClose} className={sheetButtonSecundario}>
-              Fechar
-            </button>
-          </SheetActions>
-        </>
-      )}
+      <div className="mt-4 flex items-center justify-between border-t border-[#efefef] pt-4">
+        <span className="text-sm text-[#627271]">Total da compra</span>
+        <span className="text-xl text-[#1f2937]" style={{ fontWeight: 700 }}>
+          {formatCurrency(compra.valorTotal)}
+        </span>
+      </div>
     </BottomSheet>
   );
 }
