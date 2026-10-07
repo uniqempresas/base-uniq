@@ -18,6 +18,12 @@
  * submit). Inputs de valor/data em 16px (sem zoom do iOS), alvos ≥ 44px,
  * remover de linha afastado da digitação, rádios D11 como cards e busca de
  * insumo com o hotfix da ficha (pointerdown + mousedown + relatedTarget).
+ *
+ * U2 — USO REAL (mercado, uma mão): valor unitário pré-preenchido com o
+ * último preço pago + chip "Última vez: R$ X/un · dd/MM" (linha e dropdown),
+ * "Cadastrar item na hora" e "Cadastrar fornecedor na hora" em mini-sheets
+ * (mesmo padrão header/footer sticky do designer) que voltam para a compra
+ * com o item adicionado / fornecedor já selecionado.
  */
 import { useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -42,10 +48,21 @@ import { addDays, format, isSameMonth, parseISO } from "date-fns";
 import { formatCurrency } from "../../lib/produto-utils";
 import { useCompras } from "../../hooks/use-compras";
 import { useProdutos } from "../../hooks/use-produtos";
-import { useFornecedores, type FornecedorSimples } from "../../hooks/use-fornecedores";
+import {
+  useFornecedores,
+  type CriarFornecedorDados,
+  type CriarFornecedorResult,
+  type FornecedorSimples,
+} from "../../hooks/use-fornecedores";
 import { useCriarCompra, type CriarCompraParams, type CriarCompraResult } from "../../hooks/use-criar-compra";
 import { useReceberCompra, type ReceberCompraParams, type ReceberCompraResult } from "../../hooks/use-receber-compra";
 import { useCancelarCompra } from "../../hooks/use-cancelar-compra";
+import {
+  useCriarProduto,
+  validarConversaoCompra,
+  type CriarProdutoParams,
+  type CriarProdutoResult,
+} from "../../hooks/use-criar-produto";
 import {
   BottomSheet,
   campoFormSheet,
@@ -113,6 +130,53 @@ function dataCompraBR(iso: string): string {
   return Number.isNaN(d.getTime()) ? iso : format(d, "dd/MM/yy");
 }
 
+/** Unidades de estoque do mini-sheet U2.2 — as MESMAS 12 do cadastro (F1). */
+const UNIDADES_ESTOQUE = ["Unidade", "Peça", "Par", "Kit", "Kg", "g", "Metro", "Litro", "ml", "Frasco", "Caixa", "Pacote"];
+/** Datalist "Compra por" — mesma lista do ProdutoFormModal (F2 — WIRE §3). */
+const UNIDADES_COMPRA = ["kg", "g", "L", "ml", "un", "lata", "caixa", "pacote", "m"];
+
+/**
+ * U2.2 — linha da compra aceita também o SNAPSHOT do item recém-cadastrado no
+ * mini-sheet: só os campos que a linha lê. Evita esperar o refetch do
+ * `useProdutos` para adicionar o item com o valor pré-preenchido.
+ */
+type LinhaNova = Pick<
+  Produto,
+  | "id"
+  | "nome"
+  | "sku"
+  | "unidade"
+  | "unidadeCompra"
+  | "fatorConversao"
+  | "ultimoPrecoCompra"
+  | "ultimaCompraEm"
+>;
+
+/**
+ * U2.1 — chip discreto do último preço pago (pill neutra 11px, cinza do
+ * módulo). Sem histórico → "Primeira compra deste item".
+ */
+function ChipUltimoPreco({ produto, className = "" }: { produto: LinhaNova; className?: string }) {
+  const ultimo = produto.ultimoPrecoCompra;
+  const tem = ultimo != null && ultimo > 0;
+  let data = "";
+  if (tem && produto.ultimaCompraEm) {
+    try {
+      data = ` · ${format(parseISO(produto.ultimaCompraEm), "dd/MM")}`;
+    } catch {
+      data = ""; // data prevista em formato inesperado nunca deve quebrar a tela
+    }
+  }
+  const un = produto.unidadeCompra?.trim() || produto.unidade;
+  return (
+    <span
+      className={`inline-flex items-center rounded-full bg-[#efefef] px-2 py-0.5 text-[11px] leading-snug text-[#627271] ${className}`}
+    >
+      {tem ? `Última vez: ${formatCurrency(ultimo)}/${un}${data}` : "Primeira compra deste item"}
+    </span>
+  );
+}
+
 /** Mensagem do toast de recebimento com os custos médios devolvidos pela RPC. */
 function toastRecebido(rc: ReceberCompraResult): string {
   const custos = rc.custos ?? [];
@@ -139,11 +203,21 @@ type ModoRecebimento = "AGORA" | "AGENDAR" | "SÓ";
 export function ComprasPage() {
   const navigate = useNavigate();
   const { compras, loading, error, recarregar } = useCompras();
-  const { produtos } = useProdutos();
-  const { fornecedores } = useFornecedores();
+  // U2 — o mini-sheet "cadastrar item na hora" precisa do recarregar para o
+  // novo insumo aparecer na busca assim que o modal fecha.
+  const { produtos, recarregar: recarregarProdutos } = useProdutos();
+  // U2.3 — find-or-create do fornecedor direto na compra (mercado, uma mão)
+  const {
+    fornecedores,
+    recarregar: recarregarFornecedores,
+    criarFornecedor,
+    criando: criandoFornecedor,
+  } = useFornecedores();
   const { criarCompra, loading: criando } = useCriarCompra();
   const { receberCompra, loading: recebendo } = useReceberCompra();
   const { cancelarCompra, loading: cancelando } = useCancelarCompra();
+  // U2.2 — "cadastrar item na hora" no modal de compra (natureza forçada: insumo)
+  const { criarProduto, loading: criandoProduto } = useCriarProduto();
 
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState<"TODOS" | StatusCompra>("TODOS");
@@ -465,6 +539,12 @@ export function ComprasPage() {
         receberCompra={receberCompra}
         salvando={criando || recebendo}
         navigate={navigate}
+        recarregarProdutos={recarregarProdutos}
+        criarProduto={criarProduto}
+        criandoProduto={criandoProduto}
+        recarregarFornecedores={recarregarFornecedores}
+        criarFornecedor={criarFornecedor}
+        criandoFornecedor={criandoFornecedor}
       />
 
       <ReceberCompraSheet
@@ -707,6 +787,14 @@ interface NovaCompraSheetProps {
   receberCompra: (p: ReceberCompraParams) => Promise<ReceberCompraResult>;
   salvando: boolean;
   navigate: (to: string) => void;
+  /** U2.2 — cadastrar insumo na hora + recarregar a lista da página */
+  recarregarProdutos: () => void;
+  criarProduto: (p: CriarProdutoParams) => Promise<CriarProdutoResult>;
+  criandoProduto: boolean;
+  /** U2.3 — cadastrar fornecedor na hora + recarregar a lista da página */
+  recarregarFornecedores: () => void;
+  criarFornecedor: (dados: CriarFornecedorDados) => Promise<CriarFornecedorResult>;
+  criandoFornecedor: boolean;
 }
 
 function NovaCompraSheet({
@@ -719,6 +807,12 @@ function NovaCompraSheet({
   receberCompra,
   salvando,
   navigate,
+  recarregarProdutos,
+  criarProduto,
+  criandoProduto,
+  recarregarFornecedores,
+  criarFornecedor,
+  criandoFornecedor,
 }: NovaCompraSheetProps) {
   const fornecedorRef = useRef<HTMLDivElement>(null);
   const insumoRef = useRef<HTMLDivElement>(null);
@@ -736,25 +830,49 @@ function NovaCompraSheet({
   const [dataVencimento, setDataVencimento] = useState(format(addDays(new Date(), 30), "yyyy-MM-dd"));
   const [dataPrevista, setDataPrevista] = useState(format(addDays(new Date(), 3), "yyyy-MM-dd"));
   const [erro, setErro] = useState("");
+  // U2.2/U2.3 — mini-sheets de cadastro na hora (por cima da compra aberta)
+  const [miniItemAberto, setMiniItemAberto] = useState(false);
+  const [miniFornecedorAberto, setMiniFornecedorAberto] = useState(false);
+  const [fornecedorExtra, setFornecedorExtra] = useState<FornecedorSimples | null>(null);
 
-  const fornecedorSelecionado = fornecedores.find((f) => f.id === fornecedorId) || null;
+  // O sheet principal NÃO fecha enquanto um mini-sheet está aberto (Esc e
+  // clique no backdrop passam por aqui; os mini-sheets depois montam na frente).
+  const miniAberto = miniItemAberto || miniFornecedorAberto;
+  const fecharFicha = () => {
+    if (salvando || miniAberto) return;
+    onClose();
+  };
+
+  // U2.3 — o fornecedor criado no mini-sheet já entra na lista local antes do
+  // refetch chegar (a compra não pode ficar "sem fornecedor" no meio).
+  const listaFornecedores = useMemo(() => {
+    if (!fornecedorExtra) return fornecedores;
+    if (fornecedores.some((f) => f.id === fornecedorExtra.id)) return fornecedores;
+    return [...fornecedores, fornecedorExtra].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  }, [fornecedores, fornecedorExtra]);
+
+  const fornecedorSelecionado = listaFornecedores.find((f) => f.id === fornecedorId) || null;
 
   // Busca client-side de fornecedores (mesma mecânica da busca de insumos)
   const qFornecedor = buscaFornecedor.trim().toLowerCase();
-  const candidatosFornecedor = fornecedores
+  const candidatosFornecedor = listaFornecedores
     .filter((f) => !qFornecedor || f.nome.toLowerCase().includes(qFornecedor))
     .slice(0, 8);
 
   // Insumos: MESMA mecânica da busca de componentes da ficha técnica (Fase 1);
   // exclui os já adicionados.
   const qInsumo = termoInsumo.trim().toLowerCase();
+  const totalInsumos = produtos.filter((p) => p.natureza === "insumo").length;
   const candidatosInsumo = produtos
     .filter((p) => p.natureza === "insumo")
     .filter((p) => !itens.some((l) => l.produto.id === p.id))
     .filter((p) => !qInsumo || p.nome.toLowerCase().includes(qInsumo) || p.sku.toLowerCase().includes(qInsumo))
     .slice(0, 8);
 
-  const adicionar = (p: Produto) => {
+  const adicionar = (p: Produto | LinhaNova) => {
+    // U2.1 — valor unitário pré-preenchido com o último preço pago (editável;
+    // a pessoa só corrige quando o mercado mudou o preço).
+    const ultimo = p.ultimoPrecoCompra != null && p.ultimoPrecoCompra > 0 ? String(p.ultimoPrecoCompra) : "";
     // IDEMPOTENTE de propósito: no hotfix da ficha, a seleção do dropdown usa
     // pointerdown + mousedown (mouse dispara os dois). Sem o guard aqui, o
     // mesmo toque duplicaria a linha no desktop.
@@ -763,12 +881,62 @@ function NovaCompraSheet({
         ? prev
         : [
             ...prev,
-            { chave: `novo-${p.id}`, produto: p, quantidade: "", valorUnitario: "" },
+            { chave: `novo-${p.id}`, produto: p as Produto, quantidade: "", valorUnitario: ultimo },
           ]
     );
     setTermoInsumo("");
     setInsumosAberto(false);
     setErro("");
+  };
+
+  /** U2.2 — salvou o mini-sheet: cria o insumo, adiciona na hora à compra
+   *  (snapshot com os campos que a linha lê) e recarrega a lista da página. */
+  const aoCriarInsumo = (dados: {
+    id: number;
+    nome: string;
+    sku: string;
+    unidade: string;
+    unidadeCompra: string;
+    fator: number | null;
+  }) => {
+    adicionar({
+      id: String(dados.id),
+      nome: dados.nome,
+      sku: dados.sku,
+      unidade: dados.unidade,
+      unidadeCompra: dados.unidadeCompra || null,
+      fatorConversao: dados.fator,
+      ultimoPrecoCompra: null,
+      ultimaCompraEm: null,
+    });
+    recarregarProdutos();
+    setMiniItemAberto(false);
+    toast.success("Item cadastrado e adicionado à compra.");
+  };
+
+  /** U2.3 — salvou o mini-sheet: seleciona na hora + recarrega Fornecedores. */
+  const aoCriarFornecedor = (novo: FornecedorSimples) => {
+    setFornecedorExtra(novo);
+    setFornecedorId(novo.id);
+    setBuscaFornecedor("");
+    setFornecedorAberto(false);
+    setMiniFornecedorAberto(false);
+    setErro("");
+    recarregarFornecedores();
+    toast.success("Fornecedor cadastrado.");
+  };
+
+  /**
+   * U2.3 — ir para o cadastro COMPLETO (rota /fornecedores/novo) só funciona
+   * fechando a ficha: o sheet é fixed inset-0 e cobriria a página inteira.
+   * Confirma antes se a compra já tem itens digitados (não se perde nada).
+   */
+  const irParaFornecedorCompleto = () => {
+    if (itens.length > 0 && !window.confirm("Isso fecha a compra atual — os itens digitados serão perdidos. Ir mesmo assim?")) {
+      return;
+    }
+    onClose();
+    navigate("/fornecedores/novo");
   };
 
   const atualizarLinha = (chave: string, patch: Partial<LinhaItem>) =>
@@ -863,9 +1031,10 @@ function NovaCompraSheet({
   };
 
   return (
+    <>
     <BottomSheet
       open={open}
-      onClose={salvando ? () => undefined : onClose}
+      onClose={fecharFicha}
       labelledBy="nova-compra-titulo"
       wide
       mobileFill
@@ -931,26 +1100,33 @@ function NovaCompraSheet({
       }
     >
       <div className="space-y-5">
-        {/* ── Fornecedor (obrigatório — D10) ── */}
+        {/* ── Fornecedor (obrigatório — D10; + Novo fornecedor na hora — U2.3) ── */}
         <section>
           <p className="mb-1.5 text-sm font-medium text-[#1f2937]">Fornecedor *</p>
-          {fornecedores.length === 0 ? (
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-[#efefef] bg-[#FAFAFA] px-3.5 py-3">
-              <p className="text-xs text-[#627271]">Nenhum fornecedor cadastrado ainda.</p>
+          {listaFornecedores.length === 0 ? (
+            <div className="space-y-2 rounded-xl border border-[#efefef] bg-[#FAFAFA] p-3.5">
+              <p className="text-xs text-[#627271]">
+                Nenhum fornecedor cadastrado ainda — cadastre aqui mesmo, sem sair da compra.
+              </p>
               <button
                 type="button"
-                onClick={() => {
-                  onClose();
-                  navigate("/fornecedores/novo");
-                }}
-                className="flex shrink-0 items-center gap-1.5 rounded-xl border border-[#efefef] bg-white px-3 py-2 text-xs text-[#1f2937] transition-colors hover:bg-[#efefef]"
-                style={{ fontWeight: 500 }}
+                onClick={() => setMiniFornecedorAberto(true)}
+                className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl bg-[#86cb92] px-4 py-2.5 text-sm text-[#1f2937] transition-colors hover:bg-[#1f2937] hover:text-white"
+                style={{ fontWeight: 600 }}
               >
-                <Truck size={13} />
-                Cadastrar agora
+                <Plus size={15} />
+                Novo fornecedor
+              </button>
+              <button
+                type="button"
+                onClick={irParaFornecedorCompleto}
+                className="min-h-[36px] w-full text-center text-xs text-[#627271] underline transition-colors hover:text-[#1f2937]"
+              >
+                ou faça o cadastro completo em Fornecedores (fecha esta compra)
               </button>
             </div>
           ) : (
+            <>
             <div className="relative" ref={fornecedorRef}>
               <Search size={14} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#627271]" />
               <input
@@ -995,9 +1171,31 @@ function NovaCompraSheet({
                 </button>
               )}
               {fornecedorAberto && !fornecedorSelecionado && (
-                <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-y-auto rounded-xl border border-[#efefef] bg-white shadow-lg">
+                <div
+                  className={
+                    candidatosFornecedor.length > 0
+                      ? "absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-y-auto rounded-xl border border-[#efefef] bg-white shadow-lg"
+                      : "relative mt-1 rounded-xl border border-[#efefef] bg-white shadow-lg"
+                  }
+                >
                   {candidatosFornecedor.length === 0 ? (
-                    <p className="p-3 text-center text-sm text-[#627271]">Nenhum fornecedor encontrado.</p>
+                    <div className="p-3 text-center">
+                      <p className="text-sm text-[#627271]">
+                        {qFornecedor ? "Nenhum fornecedor encontrado." : "Nenhum fornecedor cadastrado ainda."}
+                      </p>
+                      {/* Vazio SEM sobreposição: posicionando aqui em estático,
+                          o botão empurra o formulário embaixo em vez de cobri-lo */}
+                      <button
+                        type="button"
+                        onClick={() => setMiniFornecedorAberto(true)}
+                        className="mt-3 min-h-[48px] w-full rounded-xl bg-[#86cb92] px-3 py-2.5 text-sm text-[#1f2937] transition-colors hover:bg-[#1f2937] hover:text-white"
+                        style={{ fontWeight: 600 }}
+                      >
+                        {qFornecedor
+                          ? `+ Cadastrar fornecedor “${buscaFornecedor.trim()}”`
+                          : "+ Cadastrar novo fornecedor"}
+                      </button>
+                    </div>
                   ) : (
                     candidatosFornecedor.map((f) => (
                       <button
@@ -1032,6 +1230,18 @@ function NovaCompraSheet({
                 </div>
               )}
             </div>
+            {/* U2.3 — "+ Novo fornecedor" SEMPRE visível (mercado: o fornecedor
+                do dia quase nunca está cadastrado) */}
+            <button
+              type="button"
+              onClick={() => setMiniFornecedorAberto(true)}
+              className="mt-1.5 inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-2.5 text-sm text-[#1f2937] transition-colors hover:bg-[#efefef]"
+              style={{ fontWeight: 500 }}
+            >
+              <Plus size={14} />
+              Novo fornecedor
+            </button>
+            </>
           )}
         </section>
 
@@ -1081,45 +1291,88 @@ function NovaCompraSheet({
               className={`${campoFormSheet} pl-10 text-base`}
             />
             {insumosAberto && (
-              <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-y-auto rounded-xl border border-[#efefef] bg-white shadow-lg">
+              <div
+                className={
+                  candidatosInsumo.length > 0
+                    ? "absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-y-auto rounded-xl border border-[#efefef] bg-white shadow-lg"
+                    : "relative mt-1 rounded-xl border border-[#efefef] bg-white shadow-lg"
+                }
+              >
                 {candidatosInsumo.length === 0 ? (
-                  <p className="p-3 text-center text-sm text-[#627271]">
-                    {produtos.filter((p) => p.natureza === "insumo").length === 0
-                      ? "Nenhum insumo cadastrado — marque a natureza \"Insumo\" no cadastro do produto."
-                      : "Nenhum insumo disponível para adicionar."}
-                  </p>
-                ) : (
-                  candidatosInsumo.map((p) => (
+                  <div className="p-3 text-center">
+                    {totalInsumos === 0 ? (
+                      <p className="text-sm text-[#627271]">
+                        Nenhum insumo cadastrado — o botão abaixo já cria o primeiro com a natureza
+                        &ldquo;Insumo&rdquo; aplicada.
+                      </p>
+                    ) : (
+                      <p className="text-sm text-[#627271]">
+                        {qInsumo ? "Nenhum insumo encontrado." : "Nenhum insumo disponível para adicionar."}
+                      </p>
+                    )}
+                    {/* U2.2 — no mercado, o item que falta quase nunca está
+                        cadastrado. Vazio SEM sobreposição: em estático, o botão
+                        empurra o formulário embaixo em vez de cobri-lo. */}
                     <button
-                      key={p.id}
                       type="button"
-                      // pointerdown dispara antes do blur (mouse E touch) — padrão da ficha F1
-                      onPointerDown={(e) => {
-                        e.preventDefault();
-                        adicionar(p);
+                      onClick={() => {
+                        setInsumosAberto(false);
+                        setMiniItemAberto(true);
                       }}
-                      // ...e mousedown com preventDefault como backup (hotfix
-                      // ProdutoFormModal): sem ele o toque no celular fechava o
-                      // dropdown antes de selecionar. adicionar() é idempotente.
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        adicionar(p);
-                      }}
-                      className="flex min-h-[48px] w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[#efefef]"
+                      className="mt-3 min-h-[48px] w-full rounded-xl bg-[#86cb92] px-3 py-2.5 text-sm text-[#1f2937] transition-colors hover:bg-[#1f2937] hover:text-white"
+                      style={{ fontWeight: 600 }}
                     >
-                      <Package size={14} className="shrink-0 text-[#627271]" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm text-[#1f2937]" style={{ fontWeight: 600 }}>
-                          {p.nome}
-                        </span>
-                        <span className="block truncate text-xs text-[#627271]">
-                          {p.sku || "sem SKU"} · estoque em {p.unidade}
-                          {p.unidadeCompra ? ` · compra por ${p.unidadeCompra}` : ""}
-                        </span>
-                      </span>
-                      <Plus size={14} className="shrink-0 text-[#627271]" />
+                      {qInsumo ? `+ Cadastrar “${termoInsumo.trim()}” como novo item` : "+ Cadastrar novo item"}
                     </button>
-                  ))
+                  </div>
+                ) : (
+                  <>
+                    {candidatosInsumo.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        // pointerdown dispara antes do blur (mouse E touch) — padrão da ficha F1
+                        onPointerDown={(e) => {
+                          e.preventDefault();
+                          adicionar(p);
+                        }}
+                        // ...e mousedown com preventDefault como backup (hotfix
+                        // ProdutoFormModal): sem ele o toque no celular fechava o
+                        // dropdown antes de selecionar. adicionar() é idempotente.
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          adicionar(p);
+                        }}
+                        className="flex min-h-[48px] w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-[#efefef]"
+                      >
+                        <Package size={14} className="mt-1 shrink-0 text-[#627271]" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm text-[#1f2937]" style={{ fontWeight: 600 }}>
+                            {p.nome}
+                          </span>
+                          <span className="block truncate text-xs text-[#627271]">
+                            {p.sku || "sem SKU"} · estoque em {p.unidade}
+                            {p.unidadeCompra ? ` · compra por ${p.unidadeCompra}` : ""}
+                          </span>
+                          {/* U2.1 — última referência de preço sob nome/SKU */}
+                          <ChipUltimoPreco produto={p} className="mt-1" />
+                        </span>
+                        <Plus size={14} className="mt-1 shrink-0 text-[#627271]" />
+                      </button>
+                    ))}
+                    {/* Lista não vazia → secundário discreto no fim do dropdown */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInsumosAberto(false);
+                        setMiniItemAberto(true);
+                      }}
+                      className="flex min-h-[44px] w-full items-center justify-center gap-1.5 border-t border-[#efefef] px-4 text-sm text-[#627271] transition-colors hover:bg-[#efefef] hover:text-[#1f2937]"
+                    >
+                      <Plus size={14} />
+                      Cadastrar novo item
+                    </button>
+                  </>
                 )}
               </div>
             )}
@@ -1147,6 +1400,8 @@ function NovaCompraSheet({
                           estoque em {linha.produto.unidade}
                           {uc ? ` · compra por ${uc}` : ""}
                         </p>
+                        {/* U2.1 — última referência ao lado do nome, antes dos inputs */}
+                        <ChipUltimoPreco produto={linha.produto} className="mt-1.5 max-w-full" />
                       </div>
                       <button
                         type="button"
@@ -1300,9 +1555,420 @@ function NovaCompraSheet({
         </p>
       </div>
     </BottomSheet>
+
+      {/* ── U2.2 — mini-sheet "Cadastrar item na hora" (por cima da compra) ── */}
+      {miniItemAberto && (
+        <MiniSheetNovoItem
+          termo={termoInsumo}
+          salvando={criandoProduto}
+          criarProduto={criarProduto}
+          onFechar={() => setMiniItemAberto(false)}
+          onCriado={aoCriarInsumo}
+        />
+      )}
+
+      {/* ── U2.3 — mini-sheet "Cadastrar fornecedor na hora" ── */}
+      {miniFornecedorAberto && (
+        <MiniSheetNovoFornecedor
+          termo={buscaFornecedor}
+          criando={criandoFornecedor}
+          criarFornecedor={criarFornecedor}
+          onFechar={() => setMiniFornecedorAberto(false)}
+          onCriado={aoCriarFornecedor}
+        />
+      )}
+    </>
   );
 }
 
+/* ─────────────── Mini-sheets U2 — cadastrar na hora no mercado ───────────── */
+
+/** Título do mini-sheet com termo prévio cortado — 40 chars no mobile já basta. */
+function tituloMiniSheet(prefixo: string, termo: string): string {
+  const t = termo.trim().slice(0, 40);
+  return t ? `${prefixo} “${t}”` : `${prefixo} novo`;
+}
+
+/**
+ * U2.2 — "Cadastrar item na hora": form mínimo de insumo no MESMO padrão
+ * sticky do designer (header + footer no BottomSheet). O que é preenchido
+ * aqui é o MÍNIMO do cadastro — os demais campos ficam default do banco e
+ * o restante do cadastro pode ser completado depois em Estoque.
+ */
+function MiniSheetNovoItem({
+  termo,
+  salvando,
+  criarProduto,
+  onFechar,
+  onCriado,
+}: {
+  termo: string;
+  salvando: boolean;
+  criarProduto: (p: CriarProdutoParams) => Promise<CriarProdutoResult>;
+  onFechar: () => void;
+  onCriado: (dados: { id: number; nome: string; sku: string; unidade: string; unidadeCompra: string; fator: number | null }) => void;
+}) {
+  const [nome, setNome] = useState(termo.trim());
+  const [sku, setSku] = useState("");
+  const [unidade, setUnidade] = useState("Unidade");
+  const [unidadeCompra, setUnidadeCompra] = useState("");
+  const [fator, setFator] = useState("");
+  const [erro, setErro] = useState("");
+
+  const salvar = async () => {
+    if (salvando) return;
+    setErro("");
+    if (!nome.trim()) {
+      setErro("Informe o nome do item.");
+      return;
+    }
+    const uc = unidadeCompra.trim();
+    const nFator = fator.trim() === "" ? null : Number(fator);
+    // F2/H3: unidade de compra preenchida exige fator > 0 — mesma validação
+    // do cadastro completo, client-side antes de gravar.
+    const erroConv = validarConversaoCompra(uc || null, nFator);
+    if (erroConv) {
+      setErro(erroConv);
+      return;
+    }
+    const r = await criarProduto({
+      nome: nome.trim(),
+      sku: sku.trim() || undefined,
+      unidade,
+      natureza: "insumo",
+      // insumo nunca aparece na vitrine (SPEC F1 §6.3) — o hook força off,
+      // mas a UI declara a intenção junto
+      exibirVitrine: false,
+      estoque: 0,
+      estoqueMinimo: 5,
+      precoVenda: 0,
+      precoCusto: 0,
+      unidadeCompra: uc || null,
+      // sem unidade de compra o fator é ignorado — não faz sentido avulso
+      fatorConversao: uc ? nFator : null,
+    });
+    if (!r.success || !r.id) {
+      // erro inline: o digitado permanece no form (nada se perde)
+      setErro(r.error || "Não foi possível cadastrar o item.");
+      return;
+    }
+    onCriado({
+      id: r.id,
+      nome: nome.trim(),
+      sku: sku.trim(),
+      unidade,
+      unidadeCompra: uc,
+      fator: uc ? nFator : null,
+    });
+  };
+
+  return (
+    <BottomSheet
+      open
+      onClose={salvando ? () => undefined : onFechar}
+      labelledBy="mini-item-titulo"
+      header={
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 id="mini-item-titulo" className="text-base font-semibold text-[#1f2937] sm:text-lg">
+              {tituloMiniSheet("Cadastrar item", termo)}
+            </h2>
+            <p className="mt-0.5 text-xs text-[#627271]">
+              Só o necessário para registrar a compra. Complete o cadastro depois em Estoque.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onFechar}
+            disabled={salvando}
+            aria-label="Fechar"
+            className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[#627271] transition-colors hover:bg-[#efefef] hover:text-[#1f2937] disabled:opacity-50"
+          >
+            <X size={20} />
+          </button>
+        </div>
+      }
+      footer={
+        <div>
+          {erro && (
+            <p className="mb-2 text-xs text-red-600" role="alert" style={{ fontWeight: 500 }}>
+              {erro}
+            </p>
+          )}
+          <SheetFooterActions>
+            <button type="button" onClick={onFechar} disabled={salvando} className={sheetButtonSecundario}>
+              Voltar para a compra
+            </button>
+            <button
+              type="button"
+              onClick={salvar}
+              disabled={salvando}
+              className={sheetButtonPrimario}
+              style={{ background: "#86cb92" }}
+            >
+              {salvando ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Cadastrando...
+                </>
+              ) : (
+                <>
+                  <Plus size={16} />
+                  Cadastrar e adicionar
+                </>
+              )}
+            </button>
+          </SheetFooterActions>
+        </div>
+      }
+    >
+      <div className="space-y-3.5">
+        <label className="block text-sm font-medium text-[#1f2937]">
+          Nome *
+          <input
+            type="text"
+            value={nome}
+            onChange={(e) => {
+              setNome(e.target.value);
+              setErro("");
+            }}
+            placeholder="Ex.: Embalagem kraft 20x30"
+            autoComplete="off"
+            autoFocus
+            data-sheet-foco
+            className={`${campoFormSheet} text-base`}
+          />
+        </label>
+
+        <label className="block text-sm font-medium text-[#1f2937]">
+          SKU (opcional)
+          <input
+            type="text"
+            value={sku}
+            onChange={(e) => {
+              setSku(e.target.value);
+              setErro("");
+            }}
+            placeholder="Ex.: EMK-2030"
+            autoComplete="off"
+            className={`${campoFormSheet} text-base`}
+          />
+        </label>
+
+        <label className="block text-sm font-medium text-[#1f2937]">
+          Unidade de estoque *
+          <select
+            value={unidade}
+            onChange={(e) => setUnidade(e.target.value)}
+            className={`${campoFormSheet} text-base`}
+          >
+            {UNIDADES_ESTOQUE.map((u) => (
+              <option key={u} value={u}>
+                {u}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="block text-sm font-medium text-[#1f2937]">
+          Unidade de compra (opcional)
+          <input
+            type="text"
+            value={unidadeCompra}
+            onChange={(e) => {
+              setUnidadeCompra(e.target.value);
+              setErro("");
+            }}
+            list="compras-mini-unidade-compra"
+            placeholder="Ex.: pacote, caixa, kg"
+            autoComplete="off"
+            className={`${campoFormSheet} text-base`}
+          />
+          <datalist id="compras-mini-unidade-compra">
+            {UNIDADES_COMPRA.map((u) => (
+              <option key={u} value={u} />
+            ))}
+          </datalist>
+        </label>
+
+        <label className="block text-sm font-medium text-[#1f2937]">
+          Fator de conversão (unidades de estoque por {unidadeCompra.trim() || "unidade de compra"})
+          <input
+            type="number"
+            min="0"
+            step="any"
+            inputMode="decimal"
+            value={fator}
+            onChange={(e) => {
+              setFator(e.target.value);
+              setErro("");
+            }}
+            placeholder="Ex.: 50"
+            className={`${campoFormSheet} text-base`}
+          />
+          <span className="mt-1 block text-[11px] text-[#627271]">
+            Obrigatório quando preencher a unidade de compra — ex.: 1 pacote = 50 unidades.
+          </span>
+        </label>
+      </div>
+    </BottomSheet>
+  );
+}
+
+/**
+ * U2.3 — "Cadastrar fornecedor na hora": nome + telefone + observação. O
+ * hook faz find-or-create por nome (idempotente); cadastro completo fica
+ * para Fornecedores depois — hint avisa.
+ */
+function MiniSheetNovoFornecedor({
+  termo,
+  criando,
+  criarFornecedor,
+  onFechar,
+  onCriado,
+}: {
+  termo: string;
+  criando: boolean;
+  criarFornecedor: (dados: CriarFornecedorDados) => Promise<CriarFornecedorResult>;
+  onFechar: () => void;
+  onCriado: (novo: FornecedorSimples) => void;
+}) {
+  const [nome, setNome] = useState(termo.trim());
+  const [telefone, setTelefone] = useState("");
+  const [observacao, setObservacao] = useState("");
+  const [erro, setErro] = useState("");
+
+  const salvar = async () => {
+    if (criando) return;
+    setErro("");
+    if (!nome.trim()) {
+      setErro("Informe o nome do fornecedor.");
+      return;
+    }
+    const r = await criarFornecedor({
+      nome: nome.trim(),
+      telefone: telefone.trim() || undefined,
+      observacao: observacao.trim() || undefined,
+    });
+    if (!r.success || !r.id) {
+      // erro inline: o digitado permanece no form (nada se perde)
+      setErro(r.error || "Não foi possível cadastrar o fornecedor.");
+      return;
+    }
+    onCriado({ id: r.id, nome: nome.trim() });
+  };
+
+  return (
+    <BottomSheet
+      open
+      onClose={criando ? () => undefined : onFechar}
+      labelledBy="mini-fornecedor-titulo"
+      header={
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 id="mini-fornecedor-titulo" className="text-base font-semibold text-[#1f2937] sm:text-lg">
+              {tituloMiniSheet("Cadastrar fornecedor", termo)}
+            </h2>
+            <p className="mt-0.5 text-xs text-[#627271]">
+              Só o necessário para vincular esta compra. Complete o cadastro depois em Fornecedores.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onFechar}
+            disabled={criando}
+            aria-label="Fechar"
+            className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[#627271] transition-colors hover:bg-[#efefef] hover:text-[#1f2937] disabled:opacity-50"
+          >
+            <X size={20} />
+          </button>
+        </div>
+      }
+      footer={
+        <div>
+          {erro && (
+            <p className="mb-2 text-xs text-red-600" role="alert" style={{ fontWeight: 500 }}>
+              {erro}
+            </p>
+          )}
+          <SheetFooterActions>
+            <button type="button" onClick={onFechar} disabled={criando} className={sheetButtonSecundario}>
+              Voltar para a compra
+            </button>
+            <button
+              type="button"
+              onClick={salvar}
+              disabled={criando}
+              className={sheetButtonPrimario}
+              style={{ background: "#86cb92" }}
+            >
+              {criando ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Cadastrando...
+                </>
+              ) : (
+                <>
+                  <Plus size={16} />
+                  Cadastrar fornecedor
+                </>
+              )}
+            </button>
+          </SheetFooterActions>
+        </div>
+      }
+    >
+      <div className="space-y-3.5">
+        <label className="block text-sm font-medium text-[#1f2937]">
+          Nome *
+          <input
+            type="text"
+            value={nome}
+            onChange={(e) => {
+              setNome(e.target.value);
+              setErro("");
+            }}
+            placeholder="Ex.: Distribuidora Sul Papelaria"
+            autoComplete="off"
+            autoFocus
+            data-sheet-foco
+            className={`${campoFormSheet} text-base`}
+          />
+        </label>
+
+        <label className="block text-sm font-medium text-[#1f2937]">
+          Telefone (opcional)
+          <input
+            type="tel"
+            inputMode="tel"
+            value={telefone}
+            onChange={(e) => {
+              setTelefone(e.target.value);
+              setErro("");
+            }}
+            placeholder="(11) 90000-0000"
+            autoComplete="off"
+            className={`${campoFormSheet} text-base`}
+          />
+        </label>
+
+        <label className="block text-sm font-medium text-[#1f2937]">
+          Observação (opcional)
+          <textarea
+            value={observacao}
+            onChange={(e) => {
+              setObservacao(e.target.value);
+              setErro("");
+            }}
+            rows={2}
+            placeholder="Ex.: atende no balcão, entrega em 2 dias"
+            className={`${campoFormSheet} min-h-[44px] text-base`}
+          />
+        </label>
+      </div>
+    </BottomSheet>
+  );
+}
 /** Card selecionável do "Quando recebe?" — o card inteiro é alvo de toque
  *  (label envolve o rádio), o marcado ganha borda verde menta + fundo cinza,
  *  e os campos dependentes entram logo abaixo, dentro do próprio card. */

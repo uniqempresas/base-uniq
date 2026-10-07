@@ -144,4 +144,22 @@
 
 ---
 
+## 🛒 UX DE COMPRA — U1–U4 (07/10/2026)
+
+> **Status:** ✅ Implementado e commitado. WIRE aprovado pelo fundador (anotações no celular, 07/10): `tracking/wireframe/COMPRA_UX_U1-U4_WIRE.md`.
+> **WIRE:** `tracking/wireframe/COMPRA_UX_U1-U4_WIRE.md` — fonte da verdade desta UX (aprovado pelo fundador; sem top-level de verdade além dele).
+
+| # | Item do fundador | Resultado |
+|---|---|---|
+| U1 | Última compra do item registrada e pré-preenchida | ✅ `me_produto.ultimo_preco_compra` + `ultima_compra_em` (RPC `receber_compra` grava, comprovado na função viva); front pré-preenche valor + chip "Última vez: R$ X/un · data" |
+| U2 | Cadastrar insumo na hora da compra | ✅ Mini-sheet `Novo item` (busca sem resultado) — cria `natureza='insumo'`, `exibir_vitrine=false`, entra direto na lista da compra |
+| U3 | Cadastrar fornecedor na hora da compra | ✅ Mini-sheet simples (nome/telefone/obs, find-or-create `criarFornecedor`) — selecionado na hora; edição completa depois em Fornecedores |
+| U4 | Experiência exclusiva de compra, mobile-first | ✅ Base já mobile (`ca00cbf`, `BottomSheet` sticky + alvos 44px); página dedicada em vez de modal fica como **U5‑futuro** (fundador: "não precisa mudar ainda") |
+
+**Banco:** catch-up versionado `20261007090000_ultimo_preco_compra_catchup.sql`. Colunas confirmadas no banco vivo.
+**Margem real por produto:** ainda não — é exatamente a Fase 4 (hoje só existe margem potencial `venda − custo médio atual`, `produto-utils.ts:10`; as Métricas por produto continuam mock). Falta: gravar CMV no ato da venda → DRE + margem por venda ler custo apurado.
+**Estoque legado (itens abertos de compras anteriores):** pendência de discussão com o fundador — candidato: ajuste de entrada genérico no `AjustarEstoqueModal` (já existe) ou lote de inventário inicial por insumo; **discutir antes de implementar**.
+
+---
+
 *Documento gerado do recon de 06/10/2026. Referências: `TRACKING.md` (B1, B11, F3, item 3 do lote), `TRACKING_MODULOS.md:198` (A12 — dependência vitrine↔estoque), `BACKLOG_SEGURANCA.md:68,:76,:99` (drenagem de estoque via `anon` — P5).*

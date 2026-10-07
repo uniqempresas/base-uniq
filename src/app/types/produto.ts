@@ -68,4 +68,11 @@ export interface Produto {
    * (ex.: 1000 para 'kg' com estoque em 'g'). null = 1.
    */
   fatorConversao?: number | null;
+  /**
+   * `me_produto.ultimo_preco_compra` — último preço pago NA UNIDADE DE COMPRA
+   * (ex.: 6,50/pacote). Gravado pela RPC `receber_compra` (U2 — uso real).
+   */
+  ultimoPrecoCompra?: number | null;
+  /** `me_produto.ultima_compra_em` — data do último recebimento (yyyy-mm-dd) ou null (U2). */
+  ultimaCompraEm?: string | null;
 }

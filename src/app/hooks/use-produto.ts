@@ -34,12 +34,15 @@ interface DBProduto {
   /** Produção F2: unidade de compra + fator de conversão (SPEC §2.1/§4) */
   unidade_compra: string | null;
   fator_conversao: number | string | null;
+  /** U2 — uso real: último preço pago (unidade de COMPRA) + data; gravados pela RPC ao receber */
+  ultimo_preco_compra: number | string | null;
+  ultima_compra_em: string | null;
   /** Embed do PostgREST: me_produto.categoria_id → me_categoria */
   me_categoria: { id_categoria: number; nome_categoria: string | null; cor: string | null } | null;
 }
 
-/** `numeric` pode chegar como string no client; null/ausente = sem conversão (F2). */
-function normalizarFator(valor: number | string | null | undefined): number | null {
+/** `numeric` pode chegar como string no client; null/ausente/inválido → null (F2/U2). */
+function normalizarNumero(valor: number | string | null | undefined): number | null {
   if (valor === null || valor === undefined || valor === "") return null;
   const n = Number(valor);
   return Number.isFinite(n) ? n : null;
@@ -92,7 +95,10 @@ function mapProduto(db: DBProduto): Produto {
     natureza: normalizarNatureza(db.natureza),
     // conversão de compra do insumo (SPEC-Producao-BOM-Fase2 §4); ausente = null
     unidadeCompra: db.unidade_compra ?? null,
-    fatorConversao: normalizarFator(db.fator_conversao),
+    fatorConversao: normalizarNumero(db.fator_conversao),
+    // U2 — uso real: referência de preço da última compra (null = nunca comprado)
+    ultimoPrecoCompra: normalizarNumero(db.ultimo_preco_compra),
+    ultimaCompraEm: db.ultima_compra_em ?? null,
     estoqueStatus: calcEstoqueStatus(estoque, estoqueMinimo),
     possuiVariacoes: false,
     descricaoCurta: db.descricao || undefined,
