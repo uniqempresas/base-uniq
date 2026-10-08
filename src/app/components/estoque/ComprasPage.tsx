@@ -238,10 +238,19 @@ export function ComprasPage() {
             </div>
             <div className="h-11 w-36 animate-pulse rounded-xl bg-[#efefef]" />
           </div>
-          <div className="mb-5 grid gap-2 sm:grid-cols-3 lg:gap-3">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="h-[76px] animate-pulse rounded-xl bg-[#efefef]" />
-            ))}
+          {/* KPI skeleton — acompanha o layout real (C7): 2 compactos + 1
+              full-width no mobile; linha de 3 no sm+ */}
+          <div className="mb-5">
+            <div className="grid grid-cols-2 gap-2 sm:hidden">
+              <div className="h-[64px] animate-pulse rounded-xl bg-[#efefef]" />
+              <div className="h-[64px] animate-pulse rounded-xl bg-[#efefef]" />
+              <div className="col-span-2 h-[64px] animate-pulse rounded-xl bg-[#efefef]" />
+            </div>
+            <div className="hidden gap-2 sm:grid sm:grid-cols-3 lg:gap-3">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-[76px] animate-pulse rounded-xl bg-[#efefef]" />
+              ))}
+            </div>
           </div>
           <div className="mb-5 h-12 animate-pulse rounded-xl bg-white/60" />
           <div className="rounded-2xl border border-[#efefef] bg-white p-4">
@@ -303,29 +312,73 @@ export function ComprasPage() {
             </button>
           </div>
 
-          {/* KPIs — 1 coluna no mobile, 3 no desktop (WIRE §4) */}
-          <section className="mb-5 grid gap-2 sm:grid-cols-3 lg:gap-3" aria-label="Indicadores de compra">
-            <FinanceKpi
-              label={`Em aberto (${emAberto.length})`}
-              value={formatCurrency(totalEmAberto)}
-              icon={ShoppingCart}
-              iconColor="#D97706"
-              iconBg="#FFFBEB"
-            />
-            <FinanceKpi
-              label="Recebido no mês"
-              value={formatCurrency(recebidoNoMes)}
-              icon={Package}
-              iconColor="#059669"
-              iconBg="#F0FDF4"
-            />
-            <FinanceKpi
-              label="Itens em falta"
-              value={`${itensEmFalta} abaixo do mín.`}
-              icon={AlertTriangle}
-              iconColor="#DC2626"
-              iconBg="#FEF2F2"
-            />
+          {/* KPIs — 2 colunas compactas no mobile (gramática EstoqueDashboard),
+              3 no desktop (WIRE §4 C7) */}
+          <section className="mb-5" aria-label="Indicadores de compra">
+            {/* < sm — cards curtos estilo "nota": ícone 14px colorido + label
+                na MESMA linha, valor text-lg bold truncado, legenda 10px.
+                Mesmos dados/ícones/cores de sempre; o 3º card fecha em
+                col-span-2 (full) para manter os 3 visíveis sem coluna órfã. */}
+            <div className="grid grid-cols-2 gap-2 sm:hidden">
+              <div className="bg-white rounded-xl border border-[#efefef] p-3 shadow-sm">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <ShoppingCart size={14} className="shrink-0 text-[#D97706]" />
+                  <span className="text-xs text-[#627271] truncate">Em aberto ({emAberto.length})</span>
+                </div>
+                <p className="text-lg text-[#1f2937] truncate" style={{ fontWeight: 700 }}>
+                  {formatCurrency(totalEmAberto)}
+                </p>
+                <p className="text-[10px] text-[#627271]">a pagar</p>
+              </div>
+              <div className="bg-white rounded-xl border border-[#efefef] p-3 shadow-sm">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Package size={14} className="shrink-0 text-[#059669]" />
+                  <span className="text-xs text-[#627271] truncate">Recebido no mês</span>
+                </div>
+                <p className="text-lg text-[#1f2937] truncate" style={{ fontWeight: 700 }}>
+                  {formatCurrency(recebidoNoMes)}
+                </p>
+                <p className="text-[10px] text-[#627271]">compras recebidas</p>
+              </div>
+              <div className="col-span-2 bg-white rounded-xl border border-[#efefef] p-3 shadow-sm">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <AlertTriangle size={14} className="shrink-0 text-[#DC2626]" />
+                  <span className="text-xs text-[#627271] truncate">Itens em falta</span>
+                </div>
+                {/* BIG number = contagem crua (era "N abaixo do mín." no value
+                    do FinanceKpi); a qualificação virou a legenda 10px —
+                    igual "Estoque baixo / abaixo do mínimo" no Dashboard */}
+                <p className="text-lg text-[#1f2937] truncate" style={{ fontWeight: 700 }}>
+                  {itensEmFalta}
+                </p>
+                <p className="text-[10px] text-[#627271]">abaixo do mínimo</p>
+              </div>
+            </div>
+            {/* sm+ — a linha de 3 exatamente como hoje; FinanceKpi intocado
+                (outros módulos dependem dele) */}
+            <div className="hidden gap-2 sm:grid sm:grid-cols-3 lg:gap-3">
+              <FinanceKpi
+                label={`Em aberto (${emAberto.length})`}
+                value={formatCurrency(totalEmAberto)}
+                icon={ShoppingCart}
+                iconColor="#D97706"
+                iconBg="#FFFBEB"
+              />
+              <FinanceKpi
+                label="Recebido no mês"
+                value={formatCurrency(recebidoNoMes)}
+                icon={Package}
+                iconColor="#059669"
+                iconBg="#F0FDF4"
+              />
+              <FinanceKpi
+                label="Itens em falta"
+                value={`${itensEmFalta} abaixo do mín.`}
+                icon={AlertTriangle}
+                iconColor="#DC2626"
+                iconBg="#FEF2F2"
+              />
+            </div>
           </section>
 
           {/* Busca + filtro de status */}
