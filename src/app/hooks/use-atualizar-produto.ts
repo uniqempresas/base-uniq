@@ -37,6 +37,12 @@ export interface AtualizarProdutoParams {
   unidadeCompra?: string | null;
   /** `me_produto.fator_conversao` — > 0; `null` LIMPA (= 1) (Produção F2) */
   fatorConversao?: number | null;
+  /**
+   * `me_produto.rendimento_lote` — Modo Receita (PRD D1): quanto da unidade do
+   * produto 1 receita rende; `null` LIMPA (volta ao modo por-unidade). Omitido
+   * = coluna intocada — chamadas parciais (ex.: só `estoque`) seguem intactas.
+   */
+  rendimentoLote?: number | null;
 }
 
 export interface AtualizarProdutoResult {
@@ -101,6 +107,8 @@ export function useAtualizarProduto() {
           updateData.unidade_compra = campos.unidadeCompra?.trim() || null;
         }
         if (campos.fatorConversao !== undefined) updateData.fator_conversao = campos.fatorConversao;
+        // Modo Receita: só vai ao payload quando a chave é enviada (null limpa a coluna)
+        if (campos.rendimentoLote !== undefined) updateData.rendimento_lote = campos.rendimentoLote;
         // Insumo = matéria-prima, nunca vitrine (SPEC §6.3). Depois do mapeamento de
         // exibir_vitrine para valer sobre o que veio da UI.
         if (campos.natureza === "insumo") updateData.exibir_vitrine = false;

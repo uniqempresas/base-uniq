@@ -13,7 +13,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
-import type { ItemFichaTecnica } from "../types/producao";
+import type { ItemFichaTecnica, NaturezaProduto } from "../types/producao";
 
 interface DBFichaItem {
   id: string;
@@ -24,7 +24,18 @@ interface DBFichaItem {
   perda_pct: string | number;
   criado_em: string;
   /** Embed do PostgREST: est_ficha_tecnica.componente_id → me_produto */
-  me_produto: { nome_produto: string | null; sku: string | null; unidade: string | null } | null;
+  me_produto: {
+    nome_produto: string | null;
+    sku: string | null;
+    unidade: string | null;
+    /** Modo Receita D5: natureza do componente (badge "pendente de produção") */
+    natureza?: string | null;
+  } | null;
+}
+
+/** Domínio da coluna; embed sem o campo (linha antiga) → undefined (caller decide o fallback). */
+function naturezaComponente(valor: string | null | undefined): NaturezaProduto | undefined {
+  return valor === "simples" || valor === "composto" || valor === "insumo" ? valor : undefined;
 }
 
 interface RpcResultado {
@@ -43,6 +54,8 @@ function mapItem(db: DBFichaItem): ItemFichaTecnica {
     componenteUnidade: db.me_produto?.unidade || "un",
     quantidadePorUnidade: Number(db.quantidade_por_unidade) || 0,
     perdaPct: Number(db.perda_pct) || 0,
+    // D5 (Modo Receita): natureza vem pelo embed — componente composto apura custo na produção
+    componenteNatureza: naturezaComponente(db.me_produto?.natureza),
   };
 }
 
@@ -125,7 +138,7 @@ export function useFichaTecnica(produtoPaiId: string | undefined): UseFichaTecni
       const { data, error: fichaError } = await supabase
         .from("est_ficha_tecnica")
         .select(
-          "id, empresa_id, produto_pai_id, componente_id, quantidade_por_unidade, perda_pct, criado_em, me_produto!componente_id (nome_produto, sku, unidade)"
+          "id, empresa_id, produto_pai_id, componente_id, quantidade_por_unidade, perda_pct, criado_em, me_produto!componente_id (nome_produto, sku, unidade, natureza)"
         )
         .eq("empresa_id", empresaId)
         .eq("produto_pai_id", Number(produtoPaiId))

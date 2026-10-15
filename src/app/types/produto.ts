@@ -75,4 +75,13 @@ export interface Produto {
   ultimoPrecoCompra?: number | null;
   /** `me_produto.ultima_compra_em` — data do último recebimento (yyyy-mm-dd) ou null (U2). */
   ultimaCompraEm?: string | null;
+  /**
+   * `me_produto.rendimento_lote` — Modo Receita (PRD D1): quanto da unidade do
+   * próprio produto (g/ml) 1 receita rende. null = modo atual (sem modo receita).
+   * Opcional no tipo: mock antigo e leitores que não selecionam a coluna ficam
+   * `undefined`; o mapper do banco normaliza ausente → null (a coluna chega via
+   * wildcard `*` — antes da migration `producao_modo_receita_rendimento` o campo
+   * simplesmente não vem e a UI segue no modo por-unidade).
+   */
+  rendimentoLote?: number | null;
 }

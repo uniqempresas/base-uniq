@@ -15,7 +15,7 @@ import {
   AlertTriangle,
   RefreshCw,
 } from "lucide-react";
-import { formatCurrency, calcMargem } from "../../lib/produto-utils";
+import { formatCurrency, calcMargem, toReceita, deReceita, formatarQtd } from "../../lib/produto-utils";
 import type { Produto } from "../../types/produto";
 import type { ItemFichaTecnica, NaturezaProduto } from "../../types/producao";
 import { NATUREZA_AJUDA, NATUREZA_LABELS } from "../../types/producao";
@@ -116,6 +116,9 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
       // direto na unidade do estoque.
       unidadeCompra: base?.unidadeCompra || "",
       fatorConversao: base?.fatorConversao != null ? String(base.fatorConversao) : "",
+      // Modo Receita (PRD D1): `me_produto.rendimento_lote` em string para edição.
+      // Vazio = sem modo receita (inclui leitura antiga/sem a coluna — SPEC §1).
+      rendimento: base?.rendimentoLote != null ? String(base.rendimentoLote) : "",
     };
   });
   const [fotoArquivo, setFotoArquivo] = useState<File | null>(null);
@@ -232,6 +235,27 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
       }
     }
 
+    // Modo Receita (SPEC §5): "Essa receita rende" é opcional, mas preenchido
+    // exige > 0 — senão o modo receita exibiria/editaria por um rendimento lixo.
+    const rendimentoNum = parseFloat(form.rendimento.replace(",", "."));
+    if (
+      ehComposto &&
+      form.rendimento.trim() !== "" &&
+      !(Number.isFinite(rendimentoNum) && rendimentoNum > 0)
+    ) {
+      setFichaErro("O rendimento da receita precisa ser maior que zero — ou deixe vazio para editar a ficha por unidade.");
+      setStep(STEP_FICHA);
+      return;
+    }
+    const rendimentoValor =
+      ehComposto && Number.isFinite(rendimentoNum) && rendimentoNum > 0 ? rendimentoNum : null;
+    // A chave `rendimento_lote` só vai ao UPDATE quando há valor a gravar OU quando
+    // a coluna já veio na leitura (limpar exige enviar null). Sem a migration no
+    // banco, saves de produto que não tocam o campo seguem funcionando (SPEC §1).
+    const rendimentoNaBase = produto?.rendimentoLote != null;
+    const rendimentoParaUpdate =
+      ehComposto && (rendimentoValor !== null || rendimentoNaBase) ? rendimentoValor : undefined;
+
     // Upload primeiro: produto só salva se a foto subir (regra 1 do PRD).
     let fotoUrlFinal: string | undefined;
     if (fotoArquivo) {
@@ -268,6 +292,8 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
         // Produção F2: conversão de compra do insumo (null limpa as colunas)
         unidadeCompra: unidadeCompraFinal || null,
         fatorConversao: fatorFinal,
+        // Modo Receita (D1): undefined = coluna intocada; null limpa; number grava
+        rendimentoLote: rendimentoParaUpdate,
       });
 
       if (!resultado.success) {
@@ -304,6 +330,9 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
       // Produção F2: conversão de compra do insumo (null limpa as colunas)
       unidadeCompra: unidadeCompraFinal || null,
       fatorConversao: fatorFinal,
+      // Modo Receita: chave omitida quando não preenchida (INSERT segue
+      // funcionando antes da migration da coluna)
+      rendimentoLote: rendimentoValor === null ? undefined : rendimentoValor,
     });
 
     if (!resultado.success) {
@@ -956,6 +985,10 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
               erro={fichaErro}
               ficha={ficha}
               podeSalvar={podeSalvarFichaDireto}
+              // Modo Receita (SPEC §5): campo "Essa receita rende" + edição por receita
+              rendimento={form.rendimento}
+              unidadePai={form.unidade || "un"}
+              onRendimentoChange={(v) => setForm((f) => ({ ...f, rendimento: v }))}
               onAlterar={(novos) => {
                 setFichaRascunho(novos);
                 setFichaErro("");
@@ -1042,6 +1075,14 @@ interface PassoFichaTecnicaProps {
   ficha: UseFichaTecnicaReturn;
   /** edição: o pai existe, então a RPC pode ser chamada direto */
   podeSalvar: boolean;
+  /**
+   * Modo Receita (SPEC §5): valor bruto do campo "Essa receita rende"
+   * (string do form — só é "modo receita" quando numérico > 0).
+   */
+  rendimento: string;
+  /** Unidade do produto-pai (sufixo do campo "rende") */
+  unidadePai: string;
+  onRendimentoChange: (valor: string) => void;
   onAlterar: (proximo: ItemFichaTecnica[]) => void;
   aoSalvar: () => void;
   aoDesfazer: () => void;
@@ -1054,6 +1095,9 @@ function PassoFichaTecnica({
   erro,
   ficha,
   podeSalvar,
+  rendimento,
+  unidadePai,
+  onRendimentoChange,
   onAlterar,
   aoSalvar,
   aoDesfazer,
@@ -1062,6 +1106,12 @@ function PassoFichaTecnica({
   const [termo, setTermo] = useState("");
   const [aberto, setAberto] = useState(false);
   const buscaRef = useRef<HTMLDivElement>(null);
+
+  // Modo Receita: com rendimento válido as linhas EXIBEM/EDITAM por receita e o
+  // rascunho continua no contrato do banco (por-unidade) — a conversão de ida é
+  // `toReceita` na exibição e a de volta `deReceita` no onChange, antes da RPC.
+  const rendNum = parseFloat(rendimento.replace(",", "."));
+  const rendAtivo = Number.isFinite(rendNum) && rendNum > 0;
 
   // Busca CLIENT-SIDE sobre useProdutos (mesmo padrão da busca de clientes do B3):
   // fora o próprio pai e os já adicionados (UNIQUE componente por pai no banco).
@@ -1083,6 +1133,9 @@ function PassoFichaTecnica({
         componenteUnidade: p.unidade,
         quantidadePorUnidade: 0,
         perdaPct: 0,
+        // D5 (Modo Receita): natureza já conhecida do candidato — badge correto
+        // no ProducaoTab mesmo antes do re-fetch da ficha
+        componenteNatureza: p.natureza,
       },
     ]);
     setTermo("");
@@ -1103,8 +1156,46 @@ function PassoFichaTecnica({
           Ficha Técnica
         </p>
         <p className="text-[#627271] text-xs mt-0.5">
-          Componentes por 1 unidade produzida
+          {rendAtivo
+            ? `Componentes por receita · rende ~${formatarQtd(rendNum)} ${unidadePai}`
+            : "Componentes por 1 unidade produzida"}
           {itens.length > 0 ? ` · ${itens.length} componente${itens.length > 1 ? "s" : ""}` : ""}
+        </p>
+      </div>
+
+      {/* Modo Receita (WIRE §3): campo opcional "Essa receita rende" — só composto */}
+      <div>
+        <label
+          className="block text-[#1f2937] text-sm"
+          style={{ fontWeight: 600 }}
+          htmlFor="ficha-rendimento-lote"
+        >
+          Essa receita rende
+        </label>
+        <div className="relative mt-1.5">
+          <input
+            id="ficha-rendimento-lote"
+            type="number"
+            min="0"
+            step="any"
+            inputMode="decimal"
+            value={rendimento}
+            onChange={(e) => onRendimentoChange(e.target.value)}
+            placeholder="ex.: 695"
+            className="w-full pl-3.5 pr-12 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92] focus:ring-2 focus:ring-[#86cb92]/20"
+          />
+          <span
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#627271] text-xs"
+            style={{ fontWeight: 600 }}
+            aria-hidden="true"
+          >
+            {unidadePai}
+          </span>
+        </div>
+        <p className="text-[#627271] text-[11px] mt-1">
+          Opcional — para produtos em massa (g/ml). Com o valor preenchido as quantidades
+          abaixo são por receita e o app converte na gravação. Deixar vazio volta a editar
+          por unidade sem alterar a ficha existente.
         </p>
       </div>
 
@@ -1203,7 +1294,7 @@ function PassoFichaTecnica({
           <div className="hidden sm:grid grid-cols-[1fr_3.5rem_6.5rem_5.5rem_2rem] gap-2 px-3 text-[#627271] text-[10px]" style={{ fontWeight: 600 }}>
             <span>Produto</span>
             <span>Unid.</span>
-            <span>Qtd/unid.</span>
+            <span>{rendAtivo ? "Qtd/receita" : "Qtd/unid."}</span>
             <span>Perda %</span>
             <span aria-hidden="true" />
           </div>
@@ -1229,17 +1320,30 @@ function PassoFichaTecnica({
 
                 <div className="mb-2 sm:mb-0">
                   <label className="block sm:hidden text-[#627271] text-[10px] mb-1" style={{ fontWeight: 600 }}>
-                    Quantidade (unidade)
+                    {rendAtivo ? "Quantidade (por receita)" : "Quantidade (unidade)"}
                   </label>
                   <div className="relative">
                     <input
                       type="number"
                       min="0"
                       step="0.01"
-                      value={item.quantidadePorUnidade || ""}
-                      onChange={(e) => atualizar(item.id, { quantidadePorUnidade: parseFloat(e.target.value) || 0 })}
+                      /* Modo receita: exibe toReceita arredondado em 2 casas (D4 — exibição
+                         não perde precisão: o rascunho grava o float exato por-unidade) */
+                      value={
+                        rendAtivo
+                          ? item.quantidadePorUnidade > 0
+                            ? String(Number(toReceita(item.quantidadePorUnidade, rendNum).toFixed(2)))
+                            : ""
+                          : item.quantidadePorUnidade || ""
+                      }
+                      onChange={(e) => {
+                        const bruto = parseFloat(e.target.value) || 0;
+                        atualizar(item.id, {
+                          quantidadePorUnidade: rendAtivo ? deReceita(bruto, rendNum) : bruto,
+                        });
+                      }}
                       placeholder="0"
-                      aria-label={`Quantidade de ${item.componenteNome} por unidade`}
+                      aria-label={`Quantidade de ${item.componenteNome} ${rendAtivo ? "por receita" : "por unidade"}`}
                       className="w-full pl-2.5 pr-8 py-2 rounded-lg border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92]"
                     />
                     <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#627271] text-[10px]" style={{ fontWeight: 600 }}>

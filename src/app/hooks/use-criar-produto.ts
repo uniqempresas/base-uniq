@@ -40,6 +40,12 @@ export interface CriarProdutoParams {
   unidadeCompra?: string | null;
   /** `me_produto.fator_conversao` — > 0; null = 1 (Produção F2) */
   fatorConversao?: number | null;
+  /**
+   * `me_produto.rendimento_lote` — Modo Receita (PRD D1). OMITIR = não enviar a
+   * chave: o INSERT segue funcionando antes da migration `producao_modo_receita_rendimento`
+   * (coluna ainda não existe). Só o ProdutoFormModal envia, e só com valor > 0.
+   */
+  rendimentoLote?: number | null;
 }
 
 /**
@@ -151,6 +157,10 @@ export function useCriarProduto() {
             // Produção F2: conversão de embalagem do insumo (null = compra na unidade do estoque)
             unidade_compra: params.unidadeCompra?.trim() || null,
             fator_conversao: params.fatorConversao ?? null,
+            // Modo Receita: chave só quando enviada (antes da migration a coluna não existe)
+            ...(params.rendimentoLote !== undefined
+              ? { rendimento_lote: params.rendimentoLote }
+              : {}),
           })
           .select("id")
           .single();

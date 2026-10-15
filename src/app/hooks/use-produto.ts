@@ -37,6 +37,8 @@ interface DBProduto {
   /** U2 — uso real: último preço pago (unidade de COMPRA) + data; gravados pela RPC ao receber */
   ultimo_preco_compra: number | string | null;
   ultima_compra_em: string | null;
+  /** Modo Receita (SPEC §2): vem pelo wildcard `*`; ausente antes da migration → undefined */
+  rendimento_lote?: number | string | null;
   /** Embed do PostgREST: me_produto.categoria_id → me_categoria */
   me_categoria: { id_categoria: number; nome_categoria: string | null; cor: string | null } | null;
 }
@@ -99,6 +101,8 @@ function mapProduto(db: DBProduto): Produto {
     // U2 — uso real: referência de preço da última compra (null = nunca comprado)
     ultimoPrecoCompra: normalizarNumero(db.ultimo_preco_compra),
     ultimaCompraEm: db.ultima_compra_em ?? null,
+    // Modo Receita: null = sem modo receita (coluna ausente antes da migration cai aqui)
+    rendimentoLote: normalizarNumero(db.rendimento_lote),
     estoqueStatus: calcEstoqueStatus(estoque, estoqueMinimo),
     possuiVariacoes: false,
     descricaoCurta: db.descricao || undefined,

@@ -37,6 +37,13 @@ export interface ItemFichaTecnica {
   quantidadePorUnidade: number;
   /** 0..100 (banco aceita >= 0; acima de 100 é só aviso na UI) */
   perdaPct: number;
+  /**
+   * `me_produto.natureza` do COMPONENTE (embed da ficha) — D5 do Modo Receita:
+   * componente composto apura custo na PRODUÇÃO, insumo na COMPRA. Opcional:
+   * consumidores antigos não precisam dele; ausente → quem exibe cai no
+   * fallback do mapa de produtos (ou no texto atual).
+   */
+  componenteNatureza?: NaturezaProduto;
 }
 
 export interface FichaTecnica {
