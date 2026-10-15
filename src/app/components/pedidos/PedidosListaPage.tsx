@@ -1507,11 +1507,15 @@ export function PedidosListaPage() {
                       aria-label="Selecionar produto"
                     >
                       <option value="">Selecione um produto...</option>
-                      {produtos.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.nome} — {formatCurrency(p.precoVenda)}
-                        </option>
-                      ))}
+                      {/* Insumo não se vende no pedido — só produto de venda
+                          (natureza simples/composto). Pedido do fundador 15/10. */}
+                      {produtos
+                        .filter((p) => p.natureza !== "insumo")
+                        .map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.nome} — {formatCurrency(p.precoVenda)}
+                          </option>
+                        ))}
                     </select>
                     <div className="flex gap-2">
                       <input
