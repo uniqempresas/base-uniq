@@ -41,6 +41,7 @@ Migration `producao_modo_receita_rendimento`:
 - Novo campo opcional **"Essa receita rende"** (numeric > 0) com sufixo da unidade do produto (g/ml) — só aparece para `natureza='composto'`; grava `rendimento_lote` (null limpa).
 - Com rendimento preenchido: as linhas de componente exibem/editam **por receita**; ao salvar cada quantidade passa por `deReceita(...)` antes da RPC `salvar_ficha_tecnica`.
 - Sem rendimento: edição por unidade como hoje.
+- **Emenda (15/10, decisão do fundador):** o "Essa receita rende" virou **OBRIGATÓRIO no composto** — sem preencher, o produto não salva (validação no save volta ao passo da ficha). Motivo: sem o rende, a ficha por-grama dava o buraco do "produzir 1 = 1 unidade" (recheio Limão).
 - Ao editar produto para **limpar** o rendimento, manter ficha por-grama (não multiplicar de volta — sem perda de dados; a divergência é registrada pela leitura).
 
 ## 6. Verificação

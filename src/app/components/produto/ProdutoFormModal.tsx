@@ -235,15 +235,17 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
       }
     }
 
-    // Modo Receita (SPEC §5): "Essa receita rende" é opcional, mas preenchido
-    // exige > 0 — senão o modo receita exibiria/editaria por um rendimento lixo.
+    // Modo Receita (SPEC §5 + emenda do fundador 15/10): "Essa receita rende" é
+    // OBRIGATÓRIO no composto — sem ele a ficha por-grama esconde a receita e o
+    // "produzir 1" vira 1 unidade cru (o buraco que bloqueou o recheio Limão).
     const rendimentoNum = parseFloat(form.rendimento.replace(",", "."));
     if (
       ehComposto &&
-      form.rendimento.trim() !== "" &&
-      !(Number.isFinite(rendimentoNum) && rendimentoNum > 0)
+      (form.rendimento.trim() === "" || !Number.isFinite(rendimentoNum) || rendimentoNum <= 0)
     ) {
-      setFichaErro("O rendimento da receita precisa ser maior que zero — ou deixe vazio para editar a ficha por unidade.");
+      setFichaErro(
+        "Informe em quanto essa receita rende — é obrigatório no composto: é o que ativa o modo receita (ficha e lote em receitas)."
+      );
       setStep(STEP_FICHA);
       return;
     }
@@ -1163,7 +1165,7 @@ function PassoFichaTecnica({
         </p>
       </div>
 
-      {/* Modo Receita (WIRE §3): campo opcional "Essa receita rende" — só composto */}
+      {/* Modo Receita (WIRE §3 + emenda do fundador 15/10): campo OBRIGATÓRIO no composto */}
       <div>
         <label
           className="block text-[#1f2937] text-sm"
@@ -1193,9 +1195,8 @@ function PassoFichaTecnica({
           </span>
         </div>
         <p className="text-[#627271] text-[11px] mt-1">
-          Opcional — para produtos em massa (g/ml). Com o valor preenchido as quantidades
-          abaixo são por receita e o app converte na gravação. Deixar vazio volta a editar
-          por unidade sem alterar a ficha existente.
+          Obrigatório no composto — é em quanto essa receita rende. Com o valor preenchido as
+          quantidades abaixo são por receita e o app converte na gravação (modo receita).
         </p>
       </div>
 
