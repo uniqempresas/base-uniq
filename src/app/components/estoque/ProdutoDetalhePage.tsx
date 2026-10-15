@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useParams, useNavigate } from "react-router";
+import { useEffect, useState } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router";
 import {
   ArrowLeft,
   Edit2,
@@ -61,6 +61,7 @@ type TabType = "geral" | "estoque" | "variacoes" | "movimentacoes" | "ficha" | "
 export function ProdutoDetalhePage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<TabType>("geral");
   const [showAjuste, setShowAjuste] = useState(false);
   const [produtoParaEditar, setProdutoParaEditar] = useState<Produto | null>(null);
@@ -89,6 +90,17 @@ export function ProdutoDetalhePage() {
     error: fichaError,
     recarregar: recarregarFicha,
   } = useFichaTecnica(ehComposto ? produto?.id : undefined);
+
+  // Deep-link T5/T6 (WIRE §3): `/estoque/produtos/:id?aba=producao` abre a aba
+  // Produção direto e limpa o param com `replace` (padrão `?novo=1` da
+  // PedidosListaPage) — recarregar/voltar não reabre a aba por cima.
+  useEffect(() => {
+    if (!searchParams.has("aba")) return;
+    if (searchParams.get("aba") === "producao") setActiveTab("producao");
+    const proximos = new URLSearchParams(searchParams);
+    proximos.delete("aba");
+    setSearchParams(proximos, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const showToast = (msg: string) => {
     setToast(msg);

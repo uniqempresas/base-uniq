@@ -11,7 +11,7 @@
  * da ComprasPage (BottomSheet + SheetActions), modal FORA de gate de loading,
  * estados loading/empty/error+retry, formatCurrency do produto-utils, PT-BR.
  */
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   AlertTriangle,
@@ -28,13 +28,17 @@ import {
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { formatCurrency, formatarQtd, toReceita } from "../../lib/produto-utils";
+import { receitasMaximas } from "../../lib/conversao";
 import { useFichaTecnica } from "../../hooks/use-ficha-tecnica";
 import { useProdutos } from "../../hooks/use-produtos";
 import { useOrdensProducao } from "../../hooks/use-ordens-producao";
 import { useRegistrarProducao } from "../../hooks/use-registrar-producao";
+import { useCompras } from "../../hooks/use-compras";
 import type { RegistrarProducaoParams, RegistrarProducaoResult } from "../../hooks/use-registrar-producao";
 import type { Produto } from "../../types/produto";
-import type { ItemFichaTecnica } from "../../types/producao";
+import type { Compra, ItemFichaTecnica } from "../../types/producao";
+import { CardMaxProduzir } from "./CardMaxProduzir";
+import { FaixaProximoPasso } from "./FaixaProximoPasso";
 import {
   BottomSheet,
   campoFormSheet,
@@ -111,9 +115,13 @@ function calcularLinha(item: ItemFichaTecnica, insumo?: Produto): LinhaProducao 
   };
 }
 
-/** Texto do badge de pendência (D5): composto apura na produção; insumo, na compra. */
+/**
+ * Copy transversal WIRE item 7 / D8: composto → "pendente de produção";
+ * insumo → "pendente de compra". O prefixo "custo" é acrescentado só no
+ * contexto de custo (nunca "custo/un: pendente" fora dele).
+ */
 function textoPendencia(linha: Pick<LinhaProducao, "pendenteProducao">): string {
-  return linha.pendenteProducao ? "custo pendente de produção" : "custo pendente de compra";
+  return linha.pendenteProducao ? "pendente de produção" : "pendente de compra";
 }
 
 /* ─────────────────────────────────── aba ─────────────────────────────────── */
@@ -141,10 +149,31 @@ export function ProducaoTab({ produto, onSuccess }: ProducaoTabProps) {
     recarregar: recarregarOrdens,
   } = useOrdensProducao(produto.id);
   const { registrarProducao, loading: produzindo } = useRegistrarProducao();
+  // T5/F5: compras PENDENTE cruzadas com o insumo-limite — leitura do hook
+  // existente invocada aqui dentro (o hook não é editado).
+  const { compras } = useCompras();
 
   const [modalAberta, setModalAberta] = useState(false);
+  // T6-5: banda pós-produção — sonda os compostos que consomem este produto.
+  const [produzidoRecente, setProduzidoRecente] = useState(false);
+  const [proximoComposto, setProximoComposto] = useState<Produto | null>(null);
 
   const produtosPorId = useMemo(() => new Map(produtos.map((p) => [p.id, p])), [produtos]);
+
+  const comprasPendentes = useMemo(
+    () => compras.filter((c) => c.status === "PENDENTE"),
+    [compras]
+  );
+
+  // Mapas do card T5 (e do chip máx do modal): estoque/custo por id de produto.
+  const estoquesPorId = useMemo(
+    () => Object.fromEntries(produtos.map((p) => [p.id, p.estoque])),
+    [produtos]
+  );
+  const custosPorId = useMemo(
+    () => Object.fromEntries(produtos.map((p) => [p.id, p.precoCusto])),
+    [produtos]
+  );
 
   const linhas = useMemo(
     () => fichaItens.map((item) => calcularLinha(item, produtosPorId.get(item.componenteProdutoId))),
@@ -167,8 +196,61 @@ export function ProducaoTab({ produto, onSuccess }: ProducaoTabProps) {
   const unidadePai = produto.unidade || "un";
   const custoPorReceita = custoPorUnidade * rendimento;
 
+  // T6-5: candidatos a "próximo composto" = compostos cuja ficha consome este
+  // produto. A sonda usa `useFichaTecnica(candidato)` — hook existente, nenhuma
+  // query nova (WIRE §9). Corte pequeno para limitar as leituras paralelas.
+  const candidatosNivel2 = useMemo(
+    () =>
+      produzidoRecente
+        ? produtos.filter((p) => p.natureza === "composto" && p.id !== produto.id).slice(0, 8)
+        : [],
+    [produzidoRecente, produtos, produto.id]
+  );
+  const registrarCompostoAchado = useCallback(
+    (c: Produto) => setProximoComposto((prev) => prev ?? c),
+    []
+  );
+
   return (
     <div className="space-y-5">
+      {/* ── T5: "COM O ESTOQUE ATUAL" — primeira linha da aba (WIRE §4 T5/Desktop) ── */}
+      {fichaLoading ? (
+        <div className="h-28 rounded-2xl border border-[#efefef] bg-[#efefef]/60 animate-pulse" />
+      ) : fichaError || linhas.length === 0 ? null : (
+        <CardMaxProduzir
+          produto={produto}
+          itensFicha={fichaItens}
+          estoques={estoquesPorId}
+          precosCusto={custosPorId}
+          comprasPendentes={comprasPendentes}
+        />
+      )}
+
+      {/* ── T6-5: banda pós-produção — "Agora dá pra montar: {composto}" ── */}
+      {candidatosNivel2.map((c) => (
+        <SondaFichaComposto
+          key={c.id}
+          composto={c}
+          paiId={produto.id}
+          onAchou={registrarCompostoAchado}
+        />
+      ))}
+      {proximoComposto ? (
+        <FaixaProximoPasso
+          titulo={`Agora dá pra montar: ${proximoComposto.nome}`}
+          acoes={[
+            {
+              label: "produzir →",
+              href: `/estoque/produtos/${proximoComposto.id}?aba=producao`,
+            },
+          ]}
+          onClose={() => {
+            setProximoComposto(null);
+            setProduzidoRecente(false);
+          }}
+        />
+      ) : null}
+
       {/* ── Cabeçalho: custo por unidade + ação ── */}
       <section className="bg-white rounded-2xl border border-[#efefef] shadow-sm p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -198,12 +280,27 @@ export function ProducaoTab({ produto, onSuccess }: ProducaoTabProps) {
         ) : linhas.length === 0 ? null : (
           <div className="mt-4 inline-flex flex-col rounded-xl border border-[#efefef] bg-[#efefef]/40 px-5 py-4">
             <p className="text-[#1f2937]" style={{ fontWeight: 800, fontSize: 24 }} role="status">
-              {(modoReceita ? custoPorReceita : custoPorUnidade) > 0
-                ? formatCurrency(modoReceita ? custoPorReceita : custoPorUnidade)
-                : "—"}{" "}
-              <span className="text-sm" style={{ fontWeight: 500 }}>
-                / {modoReceita ? "receita" : unidadePai}
-              </span>
+              {(modoReceita ? custoPorReceita : custoPorUnidade) > 0 ? (
+                <>
+                  {formatCurrency(modoReceita ? custoPorReceita : custoPorUnidade)}{" "}
+                  <span className="text-sm" style={{ fontWeight: 500 }}>
+                    / {modoReceita ? "receita" : unidadePai}
+                  </span>
+                </>
+              ) : temCustoPendente ? (
+                /* WIRE T5/D8: "custo/un: pendente" só no contexto certo — composto
+                   é "de produção"; insumo é "de compra". Nunca "—"+adivinhação. */
+                <>
+                  pendente{" "}
+                  <span className="text-sm" style={{ fontWeight: 500 }}>
+                    {pendentesCompra.length > 0
+                      ? "de compra"
+                      : "de produção · nasce quando o 1º lote for produzido"}
+                  </span>
+                </>
+              ) : (
+                "—"
+              )}
             </p>
             <p className="mt-0.5 text-[11px] text-[#627271]">
               {modoReceita && `Custo por ${unidadePai}: ${custoPorUnidade > 0 ? fmtCustoFino(custoPorUnidade) : "—"} · `}
@@ -216,13 +313,13 @@ export function ProducaoTab({ produto, onSuccess }: ProducaoTabProps) {
 
         {temCustoPendente &&
           (() => {
-            // Texto do alerta (D5): compra = insumo; produção = componente composto.
+            // Copy WIRE item 7 / D5: compra = insumo; produção = componente composto.
             const mensagem =
               pendentesCompra.length > 0 && pendentesProducao.length > 0
-                ? "Componente sem custo médio — o custo do lote fica subestimado até a compra (insumos) ou a produção (compostos)"
+                ? "Custo pendente de compra (insumos) e de produção (compostos) — o custo do lote fica subestimado até resolver"
                 : pendentesProducao.length > 0
-                  ? "Componente composto sem custo apurado — o custo do lote fica subestimado até a primeira produção"
-                  : "Insumo sem custo médio — o custo do lote fica subestimado até a primeira compra";
+                  ? "Custo pendente de produção — o custo do lote fica subestimado até o 1º lote do componente"
+                  : "Custo pendente de compra — o custo do lote fica subestimado até a primeira compra";
             const estiloAlerta = { background: "#FFFBEB", borderColor: "#FDE68A", color: "#B45309" };
             // Só vira atalho para Compras quando existe pendência de compra;
             // pendência exclusiva de produção não aponta para lugar errado.
@@ -339,10 +436,10 @@ export function ProducaoTab({ produto, onSuccess }: ProducaoTabProps) {
                         className="shrink-0 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] transition-colors hover:bg-[#FFFBEB]"
                         style={{ background: "#FFFBEB", borderColor: "#FDE68A", color: "#B45309", fontWeight: 600 }}
                         role="status"
-                        title={`${textoPendencia(l)} — ${l.pendenteProducao ? "produza este componente para apurar o custo" : "ver Compras"}`}
+                        title={`custo ${textoPendencia(l)} — ${l.pendenteProducao ? "produza este componente para apurar o custo" : "ver Compras"}`}
                       >
                         <AlertTriangle size={11} />
-                        {textoPendencia(l)}
+                        custo {textoPendencia(l)}
                       </button>
                     ) : (
                       <div className="shrink-0 flex items-center gap-2.5">
@@ -446,6 +543,8 @@ export function ProducaoTab({ produto, onSuccess }: ProducaoTabProps) {
         produto={produto}
         linhas={linhas}
         rendimento={modoReceita ? rendimento : null}
+        comprasPendentes={comprasPendentes}
+        onEstoqueMudou={recarregarProdutos}
         registrarProducao={registrarProducao}
         salvando={produzindo}
         onSucesso={() => {
@@ -455,10 +554,34 @@ export function ProducaoTab({ produto, onSuccess }: ProducaoTabProps) {
           recarregarOrdens();
           recarregarFicha();
           onSuccess();
+          // T6-5: dispara a sonda de próximo nível (Cone consome Recheio etc.)
+          setProduzidoRecente(true);
         }}
       />
     </div>
   );
+}
+
+/* ─────────────── sonda T6-5 (leitura via hook existente) ───────────────
+   Um sub-componente por candidato: lê a ficha do composto com o MESMO
+   `useFichaTecnica` da aba (nenhuma query nova, WIRE §9) e avisa o pai se a
+   ficha consome o produto que acabou de ser produzido. Render nulo. */
+
+function SondaFichaComposto({
+  composto,
+  paiId,
+  onAchou,
+}: {
+  composto: Produto;
+  paiId: string;
+  onAchou: (composto: Produto) => void;
+}) {
+  const { itens, loading } = useFichaTecnica(composto.id);
+  const consome = !loading && itens.some((i) => i.componenteProdutoId === paiId);
+  useEffect(() => {
+    if (consome) onAchou(composto);
+  }, [consome, composto, onAchou]);
+  return null;
 }
 
 /* ─────────────────────── Modal "Produzir lote" ───────────────────────
@@ -478,6 +601,10 @@ interface ProduzirLoteModalProps {
    * front — a RPC `registrar_producao` continua recebendo a unidade do produto.
    */
   rendimento: number | null;
+  /** T5/T6: PENDENTE cruzada com o insumo faltante → CTA "Receber compra X…" */
+  comprasPendentes: Compra[];
+  /** Recusa de saldo pela RPC: o estoque do banco mudou — revalida as linhas */
+  onEstoqueMudou: () => void;
   registrarProducao: (p: RegistrarProducaoParams) => Promise<RegistrarProducaoResult>;
   salvando: boolean;
   onSucesso: () => void;
@@ -489,14 +616,19 @@ function ProduzirLoteModal({
   produto,
   linhas,
   rendimento,
+  comprasPendentes,
+  onEstoqueMudou,
   registrarProducao,
   salvando,
   onSucesso,
 }: ProduzirLoteModalProps) {
+  const navigate = useNavigate();
   const [lote, setLote] = useState("1");
   const [data, setData] = useState(hojeLocal());
   const [observacao, setObservacao] = useState("");
   const [erro, setErro] = useState("");
+  // T6-4: recusa da RPC por saldo → banda NÃO ALCANÇA (nunca texto cru do banco)
+  const [recusaSaldo, setRecusaSaldo] = useState(false);
 
   // Toggle de unidade do lote (SPEC §4): default 1 receita quando há rendimento.
   // O sheet desmonta ao fechar (padrão Receber compra) → o estado reseta a cada abertura.
@@ -523,6 +655,45 @@ function ProduzirLoteModal({
   const custoUnitLote = qtdFinal > 0 ? custoLote / qtdFinal : 0;
   const insuficientes = prev.filter((p) => qtdFinal > 0 && !p.suficiente);
   const bloqueado = qtdFinal <= 0 || insuficientes.length > 0 || prev.length === 0;
+
+  /* ── T6-1: máximo produzível — MESMA aritmética do card T5 (D6: espelhos) ──
+     necessário por linha já embute a perda (`consumoPorUnidade`); no modo
+     receita multiplica por `rend`. Modo grama: máx g = N receitas × rende. */
+  const estoquesDoLote: Record<string, number> = {};
+  linhas.forEach((l) => {
+    estoquesDoLote[l.item.componenteProdutoId] = l.estoqueAtual;
+  });
+  const { max: maxPorUn } = receitasMaximas(
+    linhas.map((l) => ({
+      componenteId: l.item.componenteProdutoId,
+      necessario: l.consumoPorUnidade,
+    })),
+    estoquesDoLote
+  );
+  const maxReceitas =
+    rend > 0
+      ? receitasMaximas(
+          linhas.map((l) => ({
+            componenteId: l.item.componenteProdutoId,
+            necessario: l.consumoPorUnidade * rend,
+          })),
+          estoquesDoLote
+        ).max
+      : maxPorUn;
+  const maxNoModo = emReceita ? maxReceitas : temToggle ? maxReceitas * rend : maxPorUn;
+  const usarMaximo = () => {
+    if (!(maxNoModo >= 1)) return;
+    setLote(String(maxNoModo));
+    setErro("");
+    setRecusaSaldo(false);
+  };
+
+  // T5/T6 (F5): compra PENDENTE que cobre algum faltante → CTA "Receber …"
+  const compraCobreFaltante = comprasPendentes.find((c) =>
+    c.itens.some((it) =>
+      insuficientes.some((p) => p.linha.item.componenteProdutoId === it.produtoId)
+    )
+  );
 
   const produzir = async () => {
     setErro("");
@@ -555,8 +726,14 @@ function ProduzirLoteModal({
       );
       onSucesso();
       onClose();
+    } else if (/estoque insuficiente|insufficient stock|saldo/i.test(r.error || "")) {
+      // T6-4: rede de segurança do banco recusou por saldo — a banda NÃO
+      // ALCANÇA (com CTAs) assume; o texto cru do banco nunca aparece.
+      setRecusaSaldo(true);
+      setErro("");
+      // revalida estoques: o máx do chip passa a refletir o saldo real
+      onEstoqueMudou();
     } else {
-      // `error` do jsonb (ex.: "Insufficient stock: …") fica visível no sheet
       setErro(r.error || "Não foi possível registrar a produção.");
     }
   };
@@ -619,32 +796,65 @@ function ProduzirLoteModal({
         )}
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block text-sm font-medium text-[#1f2937]">
-            {emReceita
-              ? "Quantas receitas? *"
-              : temToggle
-                ? `Quantos ${produto.unidade || "un"}? *`
-                : "Quantidade (unidades) *"}
-            <input
-              type="number"
-              min="0"
-              step="any"
-              inputMode="decimal"
-              value={lote}
-              onChange={(e) => {
-                setLote(e.target.value);
-                setErro("");
-              }}
-              placeholder="1"
-              className={`${campoFormSheet} text-base`}
-            />
-            {temToggle && (
-              <span className="mt-1 block text-[11px] text-[#627271]" style={{ fontWeight: 400 }}>
-                1 receita ≈ {formatarQtd(rend)} {produto.unidade || "un"}
-                {loteNum > 0 ? ` · lote = ${formatarQtd(qtdFinal)} ${produto.unidade || "un"}` : ""}
-              </span>
+          <div>
+            <label className="block text-sm font-medium text-[#1f2937]">
+              {emReceita
+                ? "Quantas receitas? *"
+                : temToggle
+                  ? `Quantos ${produto.unidade || "un"}? *`
+                  : "Quantidade (unidades) *"}
+              <input
+                type="number"
+                min="0"
+                step="any"
+                inputMode="decimal"
+                value={lote}
+                onChange={(e) => {
+                  setLote(e.target.value);
+                  setErro("");
+                  setRecusaSaldo(false);
+                }}
+                placeholder="1"
+                className={`${campoFormSheet} text-base`}
+              />
+              {temToggle && (
+                <span className="mt-1 block text-[11px] text-[#627271]" style={{ fontWeight: 400 }}>
+                  1 receita ≈ {formatarQtd(rend)} {produto.unidade || "un"}
+                  {loteNum > 0 ? ` · lote = ${formatarQtd(qtdFinal)} ${produto.unidade || "un"}` : ""}
+                </span>
+              )}
+            </label>
+
+            {/* T6-1: chip `máx: N` (com perda, mesmo card T5) + [Usar máximo] */}
+            {prev.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                <span
+                  role="status"
+                  aria-label={`Máximo produzível com o estoque atual: ${fmtNum(maxNoModo)}${emReceita ? " receitas" : ` ${produto.unidade || "un"}`} (com perda)`}
+                  className="inline-flex items-center rounded-md border px-1.5 py-0.5 text-[11px]"
+                  style={{
+                    background: maxNoModo < 1 ? "#FECACA" : "#FFFBEB",
+                    borderColor: maxNoModo < 1 ? "#FECACA" : "#FDE68A",
+                    color: maxNoModo < 1 ? "#B91C1C" : "#B45309",
+                    fontWeight: 700,
+                  }}
+                >
+                  {`máx: ${formatarQtd(maxNoModo)}${emReceita ? "" : ` ${produto.unidade || "un"}`}`}
+                </span>
+                {maxNoModo >= 1 && (
+                  <button
+                    type="button"
+                    onClick={usarMaximo}
+                    disabled={salvando}
+                    className="inline-flex min-h-[32px] items-center rounded-md border border-[#efefef] bg-white px-2 py-1 text-[11px] text-[#1f2937] transition-colors hover:bg-[#efefef] disabled:opacity-50"
+                    style={{ fontWeight: 600 }}
+                  >
+                    Usar máximo
+                  </button>
+                )}
+              </div>
             )}
-          </label>
+          </div>
           <label className="block text-sm font-medium text-[#1f2937]">
             Data *
             <input
@@ -683,16 +893,28 @@ function ProduzirLoteModal({
                   </p>
                   <p className="text-[11px] text-[#627271]">
                     {p.linha.custoPendente
-                      ? textoPendencia(p.linha)
+                      ? `custo ${textoPendencia(p.linha)}`
                       : `= ${formatCurrency(p.linhaTotal)}`}
                   </p>
+                  {/* T6-2: a conta da perda, sem jargão — "(395 g + 5% perda)" */}
+                  {p.linha.item.perdaPct > 0 && qtdFinal > 0 && (
+                    <p className="text-[11px] text-[#627271]">
+                      ({fmtNum(p.linha.item.quantidadePorUnidade * qtdFinal)} {p.linha.unidade} +{" "}
+                      {fmtNum(p.linha.item.perdaPct)}% perda)
+                    </p>
+                  )}
                 </div>
                 <div className="shrink-0 text-right">
                   <p className="text-sm text-[#1f2937]" style={{ fontWeight: 700 }}>
                     {fmtNum(p.consumo)} {p.linha.unidade}
                   </p>
-                  <p className="text-[11px] text-[#627271]">
+                  {/* T6-2: linha ✗ explicita o por-quê (F4): necessário de estoque + falta */}
+                  <p
+                    className="text-[11px]"
+                    style={{ color: p.suficiente ? "#627271" : "#B91C1C", fontWeight: p.suficiente ? 400 : 600 }}
+                  >
                     de {fmtNum(p.linha.estoqueAtual)} {p.linha.unidade}
+                    {!p.suficiente ? ` · falta ${fmtNum(p.consumo - p.linha.estoqueAtual)}` : ""}
                   </p>
                 </div>
                 {p.suficiente ? (
@@ -718,17 +940,93 @@ function ProduzirLoteModal({
             ))}
           </ul>
 
-          {insuficientes.length > 0 && (
-            <p
-              className="mt-2 flex items-start gap-2 rounded-xl border px-3.5 py-2.5 text-xs"
-              role="alert"
-              style={{ background: "#FECACA", borderColor: "#FECACA", color: "#B91C1C", fontWeight: 600 }}
-            >
-              <AlertTriangle size={14} className="mt-px shrink-0" />
-              Estoque insuficiente de {insuficientes.map((p) => p.linha.nome).join(", ")} —{" "}
-              {insuficientes.length === 1 ? "receba uma compra ou" : "receba compras ou"} ajuste o lote.
-            </p>
-          )}
+          {/* ── T6-3/T6-4: banda NÃO ALCANÇA — o bloqueio sempre termina em botão,
+              nunca em erro sem caminho (inclusive recusa de saldo pela RPC). ── */}
+          {(insuficientes.length > 0 || recusaSaldo) &&
+            (() => {
+              const faltanteComposto = insuficientes.find((p) => p.linha.pendenteProducao)?.linha;
+              const faltanteInsumo = insuficientes.find((p) => !p.linha.pendenteProducao)?.linha;
+              const singular = emReceita && loteNum === 1;
+              const prefixo = emReceita
+                ? `${formatarQtd(loteNum)} receita${singular ? "" : "s"}`
+                : `o lote (${formatarQtd(qtdFinal)} ${produto.unidade || "un"})`;
+              const verbo = singular || !emReceita ? "pede" : "pedem";
+              const ctaCls =
+                "inline-flex min-h-[40px] items-center rounded-lg border px-3 py-1.5 text-[11px] transition-colors hover:bg-white/60 disabled:opacity-50";
+              return (
+                <div
+                  className="mt-2 rounded-xl border px-3.5 py-3"
+                  role="alert"
+                  style={{ background: "#FECACA", borderColor: "#FECACA", color: "#B91C1C" }}
+                >
+                  <p className="text-[11px] uppercase tracking-wide" style={{ fontWeight: 800 }}>
+                    <AlertTriangle size={12} className="mr-1 inline-block align-[-2px]" />
+                    Não alcança
+                  </p>
+                  {insuficientes.length > 0 ? (
+                    insuficientes.map((p) => (
+                      <p key={p.linha.item.id} className="mt-1 text-xs" style={{ fontWeight: 600 }}>
+                        {prefixo} {verbo} {fmtNum(p.consumo)} {p.linha.unidade}; estoque tem{" "}
+                        {fmtNum(p.linha.estoqueAtual)} {p.linha.unidade}.
+                      </p>
+                    ))
+                  ) : (
+                    /* T6-4: o banco recusou por saldo e a pré-visualização ainda
+                       acha suficiente — saldo mudou depois da abertura. */
+                    <p className="mt-1 text-xs" style={{ fontWeight: 600 }}>
+                      O saldo no sistema não cobre este lote — nada foi baixado. Ajuste para o
+                      máximo ou reabasteça.
+                    </p>
+                  )}
+                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                    {maxNoModo >= 1 && (
+                      <button
+                        type="button"
+                        onClick={usarMaximo}
+                        disabled={salvando}
+                        className={ctaCls}
+                        style={{ background: "#ffffff", borderColor: "#FECACA", color: "#B91C1C", fontWeight: 700 }}
+                      >
+                        {`Usar máximo (${formatarQtd(maxNoModo)})`}
+                      </button>
+                    )}
+                    {compraCobreFaltante && (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/estoque/compras?receber=${compraCobreFaltante.id}`)}
+                        className={ctaCls}
+                        style={{ background: "#ffffff", borderColor: "#FECACA", color: "#B91C1C", fontWeight: 700 }}
+                      >
+                        {`Receber compra ${compraCobreFaltante.fornecedorNome}…`}
+                      </button>
+                    )}
+                    {faltanteComposto ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigate(`/estoque/produtos/${faltanteComposto.item.componenteProdutoId}?aba=producao`)
+                        }
+                        className={ctaCls}
+                        style={{ background: "#ffffff", borderColor: "#FECACA", color: "#B91C1C", fontWeight: 700 }}
+                      >
+                        {`Produzir o ${faltanteComposto.nome} →`}
+                      </button>
+                    ) : faltanteInsumo ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigate(`/estoque/compras/nova?insumo=${faltanteInsumo.item.componenteProdutoId}`)
+                        }
+                        className={ctaCls}
+                        style={{ background: "#ffffff", borderColor: "#FECACA", color: "#B91C1C", fontWeight: 700 }}
+                      >
+                        Ir comprar →
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })()}
         </section>
 
         {erro && (

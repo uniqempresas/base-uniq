@@ -20,10 +20,23 @@
  * Mobile (auditoria 06/10): os sheets usam o modo `header` + `footer` +
  * `mobileFill` do `BottomSheet` — título/fechar fixos no topo, Total + ação
  * sempre visíveis embaixo. Inputs em 16px (sem zoom do iOS), alvos ≥ 44px.
+ *
+ * T4 — WIRE-Producao-Redesign (compras + receber na esteira): card PENDENTE
+ * carrega a nota "estoque e custo só entram quando você RECEBER" com
+ * [Receber] como ação primária; deep-link `?receber=<compraId>` abre direto
+ * o ReceberCompraSheet daquela compra (pattern useSearchParams, só PENDENTE);
+ * as linhas do modal repetem `quantidade × fator` COM a legenda
+ * (`LegendaConversao` — conferir antes, não depois); sucesso pós-RPC vira a
+ * banda `FaixaProximoPasso` "✓ Recebida · {fornecedor}" com "dá pra produzir
+ * agora:" — cruzamento front-only (compostos × ficha × estoques via
+ * `receitasMaximas`, máx 2, CTA `Ir produzir →` → ?aba=producao), calculado
+ * por sub-componente local que usa `useFichaTecnica` por composto (nenhuma
+ * query nova). Banda só no sucesso do RPC DAQUELA interação: compra já
+ * RECEBIDA nunca re-oferece (idempotência).
  */
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import {
   AlertCircle,
   AlertTriangle,
@@ -63,6 +76,11 @@ import {
 import type { Produto } from "../../types/produto";
 import { useReceberCompra, type ReceberCompraParams, type ReceberCompraResult } from "../../hooks/use-receber-compra";
 import { useCancelarCompra } from "../../hooks/use-cancelar-compra";
+// T4 — WIRE-Producao-Redesign: banda de sucesso + legenda + cálculo front-only
+import { useFichaTecnica } from "../../hooks/use-ficha-tecnica";
+import { perdaAplicada, receitasMaximas } from "../../lib/conversao";
+import { FaixaProximoPasso } from "./FaixaProximoPasso";
+import { LegendaConversao } from "./LegendaConversao";
 import {
   BottomSheet,
   campoFormSheet,
@@ -152,10 +170,19 @@ const FILTRO_OPCOES: { valor: "TODOS" | StatusCompra; label: string }[] = [
 
 export function ComprasPage() {
   const navigate = useNavigate();
+  // T4 §2 — deep-link `?receber=<compraId>` (chegada do CTA "receba a compra
+  // X para produzir" do T5/T6): abre o ReceberCompraSheet direto. Estado de
+  // tela, nenhum param vai ao backend; padrão useSearchParams do
+  // PedidosListaPage (?novo): consome uma vez e limpa a URL com replace.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const receberParam = searchParams.get("receber");
+  const deepLinkConsumido = useRef(false);
   const { compras, loading, error, recarregar } = useCompras();
   // KPI "itens em falta" — a CRIAÇÃO da compra mora na rota
   // /estoque/compras/nova (WIRE C1); aqui ficam só lista + receber/cancelar/detalhe.
-  const { produtos } = useProdutos();
+  // T4: os produtos também alimentam a banda "dá pra produzir agora" do
+  // ReceberCompraSheet (estoques atuais para o cálculo front-only).
+  const { produtos, recarregar: recarregarProdutos } = useProdutos();
   const { receberCompra, loading: recebendo } = useReceberCompra();
   const { cancelarCompra, loading: cancelando } = useCancelarCompra();
 
@@ -164,6 +191,20 @@ export function ComprasPage() {
   const [receberAlvo, setReceberAlvo] = useState<Compra | null>(null);
   const [cancelarAlvo, setCancelarAlvo] = useState<Compra | null>(null);
   const [detalheAlvo, setDetalheAlvo] = useState<Compra | null>(null);
+
+  // T4 §2 — quando a lista chegar, abre o sheet da compra pedida pelo param —
+  // só se existir E estiver PENDENTE (id inválido/já recebido = ignora
+  // silencioso, mesmo contrato do ?insumo= do T3). O param sai da URL com
+  // `replace: true`: voltar/recarregar não re-dispara o modal.
+  useEffect(() => {
+    if (!receberParam || deepLinkConsumido.current) return;
+    // espera a 1ª carga: sem compras ainda, "não achado" seria falso negativo
+    if (loading && compras.length === 0) return;
+    const alvo = compras.find((c) => c.id === receberParam);
+    if (alvo && alvo.status === "PENDENTE") setReceberAlvo(alvo);
+    deepLinkConsumido.current = true;
+    setSearchParams({}, { replace: true });
+  }, [receberParam, compras, loading, setSearchParams]);
 
   // ---------- KPIs (derivados, useMemo — padrão ContasPagarPage) ----------
   const emAberto = useMemo(() => compras.filter((c) => c.status === "PENDENTE"), [compras]);
@@ -530,6 +571,8 @@ export function ComprasPage() {
         onConcluida={recarregar}
         receberCompra={receberCompra}
         salvando={recebendo}
+        produtos={produtos}
+        recarregarProdutos={recarregarProdutos}
       />
 
       <DetalheCompraSheet compra={detalheAlvo} onClose={() => setDetalheAlvo(null)} />
@@ -688,6 +731,15 @@ function CompraCard({
         </span>
       </div>
 
+      {/* T4 §1 — a nota que faltava no card PENDENTE: receber é o passo que
+          põe estoque/custo pra dentro. [Receber] já é o primeiro botão verde
+          (primário) em AcoesCompra — a nota explica o porquê do destaque. */}
+      {compra.status === "PENDENTE" && (
+        <p className="mt-1.5 text-[11px] leading-snug text-[#627271]">
+          estoque e custo só entram quando você <span style={{ fontWeight: 700 }}>RECEBER</span>
+        </p>
+      )}
+
       <div className="mt-2.5">
         <AcoesCompra compra={compra} onReceber={onReceber} onCancelar={onCancelar} onDetalhe={onDetalhe} tall />
       </div>
@@ -752,12 +804,70 @@ interface ReceberCompraSheetProps {
   onConcluida: () => void;
   receberCompra: (p: ReceberCompraParams) => Promise<ReceberCompraResult>;
   salvando: boolean;
+  /** T4 — catálogo atual: estoques para o "dá pra produzir agora" da banda */
+  produtos: Produto[];
+  /** T4 — pós-RPC: o estoque que entrou no banco precisa voltar pro cálculo */
+  recarregarProdutos: () => void;
 }
 
-function ReceberCompraSheet({ compra, onClose, onConcluida, receberCompra, salvando }: ReceberCompraSheetProps) {
+/**
+ * T4 §4 — linha da banda de sucesso: resultado do cruzamento front-only
+ * (composto × ficha × estoques). `rende` = rendimentoLote (g/ml por receita);
+ * null = composto por unidade (estimativa em grama "não cabe" no texto).
+ */
+interface MaxComposto {
+  id: string;
+  nome: string;
+  max: number;
+  rende: number | null;
+  unidade: string;
+}
+
+function ReceberCompraSheet({
+  compra,
+  onClose,
+  onConcluida,
+  receberCompra,
+  salvando,
+  produtos,
+  recarregarProdutos,
+}: ReceberCompraSheetProps) {
   const [dataRecebimento, setDataRecebimento] = useState(hojeLocal());
   const [dataVencimento, setDataVencimento] = useState(format(addDays(new Date(), 30), "yyyy-MM-dd"));
   const [erro, setErro] = useState("");
+  // T4 §4/§5 — banda de sucesso: SÓ no sucesso do RPC desta interação (estado
+  // local morto no unmount). Compra já RECEBIDA que abrir o sheet (deep-link
+  // é gated em PENDente; o card nem oferece o botão) nunca vê a banda.
+  const [recebido, setRecebido] = useState<ReceberCompraResult | null>(null);
+  // Resultados reportados pelas sondas de ficha (um por composto candidato).
+  const [resultados, setResultados] = useState<Record<string, MaxComposto | null>>({});
+
+  const reportMax = useCallback((id: string, r: MaxComposto | null) => {
+    setResultados((prev) => (prev[id] === r ? prev : { ...prev, [id]: r }));
+  }, []);
+
+  const insumoIds = useMemo(() => (compra ? compra.itens.map((i) => i.produtoId) : []), [compra]);
+  const estoques = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const p of produtos) m[p.id] = p.estoque;
+    return m;
+  }, [produtos]);
+  // Compostos da empresa cortados em 8: cada sonda lê uma ficha via hook
+  // existente — o teto limita as leituras paralelas (mesmo corte da sonda de
+  // nível-2 da ProducaoTab). Catálogo de microempresa cabe sobrando.
+  const candidatos = useMemo(
+    () => (recebido ? produtos.filter((p) => p.natureza === "composto").slice(0, 8) : []),
+    [recebido, produtos]
+  );
+  // WIRE T4: máx 2 compostos com max ≥ 1, ordenados pelo maior.
+  const visiveis = useMemo(
+    () =>
+      Object.values(resultados)
+        .filter((r): r is MaxComposto => r !== null && r.max >= 1)
+        .sort((a, b) => b.max - a.max)
+        .slice(0, 2),
+    [resultados]
+  );
 
   const confirmar = async () => {
     if (!compra) return;
@@ -774,7 +884,12 @@ function ReceberCompraSheet({ compra, onClose, onConcluida, receberCompra, salva
     if (rc.success) {
       toast.success(toastRecebido(rc));
       onConcluida();
-      onClose();
+      // T4 — os estoques novos têm que entrar no cálculo da banda: o catálogo
+      // recarrega (gatilho de leitura existente) e as sondas de ficha re-rodem
+      // com os estoques atualizados.
+      recarregarProdutos();
+      // o sheet NÃO fecha no sucesso: vira a banda "✓ Recebida" (T4 §4).
+      setRecebido(rc);
     } else {
       // erro da RPC (ex.: "compra já foi recebida") fica visível no sheet aberto
       setErro(rc.error || "Não foi possível receber a compra.");
@@ -792,7 +907,7 @@ function ReceberCompraSheet({ compra, onClose, onConcluida, receberCompra, salva
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 id="receber-compra-titulo" className="text-base font-semibold text-[#1f2937] sm:text-lg">
-              Receber compra
+              {recebido ? "Compra recebida" : "Receber compra"}
             </h2>
             <p className="mt-0.5 text-xs text-[#627271]">
               {compra.fornecedorNome} · NF {compra.notaFiscal || "—"} · {formatCurrency(compra.valorTotal)} ·{" "}
@@ -810,89 +925,221 @@ function ReceberCompraSheet({ compra, onClose, onConcluida, receberCompra, salva
         </div>
       }
       footer={
-        <div>
-          {erro && (
-            <p className="mb-2 text-xs text-red-600" role="alert" style={{ fontWeight: 500 }}>
-              {erro}
-            </p>
-          )}
+        recebido ? (
+          // T4 — sucesso: o sheet fecha em [Fechar]; os CTAs da banda são
+          // links de navegação (§8: destino óbvio no texto).
           <SheetFooterActions>
-            <button type="button" onClick={onClose} disabled={salvando} className={sheetButtonSecundario}>
-              Voltar
-            </button>
             <button
-              onClick={confirmar}
+              type="button"
+              onClick={onClose}
               data-sheet-foco
-              disabled={salvando}
               className={sheetButtonPrimario}
               style={{ background: "#86cb92" }}
             >
-              {salvando ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  Recebendo...
-                </>
-              ) : (
-                <>
-                  <Package size={16} />
-                  Confirmar recebimento
-                </>
-              )}
+              Fechar
             </button>
           </SheetFooterActions>
-        </div>
+        ) : (
+          <div>
+            {erro && (
+              <p className="mb-2 text-xs text-red-600" role="alert" style={{ fontWeight: 500 }}>
+                {erro}
+              </p>
+            )}
+            <SheetFooterActions>
+              <button type="button" onClick={onClose} disabled={salvando} className={sheetButtonSecundario}>
+                Voltar
+              </button>
+              <button
+                onClick={confirmar}
+                data-sheet-foco
+                disabled={salvando}
+                className={sheetButtonPrimario}
+                style={{ background: "#86cb92" }}
+              >
+                {salvando ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Recebendo...
+                  </>
+                ) : (
+                  <>
+                    <Package size={16} />
+                    Confirmar recebimento
+                  </>
+                )}
+              </button>
+            </SheetFooterActions>
+          </div>
+        )
       }
     >
-      <div className="space-y-4">
-        <div className="space-y-1.5 rounded-xl border border-[#efefef] bg-[#f8f9fa] p-4">
-          <p className="mb-1 text-xs text-[#1f2937]" style={{ fontWeight: 700 }}>
-            Entrará no estoque:
-          </p>
-          {compra.itens.map((item) => (
-            <p key={item.id} className="flex items-center justify-between gap-3 text-sm text-[#1f2937]">
-              <span className="min-w-0 truncate">· {item.produtoNome}</span>
-              <span className="shrink-0" style={{ fontWeight: 600 }}>
-                +{fmtNum(qtdEstoque(item))} {item.unidadeEstoque}
-              </span>
-            </p>
+      {recebido ? (
+        // ── T4 §4 — BANDA DE SUCESSO PÓS-RPC ──
+        // Cruzamento 100% estado de tela: compostos da empresa × ficha ×
+        // estoques atuais → receitasMaximas por composto (máx 2, maior
+        // primeiro). Nenhuma query nova: cada sonda usa o hook existente
+        // `useFichaTecnica`; sem habilitado, a faixa fica só o básico.
+        <div className="space-y-4">
+          {candidatos.map((c) => (
+            <FichaMaxRow
+              key={c.id}
+              composto={c}
+              insumoIds={insumoIds}
+              estoques={estoques}
+              report={reportMax}
+            />
           ))}
-          <p className="pt-1 text-[11px] text-[#627271]">
-            Custo médio recalculado automaticamente · ao receber, 1 conta a pagar de{" "}
-            {formatCurrency(compra.valorTotal)} nasce no Financeiro.
+          <p className="text-xs leading-snug text-[#627271]">
+            {compra.itens.map((i) => `${i.produtoNome} +${fmtNum(qtdEstoque(i))} ${i.unidadeEstoque}`).join(" · ")}
           </p>
+          <FaixaProximoPasso
+            titulo={`✓ Recebida · ${compra.fornecedorNome}`}
+            descricao={
+              visiveis.length > 0
+                ? `dá pra produzir agora: ${visiveis
+                    .map(
+                      (v) =>
+                        `${v.nome} — ${fmtNum(v.max)} ${v.max === 1 ? "receita" : "receitas"}${
+                          v.rende != null && v.rende > 0 ? ` (≈ ${fmtNum(v.max * v.rende)} ${v.unidade})` : ""
+                        }`
+                    )
+                    .join(" · ")}`
+                : "estoque e custo atualizados · conta a pagar criada no Financeiro"
+            }
+            acoes={visiveis.map((v) => ({
+              label: visiveis.length > 1 ? `Ir produzir ${v.nome} →` : "Ir produzir →",
+              href: `/estoque/produtos/${v.id}?aba=producao`,
+            }))}
+          />
         </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="space-y-1.5 rounded-xl border border-[#efefef] bg-[#f8f9fa] p-4" role="status">
+            <p className="mb-1 text-xs text-[#1f2937]" style={{ fontWeight: 700 }}>
+              Entrará no estoque:
+            </p>
+            {/* T4 §3 — cada linha REPETE `quantidade × fator` com a legenda do
+                contrato 2: conferir a conversão ANTES do RPC, não depois (F2). */}
+            {compra.itens.map((item) => {
+              const uc = item.unidadeCompra?.trim() || null;
+              const fator = item.fatorConversao == null ? 1 : Number(item.fatorConversao);
+              return (
+                <div key={item.id} className="text-sm">
+                  <p className="flex items-center justify-between gap-3 text-[#1f2937]">
+                    <span className="min-w-0 truncate">· {item.produtoNome}</span>
+                    <span className="shrink-0" style={{ fontWeight: 600 }}>
+                      +{fmtNum(qtdEstoque(item))} {item.unidadeEstoque}
+                    </span>
+                  </p>
+                  {uc ? (
+                    <p className="pl-2 text-[11px] leading-snug text-[#627271]">
+                      {fmtNum(item.quantidade)} {uc} × {fmtNum(Number.isFinite(fator) && fator > 0 ? fator : 1)} ={" "}
+                      <LegendaConversao
+                        unCompra={uc}
+                        fator={Number.isFinite(fator) && fator > 0 ? fator : 1}
+                        unEstoque={item.unidadeEstoque}
+                      />{" "}
+                      → entra {fmtNum(qtdEstoque(item))} {item.unidadeEstoque}
+                    </p>
+                  ) : (
+                    <p className="pl-2 text-[11px] leading-snug text-[#627271]">
+                      {fmtNum(item.quantidade)} {item.unidadeEstoque} → entra {fmtNum(qtdEstoque(item))}{" "}
+                      {item.unidadeEstoque}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+            <p className="pt-1 text-[11px] text-[#627271]">
+              Custo médio recalculado automaticamente · ao receber, 1 conta a pagar de{" "}
+              {formatCurrency(compra.valorTotal)} nasce no Financeiro.
+            </p>
+          </div>
 
-        {/* Datas empilhadas no mobile: date nativo apertado em 2 colunas é
-            praticamente impossível de ajustar com o polegar */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <label className="block text-sm font-medium text-[#1f2937]">
-            Data de recebimento *
-            <input
-              type="date"
-              value={dataRecebimento}
-              onChange={(e) => {
-                setDataRecebimento(e.target.value);
-                setErro("");
-              }}
-              className={`${campoFormSheet} text-base`}
-            />
-          </label>
-          <label className="block text-sm font-medium text-[#1f2937]">
-            Vencimento da conta a pagar *
-            <input
-              type="date"
-              value={dataVencimento}
-              onChange={(e) => {
-                setDataVencimento(e.target.value);
-                setErro("");
-              }}
-              className={`${campoFormSheet} text-base`}
-            />
-          </label>
+          {/* Datas empilhadas no mobile: date nativo apertado em 2 colunas é
+              praticamente impossível de ajustar com o polegar */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="block text-sm font-medium text-[#1f2937]">
+              Data de recebimento *
+              <input
+                type="date"
+                value={dataRecebimento}
+                onChange={(e) => {
+                  setDataRecebimento(e.target.value);
+                  setErro("");
+                }}
+                className={`${campoFormSheet} text-base`}
+              />
+            </label>
+            <label className="block text-sm font-medium text-[#1f2937]">
+              Vencimento da conta a pagar *
+              <input
+                type="date"
+                value={dataVencimento}
+                onChange={(e) => {
+                  setDataVencimento(e.target.value);
+                  setErro("");
+                }}
+                className={`${campoFormSheet} text-base`}
+              />
+            </label>
+          </div>
         </div>
-      </div>
+      )}
     </BottomSheet>
   );
+}
+
+/**
+ * T4 §4 — sonda de ficha (sub-componente local; um por composto candidato):
+ * lê a ficha técnica pelo hook EXISTENTE (`useFichaTecnica` — nenhuma query
+ * nova), cruza os necessários por receita JÁ COM PERDA (`perdaAplicada`,
+ * F4) com os estoques atuais (`receitasMaximas`, front-only) e reporta à
+ * banda. Só conta composto que consome algum insumo que ENTROU nesta compra
+ * — é o estoque dele que o recebimento acabou de mover. Não renderiza nada;
+ * quem ordena (maior primeiro) e corta (máx 2, max ≥ 1) é a banda no sheet.
+ */
+function FichaMaxRow({
+  composto,
+  insumoIds,
+  estoques,
+  report,
+}: {
+  composto: Produto;
+  insumoIds: string[];
+  estoques: Record<string, number>;
+  report: (id: string, r: MaxComposto | null) => void;
+}) {
+  const { itens, loading } = useFichaTecnica(composto.id);
+
+  useEffect(() => {
+    if (loading) return;
+    const usaEntraram = itens.some((i) => insumoIds.includes(i.componenteProdutoId));
+    if (itens.length === 0 || !usaEntraram) {
+      report(composto.id, null);
+      return;
+    }
+    const requisitos = itens.map((i) => ({
+      componenteId: i.componenteProdutoId,
+      necessario: perdaAplicada(i.quantidadePorUnidade, i.perdaPct),
+    }));
+    const { max } = receitasMaximas(requisitos, estoques);
+    report(
+      composto.id,
+      max >= 1
+        ? {
+            id: composto.id,
+            nome: composto.nome,
+            max,
+            rende: composto.rendimentoLote ?? null,
+            unidade: composto.unidade,
+          }
+        : null
+    );
+  }, [loading, itens, insumoIds, estoques, composto, report]);
+
+  return null;
 }
 
 /* ───────────────────────── Sheet Detalhe Compra ──────────────────────── */

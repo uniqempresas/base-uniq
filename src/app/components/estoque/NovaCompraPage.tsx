@@ -161,6 +161,21 @@
  * depois de return condicional — classe React #310); RPCs de escrita intocadas
  * (use-criar-compra, use-receber-compra, use-fornecedores); ComprasPage não é
  * tocada.
+ *
+ * T3 — WIRE-Producao-Redesign (portão de conversão, F8): toda linha da nota
+ * traduz para o estoque ("→ entra 790 g no estoque (1 lata = 395 g)" com
+ * `LegendaConversao`, recalculada ao vivo em qtd/valor); insumo SEM unidade
+ * de compra/fator abre o `PortaoConversao` embutido na própria linha (selects
+ * do catálogo `lib/unidades` + fator; mesma unidade → fator sugerido 1 com
+ * aviso "1 un = 1 un?"; [confirmar] grava via gatilho existente "salvar
+ * produto" — use-atualizar-produto — e a linha volta ao normal; [cancelar]/
+ * ESC remove a linha, nada gravado); Salvar bloqueado COM MOTIVO VISÍVEL
+ * enquanto existir linha no portão ("N item sem conversão — ajuste para
+ * salvar") + rede de segurança no salvar(); deep-link `?insumo=<id>`
+ * pré-preenche a Linha Rápida (pattern useSearchParams do PedidosListaPage,
+ * limpo com replace; id inválido = ignora silencioso); mini-sheet "Cadastrar
+ * na hora" grava já com unidade de estoque/compra/fator do catálogo — item
+ * criado por ele nunca cai no portão (T1/D4).
  */
 import {
   useCallback,
@@ -171,7 +186,7 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import {
   ArrowLeft,
   Check,
@@ -208,6 +223,9 @@ import {
   sheetButtonPrimario,
   sheetButtonSecundario,
 } from "../financeiro/components";
+import { LegendaConversao } from "./LegendaConversao";
+import { PortaoConversao, type ConversaoConfirmada } from "./PortaoConversao";
+import { UNIDADES_COMPRA, UNIDADES_ESTOQUE, mesmasUnidades } from "../../lib/unidades";
 import type { Produto } from "../../types/produto";
 
 /* ───────────────────────── helpers de exibição ───────────────────────── */
@@ -217,10 +235,9 @@ function fmtNum(n: number): string {
   return n.toLocaleString("pt-BR", { maximumFractionDigits: 3 });
 }
 
-/** Unidades de estoque do mini-sheet U2.2 — as MESMAS 12 do cadastro (F1). */
-const UNIDADES_ESTOQUE = ["Unidade", "Peça", "Par", "Kit", "Kg", "g", "Metro", "Litro", "ml", "Frasco", "Caixa", "Pacote"];
-/** Datalist "Compra por" — mesma lista do ProdutoFormModal (F2 — WIRE §3). */
-const UNIDADES_COMPRA = ["kg", "g", "L", "ml", "un", "lata", "caixa", "pacote", "m"];
+/** T3/D4 (WIRE-Producao-Redesign): as unidades do mini-sheet e do portão vêm
+ * do catálogo compartilhado `lib/unidades.ts` (import acima) — a lista local
+ * "Unidade/Peça/..." morreu junto com o texto livre (fricção F1). */
 
 /**
  * C9 — campo da LINHA ÚNICA de composição (WIRE COMPRA_TELA_C9_LINHA_UNICA):
@@ -429,6 +446,11 @@ const novaChave = (produtoId: string) => `linha-${++seqLinha}-${produtoId}`;
 
 export function NovaCompraPage() {
   const navigate = useNavigate();
+  // T3 §4 — deep-link `?insumo=<id>` (pattern useSearchParams do
+  // PedidosListaPage): estado de tela, nenhum param vai ao backend.
+  // Preenche a Linha Rápida quando o catálogo resolver; param limpo com
+  // replace. id inválido = ignora silencioso.
+  const [searchParams, setSearchParams] = useSearchParams();
   const {
     produtos,
     loading: produtosLoading,
@@ -492,6 +514,9 @@ export function NovaCompraPage() {
   // sobrescrito. E o CURSOR fica na barra: com datalist o fundador pode estar
   // terminando de digitar — nada de pular pra Qtd no meio do dedilhado.
   const ultimoReconhecidoId = useRef<string | null>(null);
+  // T3 §4 — o deep-link ?insumo= é consumido UMA vez (após a 1ª carga dos
+  // produtos); reentrar na tela com o mesmo param não re-preenche nada.
+  const deepLinkConsumido = useRef(false);
 
   // ---------- fornecedores (merge do criado na hora — U2.3) ─────────────────
   const listaFornecedores = useMemo(() => {
@@ -554,6 +579,27 @@ export function NovaCompraPage() {
         : ""
     );
   }, [insumoReconhecido]);
+
+  // T3 §4 — deep-link `?insumo=<id>`: quando os produtos chegarem, procura o
+  // insumo pelo id e preenche a Linha Rápida (selInsumo + nome → o efeito C8
+  // acima pré-cheia qtd=1 + último preço DESTE item, como num completion do
+  // datalist). id que não bate com produto carregado = ignora em silêncio.
+  // Em ambos os casos o param sai da URL com `replace: true` (padrão
+  // PedidosListaPage ?novo) — recarregar/voltar não re-dispara.
+  const insumoParam = searchParams.get("insumo");
+  useEffect(() => {
+    if (!insumoParam || deepLinkConsumido.current) return;
+    // espera a 1ª carga do catálogo: sem produtos ainda, "não achado" seria
+    // falso-positivo de id inválido
+    if (produtosLoading && produtos.length === 0) return;
+    const alvo = produtos.find((p) => p.id === insumoParam);
+    if (alvo) {
+      setSelInsumo(alvo);
+      setTermoNome(alvo.nome);
+    }
+    deepLinkConsumido.current = true;
+    setSearchParams({}, { replace: true });
+  }, [insumoParam, produtos, produtosLoading, setSearchParams]);
 
   /** C4 — quantidade JÁ no carrinho por produto (o merge soma em uma linha única). */
   const qtdNoCarrinho = useMemo(() => {
@@ -730,25 +776,55 @@ export function NovaCompraPage() {
 
   const remover = (chave: string) => setItens((prev) => prev.filter((l) => l.chave !== chave));
 
+  /**
+   * T3 §2 — portão confirmado: o snapshot do produto na(s) linha(s) daquele
+   * id recebe a conversão nova (tradução acende na hora), o catálogo
+   * recarrega e o cadastro fica corrigido para as próximas compras. O único
+   * gatilho de escrita usado é "salvar produto" (dentro do PortaoConversao).
+   */
+  const confirmarConversao = (produtoId: string, dados: ConversaoConfirmada) => {
+    setItens((prev) =>
+      prev.map((l) =>
+        l.produto.id === produtoId
+          ? {
+              ...l,
+              produto: {
+                ...l.produto,
+                unidade: dados.unidade,
+                unidadeCompra: dados.unidadeCompra,
+                fatorConversao: dados.fatorConversao,
+              },
+            }
+          : l
+      )
+    );
+    recarregarProdutos();
+    toast.success("Conversão salva no cadastro do item.");
+  };
+
   // ---------- linha calculada (C2: qtd na unidade de COMPRA) ────────────────
+  // T3 — "configurado" = unidade de compra + fator > 0 gravados no cadastro.
+  // Linha sem conversão = linha NO PORTÃO: traduzir só é possível depois do
+  // ajuste (F8: nunca gravar compra que corrompe estoque/custo).
   const linhasCalculadas = itens.map((l) => {
     const qtd = parseFloat(l.quantidade) || 0;
     const vu = parsearMoeda(l.valorUnitario);
     const uc = l.produto.unidadeCompra?.trim() || null;
-    const fator = l.produto.fatorConversao == null ? 1 : Number(l.produto.fatorConversao);
-    const conversionOk = !uc || fator > 0;
+    const fatorNum = Number(l.produto.fatorConversao);
+    const noPortao = !uc || !(Number.isFinite(fatorNum) && fatorNum > 0);
     return {
       linha: l,
       qtd,
       vu,
       uc,
-      fator,
-      conversionOk,
-      entra: qtd * (Number.isFinite(fator) && fator > 0 ? fator : 1),
+      fator: noPortao ? 1 : fatorNum,
+      noPortao,
+      entra: qtd * (noPortao ? 1 : fatorNum),
       subtotal: qtd * vu,
     };
   });
   const total = linhasCalculadas.reduce((s, l) => s + l.subtotal, 0);
+  const itensNoPortao = linhasCalculadas.filter((l) => l.noPortao).length;
 
   const voltar = () => navigate("/estoque/compras");
 
@@ -764,6 +840,14 @@ export function NovaCompraPage() {
       setErro("Adicione pelo menos um insumo.");
       return;
     }
+    // T3 §3 — rede de segurança do portão: o botão já vem disabled com o
+    // motivo visível, mas nada escapa por programático (F8).
+    if (itensNoPortao > 0) {
+      setErro(
+        `${itensNoPortao} ${itensNoPortao === 1 ? "item sem conversão" : "itens sem conversão"} — ajuste para salvar`
+      );
+      return;
+    }
     for (const l of linhasCalculadas) {
       if (!(l.qtd > 0)) {
         setErro(`Informe uma quantidade maior que zero para "${l.linha.produto.nome}".`);
@@ -771,12 +855,6 @@ export function NovaCompraPage() {
       }
       if (!Number.isFinite(l.vu) || l.vu < 0) {
         setErro(`Valor unitário inválido para "${l.linha.produto.nome}".`);
-        return;
-      }
-      if (!l.conversionOk) {
-        setErro(
-          `"${l.linha.produto.nome}" é comprado por ${l.uc} mas está sem fator de conversão no cadastro — corrija o produto.`
-        );
         return;
       }
     }
@@ -859,11 +937,19 @@ export function NovaCompraPage() {
             <button
               type="button"
               onClick={salvar}
-              disabled={criando || itensVazios}
+              // T3 §3 — Salvar bloqueado com motivo visível enquanto existir
+              // linha no portão (a tela não esconde o porquê do disabled).
+              disabled={criando || itensVazios || itensNoPortao > 0}
               aria-label="Salvar compra"
-              title={itensVazios ? "Adicione pelo menos 1 item" : "Salvar compra (fica pendente de recebimento)"}
+              title={
+                itensNoPortao > 0
+                  ? `${itensNoPortao} ${itensNoPortao === 1 ? "item" : "itens"} sem conversão — ajuste para salvar`
+                  : itensVazios
+                    ? "Adicione pelo menos 1 item"
+                    : "Salvar compra (fica pendente de recebimento)"
+              }
               className={`flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-xl px-3 transition-colors ${
-                criando || itensVazios
+                criando || itensVazios || itensNoPortao > 0
                   ? "cursor-not-allowed bg-[#e4e4e4] text-[#9aa3a2]"
                   : "bg-[#86cb92] text-[#1f2937] hover:bg-[#1f2937] hover:text-white active:bg-[#1f2937] active:text-white"
               }`}
@@ -1294,10 +1380,8 @@ export function NovaCompraPage() {
           // uma linha divide-y por item, editor sempre aberto na própria
           // linha (nada de card grande por produto).
           <div className="divide-y divide-[#efefef] overflow-hidden rounded-2xl border border-[#efefef] bg-white shadow-sm">
-            {linhasCalculadas.map(({ linha, qtd, uc, fator, conversionOk, entra, subtotal }) => {
+            {linhasCalculadas.map(({ linha, qtd, uc, fator, noPortao, entra, subtotal }) => {
               const unidade = linha.produto.unidade;
-              // C2: helper "1 caixa = 500 g" só quando a conversão não é 1:1
-              const mostrarHelper = Boolean(uc) && conversionOk && Number.isFinite(fator) && fator !== 1;
               return (
                 <div
                   key={linha.chave}
@@ -1371,30 +1455,48 @@ export function NovaCompraPage() {
                     </span>
                   </div>
 
-                  {/* conversão SEMPRE na unidade do produto (C2): fator ≠ 1
-                      = texto pequeno "1 caixa = 500 g · +500 g ao estoque";
-                      fator faltante = aviso amarelo visível */}
-                  {uc ? (
-                    conversionOk ? (
-                      mostrarHelper && (
-                        <p className="mt-1 text-[11px] leading-snug text-[#627271]">
-                          1 {uc} = {fmtNum(fator)} {unidade}
-                          {qtd > 0 ? ` · +${fmtNum(entra)} ${unidade} ao estoque` : ""}
-                        </p>
-                      )
-                    ) : (
-                      <p
-                        className="mt-1 inline-block rounded-md border px-1.5 py-0.5 text-[11px]"
-                        style={{ background: "#FFFBEB", borderColor: "#FDE68A", color: "#B45309", fontWeight: 600 }}
-                      >
-                        sem fator de conversão — corrija o cadastro
+                  {/* T3 §1 — TRADUÇÃO por linha da nota: o que entra no
+                      estoque com a legenda do contrato 2 sempre visível
+                      ("→ entra 790 g no estoque (1 lata = 395 g)"). Recalcula
+                      ao vivo: `entra`/subtotal derivam de qtd e valor da
+                      linha em cada render. T3 §2 — insumo sem unidade de
+                      compra/fator abre o PORTÃO DE CONVERSÃO embutido aqui
+                      (grava via salvar produto; cancelar/ESC = linha fora). */}
+                  {noPortao ? (
+                    <PortaoConversao
+                      produto={linha.produto}
+                      quantidade={qtd}
+                      onConfirmado={(dados) => confirmarConversao(linha.produto.id, dados)}
+                      onCancelar={() => remover(linha.chave)}
+                    />
+                  ) : (
+                    qtd > 0 && (
+                      <p className="mt-1 text-[11px] leading-snug text-[#627271]" role="status">
+                        → entra {fmtNum(entra)} {unidade} no estoque{" "}
+                        <span className="whitespace-nowrap">
+                          (<LegendaConversao unCompra={uc ?? unidade} fator={fator} unEstoque={unidade} />)
+                        </span>
                       </p>
                     )
-                  ) : null}
+                  )}
                 </div>
               );
             })}
           </div>
+        )}
+
+        {/* T3 §3 — o Salvar está disabled e o MOTIVO fica à vista (nunca
+            disabled mudo): enquanto existir linha no portão, a frase
+            aponta exatamente o que falta. some sozinho quando o último
+            portão é confirmado (ou cancelado). */}
+        {itensNoPortao > 0 && (
+          <p
+            role="status"
+            className="mt-2 rounded-lg border px-3 py-2 text-[11px]"
+            style={{ background: "#FFFBEB", borderColor: "#FDE68A", color: "#B45309", fontWeight: 600 }}
+          >
+            {itensNoPortao} {itensNoPortao === 1 ? "item sem conversão" : "itens sem conversão"} — ajuste para salvar
+          </p>
         )}
 
         <p className="mt-3 px-1 text-center text-[11px] text-[#627271]">
@@ -1488,6 +1590,10 @@ function tituloMiniSheet(prefixo: string, termo: string): string {
  * BottomSheet (header + footer). Só o necessário para registrar a compra —
  * a natureza é FORÇADA em insumo; o restante do cadastro pode ser completado
  * depois em Estoque.
+ *
+ * T3.5 — o item nasce JÁ CONVERTIDO: "Guarda no estoque" e "Compra em" são
+ * selects do catálogo (`lib/unidades`) + fator validado, gravados junto com
+ * o nome. Insumo criado por aqui nunca cai no portão de conversão da nota.
  */
 function MiniSheetNovoItem({
   termo,
@@ -1504,10 +1610,30 @@ function MiniSheetNovoItem({
 }) {
   const [nome, setNome] = useState(termo.trim());
   const [sku, setSku] = useState("");
-  const [unidade, setUnidade] = useState("Unidade");
-  const [unidadeCompra, setUnidadeCompra] = useState("");
-  const [fator, setFator] = useState("");
+  // T3.5 (D4) — unidades viram SELECT do catálogo (lib/unidades): texto livre
+  // morreu ("un" × "Unidade", F1) e o item nasce JÁ com unidade de compra +
+  // estoque + fator → nunca cai no portão de conversão da nota.
+  const [unidade, setUnidade] = useState("un");
+  const [unidadeCompra, setUnidadeCompra] = useState("un");
+  const [fator, setFator] = useState("1");
   const [erro, setErro] = useState("");
+
+  const unidadesIguais = mesmasUnidades(unidadeCompra, unidade);
+
+  // mesma regra do portão: unidades iguais → fator sugerido 1; unidades
+  // diferentes → fator em branco para obrigar a resposta real.
+  const trocarUnidade = (alvo: "estoque" | "compra", v: string) => {
+    setErro("");
+    if (alvo === "estoque") {
+      setUnidade(v);
+      if (mesmasUnidades(v, unidadeCompra)) setFator("1");
+      else if (fator === "1") setFator("");
+    } else {
+      setUnidadeCompra(v);
+      if (mesmasUnidades(v, unidade)) setFator("1");
+      else if (fator === "1") setFator("");
+    }
+  };
 
   const salvar = async () => {
     if (salvando) return;
@@ -1516,16 +1642,16 @@ function MiniSheetNovoItem({
       setErro("Informe o nome do item.");
       return;
     }
-    const uc = unidadeCompra.trim();
     const nFator = fator.trim() === "" ? null : Number(fator);
     // F2/H3 + anti-inversão (Caixa de Uva, 07/10/2026): mesma validação do
     // cadastro completo (mesma unidade → fator 1; diferentes → fator > 1),
     // client-side antes de gravar.
-    const erroConv = validarConversaoCompra(uc || null, nFator, unidade);
+    const erroConv = validarConversaoCompra(unidadeCompra, nFator, unidade);
     if (erroConv) {
       setErro(erroConv);
       return;
     }
+    const fatorFinal = nFator != null && Number.isFinite(nFator) && nFator > 0 ? nFator : 1;
     const r = await criarProduto({
       nome: nome.trim(),
       sku: sku.trim() || undefined,
@@ -1538,9 +1664,9 @@ function MiniSheetNovoItem({
       estoqueMinimo: 5,
       precoVenda: 0,
       precoCusto: 0,
-      unidadeCompra: uc || null,
-      // sem unidade de compra o fator é ignorado — não faz sentido avulso
-      fatorConversao: uc ? nFator : null,
+      // T3.5 — conversão gravada JUNTO com o nome: nada de linha no portão
+      unidadeCompra,
+      fatorConversao: fatorFinal,
     });
     if (!r.success || !r.id) {
       // erro inline: o digitado permanece no form (nada se perde)
@@ -1552,8 +1678,8 @@ function MiniSheetNovoItem({
       nome: nome.trim(),
       sku: sku.trim(),
       unidade,
-      unidadeCompra: uc,
-      fator: uc ? nFator : null,
+      unidadeCompra,
+      fator: fatorFinal,
     });
   };
 
@@ -1651,10 +1777,11 @@ function MiniSheetNovoItem({
         </label>
 
         <label className="block text-sm font-medium text-[#1f2937]">
-          Unidade do estoque *
+          Guarda no estoque *
           <select
             value={unidade}
-            onChange={(e) => setUnidade(e.target.value)}
+            onChange={(e) => trocarUnidade("estoque", e.target.value)}
+            aria-label="unidade de estoque do item a cadastrar"
             className={`${campoFormSheet} text-base`}
           >
             {UNIDADES_ESTOQUE.map((u) => (
@@ -1664,38 +1791,31 @@ function MiniSheetNovoItem({
             ))}
           </select>
           <span className="mt-1 block text-[11px] text-[#627271]">
-            O que você guarda no estoque (ex.: g, un, kg).
+            O que você pesa/confere no estoque (ex.: g, un, kg).
           </span>
         </label>
 
         <label className="block text-sm font-medium text-[#1f2937]">
-          Unidade de compra (opcional)
-          <input
-            type="text"
+          Compra em *
+          <select
             value={unidadeCompra}
-            onChange={(e) => {
-              setUnidadeCompra(e.target.value);
-              setErro("");
-            }}
-            list="nova-compra-mini-unidade-compra"
-            placeholder="Ex.: Caixa, Pacote, Fardo"
-            autoComplete="off"
+            onChange={(e) => trocarUnidade("compra", e.target.value)}
+            aria-label="unidade de compra do item a cadastrar"
             className={`${campoFormSheet} text-base`}
-          />
-          <datalist id="nova-compra-mini-unidade-compra">
+          >
             {UNIDADES_COMPRA.map((u) => (
-              <option key={u} value={u} />
+              <option key={u} value={u}>
+                {u}
+              </option>
             ))}
-          </datalist>
+          </select>
           <span className="mt-1 block text-[11px] text-[#627271]">
-            Que você paga ao fornecedor (ex.: Caixa, Pacote, Fardo). Vazio = compra na unidade do estoque.
+            O que o fornecedor entrega e você paga (ex.: lata, caixa, un).
           </span>
         </label>
 
         <label className="block text-sm font-medium text-[#1f2937]">
-          {unidadeCompra.trim()
-            ? `1 ${unidadeCompra.trim()} contém quantas ${unidade}?`
-            : "1 unidade de compra contém quantas de estoque?"}
+          {`1 ${unidadeCompra} contém quantos ${unidade}?`}
           <input
             type="number"
             min="0"
@@ -1709,9 +1829,19 @@ function MiniSheetNovoItem({
             placeholder="Ex.: 500"
             className={`${campoFormSheet} text-base`}
           />
-          <span className="mt-1 block text-[11px] text-[#627271]">
-            Sempre na direção compra → estoque e maior que 1 quando as unidades diferem — ex.: 1 Caixa tem 500 g → fator 500.
-          </span>
+          {unidadesIguais ? (
+            <span
+              role="status"
+              className="mt-1 block text-[11px]"
+              style={{ color: "#B45309", fontWeight: 600 }}
+            >
+              1 {unidade} = 1 {unidade}? Fator 1 — você compra e guarda na mesma unidade.
+            </span>
+          ) : (
+            <span className="mt-1 block text-[11px] text-[#627271]">
+              Sempre na direção compra → estoque e maior que 1 quando as unidades diferem — ex.: 1 Caixa tem 500 g → fator 500.
+            </span>
+          )}
         </label>
       </div>
     </BottomSheet>
