@@ -168,6 +168,17 @@ O fundador testou "Produzir lote" da Trufa Limão e o custo veio **R$ 39,56/un**
 - ⚠️ **Diluição consciente do custo médio:** o custo por g do recheio apurou **R$ 0,011** (baixo) porque os **600 g de recheio antigo** (feito no olho, entrado sem custo) entram na média ponderada como custo **zero**. Converge para ~R$ 0,02/g conforme esse estoque girar/inventário. Não é bug.
 - ⚠️ **Estoque de leite/creme segue descontado errado** (398/303 g — a compra de 3 latas entrou como 3 g antes da correção): fundador deve **batir com Inventário** o que há na geladeira.
 - Desvios técnicos (justificados na lane): conversão `deReceita` no onChange (rascunho sempre por-grama — evita dupla conversão nos 2 caminhos de gravação) · custo por g com 4 casas · pendência de produção **sem** atalho para Compras (não mentir no caminho).
+
+---
+
+## 🧹 RESET DOCEÊ — produtos + financeiro do zero (15/10/2026, madrugada)
+
+> **Pedido:** ambiente limpo para testar tudo de forma assertiva (cadastro → compra → produção → venda → extrato), com o Modo Receita já no ar.
+> **Backup ANTES de apagar** (`_bk_20261015a_*`, 14 tabelas, contagens conferidas origem = backup): `me_produto` 13 · `est_ficha_tecnica` 9 · `est_movimentacao` 15 · `est_compra` 3 + 4 itens · `est_ordem_producao` 2 + 6 itens · `me_contas_pagar` 3 (vendas/itens/histórico/serviços/receber já em 0)
+> **Apagado em transação única** (filho → pai, filtro `empresa_id`): OPs+itens → movimentações (15) → contas receber/pagar (0/3) → compras (3+4) → vendas (0) → fichas (9) → **produtos (13)**
+> **Preservado (deliberado):** fornecedores (4) · categorias (16) · tags (25) · formas de pagamento (8) · categorias financeiras (5) · clientes (0) · conversas (0) · produtos de outros tenants (**10 dos 23** geral intocados)
+> ⚠️ **Órfãos no Storage:** fotos em `uniq_me_produtos/` ficam sem dono (precedente; inofensivas)
+> **Restaurar, se precisar:** `INSERT INTO <tabela> SELECT * FROM _bk_20261015a_<tabela>;` (14 tabelas)
 4. **Fase 4 — 🔜 PRÓXIMA:** venda grava CMV no ledger + DRE lê custo apurado (aposenta heurística de categorias — B12 fecha junto); considerar estorno de OP (D13) e explosão recursiva (D14) aqui.
 
 ---
