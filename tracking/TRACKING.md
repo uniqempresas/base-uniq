@@ -1396,6 +1396,46 @@ Decision #0 (Supabase oficial) · Diagnóstico real · Plano de 5 semanas aprova
 
 ---
 
+## 🏭 PRODUÇÃO — Redesign do fluxo E2E: WIRE aprovado e validado (15/10/2026)
+
+**WHY:** complemento do redesign das Fases 1–3 — atacar as **fricções reais registradas em teste com a usuária** (F1–F8, listadas em `tracking/open-design/OPENDESIGN_PROMPT_FLUXO_PRODUCAO.md`, o brief que iria para o OpenDesign — fora de operação neste dia). Nenhuma rota nova; backend intocado (contrato §3 do brief).
+
+**Status:** ✅ **WIRE escrito, APROVADO por delegação do fundador** (ele não vai validar nesta rodada) **e validado pelo orquestrador** — contratos §3 (insumo/composto/vendável · conversão · duas linguagens da ficha · perda · RPCs intactos) e fricções §4 conferidos item a item; copy revista. **Pronto para implementação.**
+
+**Documentos:**
+- WIRE: `tracking/wireframe/WIRE-Producao-Redesign-FluxoE2E.md` (6 telas T1–T6, mobile-first, 4 estados cada · 10 decisões assumidas D1–D10)
+- Brief integral: `tracking/open-design/OPENDESIGN_PROMPT_FLUXO_PRODUCAO.md`
+
+**Tese central:** a esteira não é uma tela nova — é **o próximo passo aparecendo dentro da tela em que o usuário já está** (bandas de próximo passo + CTAs de contexto), com a conversão sempre visível como legenda (`1 lata = 395 g`) e bloqueios que **guiam** ("receba a compra X para produzir") em vez de recusar com erro seco.
+
+**Resumo do que muda no front (detalhe no §5 do WIRE):** unidades por catálogo em select (mata "un" × "Unidade") · legenda de conversão em 4 pontos · campo "Preço de custo" removido do cadastro de insumo · "rende" com sugestão automática editável · tradução por linha da compra + **portão de conversão que bloqueia Salvar** (corrige por dentro o erro silencioso F8) · banda pós-recebimento "dá pra produzir agora" · card "com o estoque atual dá pra produzir N" (contado com perda) · chip `máx: N` no produzir · copy corrigida para "pendente de produção" (composto).
+
+**NÃO muda:** backend todo (os 5 gatilhos: salvar produto · salvar compra · receber compra · produzir lote · contabilizar venda) · rotas · venda (G) · extrato · estrutura da compra.
+
+**Status:** ✅ **IMPLEMENTADO (15/10/2026)** — commit `d2715be` · `tsc --noEmit` **0 erros** · `npm run build` OK (3620 módulos) · **deploy verificado por conteúdo servido** (entry novo `index-taKTf12b.js` no ar + os 4 chunks das telas alteradas — NovaCompraPage/ComprasPage/ProdutoFormModal/ProdutoDetalhePage — respondendo 200). Falta: validação do fundador no celular.
+
+**Como foi implementado — 3 lanes @fixer em paralelo (escopos de escrita disjuntos) + fundação compartilhada construída antes:**
+
+| Lane | Escopo | Arquivos |
+|---|---|---|
+| Fundação (orquestrador) | catálogo de unidades + aritmética + componentes compartilhados | `src/app/lib/unidades.ts` (`UNIDADES_*`, `mesmasUnidades` — mata "un" × "Unidade") · `src/app/lib/conversao.ts` (`perdaAplicada`, `receitasMaximas`) · `src/app/components/estoque/LegendaConversao.tsx` · `FaixaProximoPasso.tsx` |
+| **A** · T1+T2 | modal de produto (passo Insumo + Ficha Técnica) | `src/app/components/produto/ProdutoFormModal.tsx` |
+| **B** · T3+T4 | nova compra (tradução + portão) e compras (receber + banda "dá pra produzir agora") | `NovaCompraPage.tsx` · `ComprasPage.tsx` · `PortaoConversao.tsx` (novo) |
+| **C** · T5+T6 | aba produção (card máximo + bloqueios) e modal produzir (chip máx + NÃO ALCANÇA) + copy transversal | `ProducaoTab.tsx` · `ProdutoDetalhePage.tsx` · `CardMaxProduzir.tsx` (novo) |
+
+**Deep-links de contexto adicionados** (só query-param, padrão `PedidosListaPage`): `?insumo=` (nova compra pré-preenchida) · `?receber=` (abre o modal Receber da compra) · `?aba=producao` (detalhe abre na aba Produção).
+
+**Contratos preservados:** os 5 gatilhos existentes (salvar produto/compra · `receber_compra` · `registrar_producao` · `registrar_venda`) — nenhuma chamada nova, nenhuma rota nova, zero mudança de backend.
+
+**Guia de teste para o fundador (celular):**
+1. Cadastrar insumo novo → banda "Próximo: registrar compra →" → compra abre com o insumo pré-preenchido (`?insumo=`)
+2. Item sem conversão → abre o portão na própria linha; **Salvar bloqueado** até ajustar ("N item(s) sem conversão — ajuste para salvar")
+3. Salvar compra → "Receber agora" → modal mostra "quantidade × fator" com legenda → receber → banda "✓ Recebida · dá pra produzir agora: Recheio…" → "Ir produzir →"
+4. Aba Produção mostra "com o estoque atual dá pra produzir: N receitas" (com perda) · tentar produzir mais que o máximo → banda "NÃO ALCANÇA" com "Usar máximo / Receber compra / Ir comprar"
+5. Composto legendo "custo **pendente de produção**" (nunca mais "de compra")
+
+---
+
 ## ✅ DEFINIÇÃO DE PRONTO (Definition of Done) — para toda tela/tarefa
 
 - [ ] Estado visual completo: **loading (skeleton), empty, error, success**.
