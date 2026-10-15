@@ -1,7 +1,8 @@
 /**
  * Tela "Nova compra" — página própria mobile-first (WIREs COMPRA_TELA_C1_C2
- * → C3 → COMPRA_TELA_C4_LINHA_RAPIDA + ajustes C5; o parágrafo C5 no fim
- * deste bloco é o estado ATUAL da tela — C4 continua o contrato do topo).
+ * → C3 → C4/C5/C6 → C8 → COMPRA_TELA_C9_LINHA_UNICA; o parágrafo C9 no fim
+ * deste bloco é o estado ATUAL da tela — C4/C8 continuam o contrato de tudo
+ * que o C9 não mexeu).
  *
  * C1 — experiência de mercado, uma mão: rota `/estoque/compras/nova` substitui
  * o antigo modal NovaCompraSheet. Estrutura top→bottom: header (título +
@@ -133,6 +134,33 @@
  * form = adicionar/cadastrar como hoje (ramo C8: qInsumo && !reconhecido →
  * mini-sheet). useTapSemScroll (C6-b) continua válido APENAS no dropdown de
  * FORNECEDOR — o fundador não pediu mexer lá.
+ *
+ * C9 — "Linha Única de composição" (WIRE COMPRA_TELA_C9_LINHA_UNICA, fundador
+ * 15/10/2026; CONTRATO LOOSE aprovado em fala: "tentar; se não der certo,
+ * volta como está" — implementação experimental isolada, rollback = git revert
+ * do commit único do orquestrador). Inspirada no modal "Produtos do pedido" de
+ * PedidosListaPage: a Linha Rápida deixa de ter "linha 2 segregada" e vira UMA
+ * fileira só — [campo do produto com datalist NATIVA C8] · [quadradinho Qtd] ·
+ * [quadradinho R$] · [botão ＋ adicionar]. Qtd e Valor moram ENTRE o campo e o
+ * botão, SEMPRE visíveis (não somem quando o item é editado/esvaziado), com
+ * placeholders curtos ("Qtd" / "R$") e alvo ≥ 44px. Ao adicionar, o item entra
+ * na lista de baixo (merge C4) e a fileira reseta com o foco de volta ao campo
+ * do produto — teclado NUNCA fecha. O chip "N no carrinho" e o CTA "+
+ * Cadastrar 'termo' na hora" (mais loading/erro+retry) descem para uma FAIXA
+ * de status abaixo da fileira: são status, não campos, então não violam a
+ * "linha única de composição". TODOS os guialetas C4–C8 que fizeram a tela
+ * funcionar no celular continuam de pé: (1) pointerdown preventDefault segura
+ * o teclado e o foco volta ao campo após adicionar; (2) useTapSemScroll no
+ * dropdown de FORNECEDOR; (3) merge do mesmo item soma qtd e o preço recém-
+ * digitado vence (adicionarDaLinhaRapida/adicionar — SEM mudança de semântica,
+ * só os inputs agora são inline); (4) datalist NATIVA + reconhecimento por
+ * IGUALDADE DE TEXTO + chip "N no carrinho" + "+ Cadastrar na hora"; (5)
+ * rascunho sessionStorage, fornecedor frozen, pill "Salvar compra" no header
+ * com teclado, soma/validação idênticas (qtd > 0; preço nas regras atuais);
+ * (6) alvos ≥ 44px, inputs 16px. Ordem de hooks PRESERVADA (nenhum hook novo
+ * depois de return condicional — classe React #310); RPCs de escrita intocadas
+ * (use-criar-compra, use-receber-compra, use-fornecedores); ComprasPage não é
+ * tocada.
  */
 import {
   useCallback,
@@ -193,6 +221,18 @@ function fmtNum(n: number): string {
 const UNIDADES_ESTOQUE = ["Unidade", "Peça", "Par", "Kit", "Kg", "g", "Metro", "Litro", "ml", "Frasco", "Caixa", "Pacote"];
 /** Datalist "Compra por" — mesma lista do ProdutoFormModal (F2 — WIRE §3). */
 const UNIDADES_COMPRA = ["kg", "g", "L", "ml", "un", "lata", "caixa", "pacote", "m"];
+
+/**
+ * C9 — campo da LINHA ÚNICA de composição (WIRE COMPRA_TELA_C9_LINHA_UNICA):
+ * o visual do sheet (borda, fundo, anel de foco) em altura FIXA de 44px
+ * (alvo de toque — guialeta 6) e fonte 16px (sem zoom do iOS), sem o
+ * `mt-1 w-full` do campoFormSheet que quebraria a fileira lado-a-lado. O
+ * `disabled:opacity-40` é o quadradinho Qtd/R$ "esperando" o reconhecimento —
+ * mesma regra do antigo "linha 2 só aparece com item", agora à vista na
+ * fileira única em vez de sumir da tela.
+ */
+const campoLinhaUnica =
+  "h-11 rounded-xl border border-[#efefef] bg-white px-2 text-base text-[#1f2937] focus:outline-none focus:ring-2 focus:ring-[#86cb92]/30 focus:border-[#86cb92] disabled:opacity-40";
 
 /**
  * Linha da compra aceita também o SNAPSHOT do item recém-cadastrado no
@@ -428,7 +468,8 @@ export function NovaCompraPage() {
   // C4/C8 — Linha Rápida: nome digitado NA PRÓPRIA barra (o datalist entrega o
   // completion; sem painel de candidatos) + insumo RECONHECIDO por igualdade
   // exata nome/SKU. O selInsumo sobrevive só para o snapshot U2.2 (item recém-
-  // cadastrado, antes do refetch). qtd/valor ficam na linha 2.
+  // cadastrado, antes do refetch). C9: qtd/valor são os QUADRADINHOS DA MESMA
+  // fileira (a "linha 2" do C4/C8 morreu — ver o parágrafo C9 no topo).
   const [termoNome, setTermoNome] = useState("");
   const [selInsumo, setSelInsumo] = useState<Produto | LinhaNova | null>(null);
   const [rapidoQtd, setRapidoQtd] = useState("1");
@@ -493,13 +534,14 @@ export function NovaCompraPage() {
     );
   }, [selInsumo, insumos, qInsumo]);
 
-  // C8 — o reconhecer() de toque morreu com o painel; a parte que IMPORTAVA
+  // C8/C9 — o reconhecer() de toque morreu com o painel; a parte que IMPORTAVA
   // dele (pré-preencher qtd/valor na chegada de um item — regra determinística
   // C5 §2: histórico DESTE item, ou vazio; nunca o valor do item anterior)
   // vive aqui, por id: só dispara quando o reconhecimento MUDA de item, então
   // o fundador pode editar qtd/valor à vontade no MESMO item sem o efeito
   // sobrescrever. O cursor fica na barra (zero roubo de foco no meio da
-  // digitação — fluxo: completar → conferir na linha 2 → Enter/Adicionar).
+  // digitação — fluxo C9: completar → conferir nos quadradinhos da fileira →
+  // Enter/＋).
   useEffect(() => {
     const id = insumoReconhecido?.id ?? null;
     if (id === ultimoReconhecidoId.current) return;
@@ -520,11 +562,25 @@ export function NovaCompraPage() {
     return m;
   }, [itens]);
 
-  // C8 — o chip "N no carrinho" que vivia em cada linha do painel de
-  // candidatos agora cola no item RECONHECIDO da linha 2: o Adicionar vai
-  // SUMAR nessa quantidade (merge C4), então a contagem prévia é a informação
-  // que evita o "entrei duas vezes sem querer" do mercado.
+  // C8/C9 — o chip "N no carrinho" (órfão do painel de candidatos morto no C8)
+  // mora na FAIXA DE STATUS abaixo da fileira única, no item RECONHECIDO: o ＋
+  // vai SUMAR nessa quantidade (merge C4), então a contagem prévia é a
+  // informação que evita o "entrei duas vezes sem querer" do mercado.
   const noCarrinhoRapido = insumoReconhecido ? (qtdNoCarrinho.get(insumoReconhecido.id) ?? 0) : 0;
+
+  // C9 — a fileira única não tem espaço para o label longo do C2 ("Qtd
+  // (caixa)") nem para a conversão "1 caixa = 500 g": ambos mudam de casa para
+  // a faixa de status abaixo da linha. Derivados SEM hooks (escrita linear,
+  // ordem de hooks do componente intacta). A conversão espelha o critério do
+  // editor de linha: só aparece com unidade de compra e fator ≠ 1 válido.
+  const ucCompraRapida = insumoReconhecido?.unidadeCompra?.trim() || null;
+  const ucRapida = ucCompraRapida || insumoReconhecido?.unidade || null;
+  const fatorRapido =
+    insumoReconhecido?.fatorConversao == null ? 1 : Number(insumoReconhecido.fatorConversao);
+  const conversaoRapida =
+    ucCompraRapida && Number.isFinite(fatorRapido) && fatorRapido > 0 && fatorRapido !== 1
+      ? ` · 1 ${ucCompraRapida} = ${fmtNum(fatorRapido)} ${insumoReconhecido?.unidade ?? ""}`
+      : "";
 
   const selecionarFornecedor = (id: string) => {
     setFornecedorId(id);
@@ -582,23 +638,33 @@ export function NovaCompraPage() {
     return true;
   };
 
-  /** C4 — gatilho do botão ＋ Adicionar / Enter: exige item reconhecido.
-   *  C6-a: no sucesso, a barra de busca volta VAZIA para o próximo item. */
+  /** C4/C9 — gatilho do botão ＋ / Enter da fileira única: com item reconhecido
+   *  adiciona (merge C4); sem reconhecimento, texto digitado vira "cadastrar
+   *  na hora" (ramo C8 intacto) e campo vazio vira DICA (no C9 o ＋ está sempre
+   *  visível — toque mudo seria confusão; é feedback, não regra nova de
+   *  validação). C6-a: no sucesso, a barra volta VAZIA para o próximo item. */
   const adicionarDaLinhaRapida = () => {
     if (!insumoReconhecido) {
       // C8 — sem painel/candidatos filtrados, a regra do "não existe" é
       // direta: há texto digitado && o memo não reconheceu → cadastrar na
       // hora (o mini-sheet recebe o termo pré-cheio pela prop `termo`)
-      if (qInsumo) setMiniItemAberto(true);
+      if (qInsumo) {
+        setMiniItemAberto(true);
+        return;
+      }
+      // C9 — campo totalmente vazio: o ＋ não apaga nada nem finge add; dá a
+      // dica no mesmo slot de erro (some no próximo toque/tecla).
+      setErro("Escreva o nome ou o SKU do item primeiro.");
       return;
     }
     if (adicionar(insumoReconhecido, rapidoQtd, rapidoValor)) {
       // C6-a — RESET TOTAL da barra (fundador em teste real; o "nome fica/
       // seleção segue" do C4 está SUPERSEDED): nome limpa, seleção limpa,
-      // qtd volta a 1 e o valor some. Sem selInsumo e com o termo vazio, o
-      // memo insumoReconhecido cai sozinho e a linha 2 desaparece por própria
-      // conta — os setState abaixo são escrita direta no estado, NADA passa
-      // pelo onChange (nenhum efeito colateral no rascunho/sessionStorage).
+      // qtd volta a 1 e o valor some. No C9 a fileira única fica na tela —
+      // quem reseta são os quadradinhos (e a faixa de status cai junto quando
+      // o memo insumoReconhecido esvazia, sem selInsumo e com termo vazio);
+      // os setState abaixo são escrita direta no estado, NADA passa pelo
+      // onChange (nenhum efeito colateral no rascunho/sessionStorage).
       setSelInsumo(null);
       setTermoNome("");
       setRapidoQtd("1");
@@ -982,12 +1048,13 @@ export function NovaCompraPage() {
           />
         </label>
 
-        {/* ── Linha Rápida (WIRE C4 §1 + C8): nome com AUTOCOMPLETE NATIVA do
-            navegador (datalist) — a sugestão completa DENTRO da própria barra,
-            sem painel. Quando o texto bate com um insumo, a linha 2 COLADA
-            libera `Qtd (unidade)` · R$ · [chip] [＋ Adicionar]. Teclado não
-            fecha no ciclo: as ações da linha usam pointerdown preventDefault
-            (padrão provado no C3). ── */}
+        {/* ── Linha Rápida C9 (WIRE COMPRA_TELA_C9_LINHA_UNICA): UMA fileira
+            [campo do item com datalist NATIVA C8] · [Qtd] · [R$] · [＋]. A
+            "linha 2" que abria só com item reconhecido (C4/C8) morreu — qtd e
+            preço moram ENTRE o campo e o botão, sempre visíveis; a faixa de
+            status (chip "no carrinho" / CTA cadastrar / loading-erro) desceu
+            para abaixo da fileira e não contém inputs. Teclado não fecha no
+            ciclo: as ações usam pointerdown preventDefault (padrão do C3). ── */}
         <form
           onSubmit={(e) => {
             // C8 — sem o onKeyDown do painel morto, Enter na barra = submit do
@@ -1000,150 +1067,157 @@ export function NovaCompraPage() {
           className="relative mt-2 rounded-2xl border border-[#efefef] bg-white p-2.5 shadow-sm"
           aria-label="Linha rápida de compra"
         >
-          {/* Linha 1 — nome do item */}
-          <div className="relative">
-            <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#627271]" aria-hidden="true" />
+          {/* ══ LINHA ÚNICA DE COMPOSIÇÃO (C9) ══
+              [campo do produto com datalist NATIVA C8] · [quadradinho Qtd] ·
+              [quadradinho R$] · [botão ＋]. Os quadradinhos moram ENTRE o
+              campo e o botão, SEMPRE montados na mesma fileira (a "linha 2"
+              que abria/fechava do C4/C8 morreu). Qtd/R$ ficam DESABILITADOS e
+              enevoados até o item ser reconhecido — não é regra nova, é só o
+              espelho do antigo "linha 2 só com item reconhecido": sem o item,
+              qtd/preço não têm a quem pertencer. Ao reconhecer, o efeito C8
+              pré-cheia qtd=1 + último preço DESTE item (regra determinística
+              C5 §2 intacta). ＋ SEMPRE ativo: reconhecido → adiciona; texto sem
+              match → cadastrar na hora; vazio → dica (adicionarDaLinhaRapida).
+              Teclado nunca fecha: ＋ usa pointerdown preventDefault e devolve
+              o foco ao campo do produto (guialeta 1). Alvos = h-11 (44px),
+              inputs text-base (16px, sem zoom iOS) — guialeta 6. ── */}
+          <div className="flex items-stretch gap-1.5">
+            {/* campo do produto (flex-1) + datalist NATIVA (C8) */}
+            <div className="relative min-w-0 flex-1">
+              <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#627271]" aria-hidden="true" />
+              <input
+                ref={nomeInputRef}
+                type="text"
+                value={termoNome}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setTermoNome(v);
+                  // editar o texto quebra o reconhecimento — o selInsumo do
+                  // snapshot U2.2 só sobrevive se o texto ainda for o nome
+                  // C5 §2 — quebrou o reconhecimento (ou o nome foi esvaziado):
+                  // os quadradinhos voltam ao estado limpo (qtd 1, valor VAZIO)
+                  // — o preço do item anterior nunca fica pendurado no próximo.
+                  // O texto voltando a bater, o efeito C8 re-pré-cheia qtd/valor.
+                  if (
+                    v.trim() === "" ||
+                    (selInsumo && v.trim().toLowerCase() !== selInsumo.nome.trim().toLowerCase())
+                  ) {
+                    setSelInsumo(null);
+                    setRapidoQtd("1");
+                    setRapidoValor("");
+                  }
+                  setErro("");
+                }}
+                placeholder="Item ou SKU (ex.: caixa de uva)"
+                aria-label="Nome do item da compra"
+                autoComplete="on"
+                list="nc-insumo-list"
+                enterKeyHint="next"
+                className={`${campoLinhaUnica} w-full pl-9`}
+              />
+
+              {/* C8 — datalist NATIVO (intocado): browser filtra/completa na
+                  barra, zero overlay, teclado nunca fecha. Reconhecimento por
+                  IGUALDADE DE TEXTO no memo → efeito C8 pré-cheia os
+                  quadradinhos com qtd=1 + último preço DESTE item. */}
+              <datalist id="nc-insumo-list">
+                {nomesInsumo.map((nome) => (
+                  <option key={nome} value={nome} />
+                ))}
+              </datalist>
+            </div>
+
+            {/* quadradinho QTD — quantidade na unidade de COMPRA (C2). Gate de
+                reconhecimento: sem item, qtd não tem a quem pertencer (era o
+                que a "linha 2" escondia; aqui fica à vista, só enevoada).
+                Placeholder curto "Qtd" como pediu o fundador. */}
             <input
-              ref={nomeInputRef}
-              type="text"
-              value={termoNome}
+              type="number"
+              min="0"
+              step="any"
+              inputMode="decimal"
+              value={rapidoQtd}
+              disabled={!insumoReconhecido}
               onChange={(e) => {
-                const v = e.target.value;
-                setTermoNome(v);
-                // editar o texto quebra o reconhecimento — o selInsumo do
-                // snapshot U2.2 só sobrevive se o texto ainda for o nome
-                // C5 §2 — quebrou o reconhecimento (ou o nome foi esvaziado):
-                // a linha 2 volta ao estado limpo (qtd 1, valor VAZIO) — o
-                // preço do item anterior nunca fica pendurado no próximo. No
-                // C8 é o que faz a barra "recomeçar" quando o fundador edita
-                // depois de uma completion; o texto voltando a bater, o efeito
-                // C8 re-pré-cheia qtd/valor do item certo.
-                if (
-                  v.trim() === "" ||
-                  (selInsumo && v.trim().toLowerCase() !== selInsumo.nome.trim().toLowerCase())
-                ) {
-                  setSelInsumo(null);
-                  setRapidoQtd("1");
-                  setRapidoValor("");
-                }
+                setRapidoQtd(e.target.value);
                 setErro("");
               }}
-              placeholder="O que é? Nome ou SKU (ex.: caixa de uva)"
-              aria-label="Nome do item da compra"
-              autoComplete="on"
-              list="nc-insumo-list"
+              placeholder="Qtd"
+              aria-label={`Quantidade${ucRapida ? ` (${ucRapida})` : ""}`}
               enterKeyHint="next"
-              className={`${campoFormSheet} pl-9 text-base`}
+              className={`${campoLinhaUnica} w-16 text-center`}
             />
 
-            {/* C8 — datalist NATIVO no lugar do painel custom (C3/C4/C6-b): o
-                browser filtra e completa DENTRO da barra — zero overlay,
-                teclado nunca fecha, menos um clique. Opções = nomes do
-                catálogo completo dedupe-por-nome (opções repetidas confundem
-                o datalist), SEM filtro e SEM slice nossos — quem filtra é o
-                BROWSER. SKU não vira option, mas o memo continua reconhecendo
-                texto == SKU. Completion aceita → texto == nome exato → memo
-                reconhece → efeito C8 abre a linha 2 com qtd=1 + último preço
-                DESTE item. Custo consciente: ordenação/visual do dropdown são
-                do browser e o chip "no carrinho" saiu da lista — migrou pra
-                linha 2 (abaixo do Adicionar). ── */}
-            <datalist id="nc-insumo-list">
-              {nomesInsumo.map((nome) => (
-                <option key={nome} value={nome} />
-              ))}
-            </datalist>
+            {/* quadradinho PREÇO — mesma máscara R$ do C2 (masks.ts: dígitos
+                empurram centavos). Placeholder curto "R$". Vazio ao adicionar
+                em merge = mantém o preço da linha que já está no carrinho
+                (adicionar() decide; semantics C4 intactas). */}
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              value={rapidoValor}
+              disabled={!insumoReconhecido}
+              onChange={(e) => {
+                setRapidoValor(mascararMoeda(e.target.value));
+                setErro("");
+              }}
+              placeholder="R$"
+              aria-label="Valor unitário em reais"
+              enterKeyHint="done"
+              className={`${campoLinhaUnica} w-[5.25rem]`}
+            />
+
+            {/* botão ＋ adicionar — o que NÃO rouba o foco: pointerdown
+                preventDefault mantém o teclado aberto o ciclo inteiro (padrão
+                do C3/C4). type=button + submit só via Enter → sem re-submit.
+                Manda para o MESMO adicionarDaLinhaRapida (merge C4, reset
+                total C6-a, foco devolvido à barra). Mobile = quadrado com o
+                glyph ＋ (48×44px de alvo); desktop (sm+) recupera a label. */}
+            <button
+              type="button"
+              onPointerDown={(e) => {
+                e.preventDefault();
+                adicionarDaLinhaRapida();
+              }}
+              aria-label={
+                insumoReconhecido
+                  ? `Adicionar ${insumoReconhecido.nome} ao carrinho`
+                  : qInsumo
+                    ? `Cadastrar “${termoNome.trim().slice(0, 40)}” e adicionar`
+                    : "Adicionar item ao carrinho"
+              }
+              className="flex h-11 w-12 shrink-0 items-center justify-center rounded-xl bg-[#86cb92] text-[#1f2937] transition-colors hover:bg-[#1f2937] hover:text-white active:bg-[#1f2937] active:text-white sm:w-auto sm:gap-1.5 sm:px-3"
+              style={{ fontWeight: 700 }}
+            >
+              <Plus size={18} />
+              <span className="hidden text-xs sm:inline">Adicionar</span>
+            </button>
           </div>
 
-
-          {/* C8 — o painel custom de candidatos de insumo (skeleton / erro /
-              vazio / lista com tap C6-b / CTA cadastrar) MORREU aqui: virou o
-              <datalist> nativo acima. loading/erro+retry e o "+ Cadastrar na
-              hora" ganharam lugar enxuto na área da linha 2; o chip "N no
-              carrinho" migrou pra cima do botão Adicionar. */}
-
-          {/* Linha 2 — só aparece com item RECONHECIDO (WIRE C4 §1; C8: o
-              reconhecimento chega pelo texto exato que o datalist entrega na
-              barra). Colunas coladas Qtd · Valor · [chip] Adicionar. O
-              pré-preenchimento (efeito C8: qtd 1 + último preço DESTE item) é
-              o "conferir e adicionar" de sempre. */}
+          {/* FAIXA DE STATUS abaixo da fileira única — só CONTEXTO, sem inputs
+              (é isso que a separa da extinta "linha 2" de composição):
+              reconhecido → unidade de compra + conversão (C2) + chip "N no
+              carrinho" (o merge C4 soma É contra esse número); texto sem match
+              → carregando… / erro+retry / "+ Cadastrar na hora" (mesmos ramos
+              C8, nova morada); campo vazio → nada: barra limpa só com o
+              placeholder guiando. */}
           {insumoReconhecido ? (
-            <div className="mt-1.5 grid grid-cols-[minmax(0,6.5rem)_minmax(0,1fr)_auto] items-end gap-1.5">
-              <label className="block">
-                <span className="mb-1 block text-[10px] leading-none text-[#627271]" style={{ fontWeight: 600 }}>
-                  Qtd ({insumoReconhecido.unidadeCompra?.trim() || insumoReconhecido.unidade}) *
-                </span>
-                <input
-                  type="number"
-                  min="0"
-                  step="any"
-                  inputMode="decimal"
-                  value={rapidoQtd}
-                  onChange={(e) => {
-                    setRapidoQtd(e.target.value);
-                    setErro("");
-                  }}
-                  placeholder="1"
-                  aria-label={`Quantidade em ${insumoReconhecido.unidadeCompra?.trim() || insumoReconhecido.unidade}`}
-                  enterKeyHint="done"
-                  className={`${campoFormSheet} px-2.5 text-base`}
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-[10px] leading-none text-[#627271]" style={{ fontWeight: 600 }}>
-                  Valor unitário
-                </span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  value={rapidoValor}
-                  onChange={(e) => {
-                    setRapidoValor(mascararMoeda(e.target.value));
-                    setErro("");
-                  }}
-                  placeholder="R$ 0,00"
-                  aria-label="Valor unitário em reais"
-                  enterKeyHint="done"
-                  className={`${campoFormSheet} px-2.5 text-base`}
-                />
-              </label>
-              {/* C8 — coluna da ação: o chip "N no carrinho" (órfão do painel
-                  que morreu) vive AGORA acima do Adicionar, dentro da MESMA
-                  coluna — sem estourar a fileira em meia tela. Some quando o
-                  item ainda não tem linha no carrinho. */}
-              <div className="flex flex-col items-stretch">
-                {noCarrinhoRapido > 0 && (
-                  <span
-                    className="mb-1 inline-flex items-center justify-center gap-1 self-start whitespace-nowrap rounded-full border px-1.5 text-[10px] leading-[16px]"
-                    style={{ background: "#F0FDF4", borderColor: "#A7F3D0", color: "#059669", fontWeight: 600 }}
-                  >
-                    {fmtNum(noCarrinhoRapido)} no carrinho
-                  </span>
-                )}
-                <button
-                  type="button"
-                  // C4 — o botão que NÃO rouba o foco: pointerdown
-                  // preventDefault mantém o teclado aberto durante o ciclo
-                  // inteiro (padrão do C3). O clique depois do preventDefault
-                  // não re-submete (type=button + submit só via Enter).
-                  onPointerDown={(e) => {
-                    e.preventDefault();
-                    adicionarDaLinhaRapida();
-                  }}
-                  aria-label={`Adicionar ${insumoReconhecido.nome} ao carrinho`}
-                  className="flex min-h-[48px] items-center justify-center gap-1.5 rounded-xl bg-[#86cb92] px-3 text-[#1f2937] transition-colors hover:bg-[#1f2937] hover:text-white active:bg-[#1f2937] active:text-white"
-                  style={{ fontWeight: 700 }}
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+              <p className="min-w-0 flex-1 truncate text-[11px] leading-snug text-[#627271]" style={{ fontWeight: 500 }}>
+                {insumoReconhecido.nome} · Qtd em {ucRapida}
+                {conversaoRapida}
+              </p>
+              {noCarrinhoRapido > 0 && (
+                <span
+                  className="inline-flex shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border px-1.5 text-[10px] leading-[16px]"
+                  style={{ background: "#F0FDF4", borderColor: "#A7F3D0", color: "#059669", fontWeight: 600 }}
                 >
-                  <Plus size={16} />
-                  <span className="text-xs">Adicionar</span>
-                </button>
-              </div>
+                  {fmtNum(noCarrinhoRapido)} no carrinho
+                </span>
+              )}
             </div>
           ) : qInsumo && produtosLoading && produtos.length === 0 ? (
-            // C8 — os estados que IMPORTAM migraram do painel morto para a
-            // área da linha 2, enxutos: carregando… / erro com retry / o CTA
-            // "cadastrar na hora". qInsumo vazio = NADA — linha rápida limpa,
-            // só o placeholder guiando.
             <p className="mt-1.5 text-[11px] leading-snug text-[#627271]" role="status">
               Carregando insumos...
             </p>
@@ -1160,9 +1234,10 @@ export function NovaCompraPage() {
               </button>
             </div>
           ) : qInsumo ? (
-            // C8 — texto digitado sem match no catálogo (produtos carregados,
-            // sem erro): cadastrar na hora — o MESMO mini-sheet U2.2 de antes,
-            // com o termo pré-cheio pela prop `termo`
+            // texto digitado sem match no catálogo (produtos carregados, sem
+            // erro): cadastrar na hora — o MESMO mini-sheet U2.2 de antes, com
+            // o termo pré-cheio pela prop `termo`. O ＋ da fileira dispara o
+            // mesmo ramo; este CTA é a trilha visível de quem prefere tocar.
             <button
               type="button"
               onClick={() => setMiniItemAberto(true)}
@@ -1210,8 +1285,8 @@ export function NovaCompraPage() {
             </div>
             <p className="text-sm font-semibold text-[#1f2937]">Carrinho vazio</p>
             <p className="mt-1 text-xs text-[#627271]">
-              Escreva o item na Linha Rápida acima, confira qtd e preço e toque em{" "}
-              &ldquo;+ Adicionar&rdquo; — item por item, igual lista de mercado.
+              Escreva o item na linha acima, ajuste Qtd e R$ nos quadradinhos ao lado e toque no{" "}
+              &ldquo;＋&rdquo; — item por item, igual lista de mercado.
             </p>
           </div>
         ) : (
