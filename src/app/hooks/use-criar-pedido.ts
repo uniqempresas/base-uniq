@@ -115,13 +115,17 @@ export function useCriarPedido() {
                 if (existente) {
                   clienteId = existente.id;
                 } else {
-                  console.error(
-                    "[useCriarPedido] 23505 sem cliente recuperável pelo telefone:",
-                    clienteError
+                  // Falha real do banco — surface em vez de engolir (o pedido não
+                  // pode nascer sem cliente sem o usuário saber o porquê).
+                  throw new Error(
+                    `Não foi possível registrar o cliente: ${clienteError.message}`
                   );
                 }
               } else {
-                console.error("[useCriarPedido] Erro ao criar cliente:", clienteError);
+                // Falha real do banco — surface em vez de console-only.
+                throw new Error(
+                  `Problema ao registrar o cliente (${clienteError.code}): ${clienteError.message}`
+                );
               }
             } else {
               clienteId = novoCliente?.id || null;
@@ -156,8 +160,10 @@ export function useCriarPedido() {
 
         if (vendaError) throw vendaError;
 
-        // Grava os itens em me_itens_venda (alimenta DRE / CMV)
-        if (itens.length > 0 && novaVenda?.id) {
+          // Grava os itens em me_itens_venda (alimenta DRE / CMV).
+          // `subtotal` é coluna GERADA pelo banco (preco_unitario × quantidade) —
+          // gravar valor nela recusa o INSERT (428C9). Prova SQL 15/10.
+          if (itens.length > 0 && novaVenda?.id) {
           const { error: itensError } = await supabase.from("me_itens_venda").insert(
             itens.map((i) => ({
               venda_id: novaVenda.id,
@@ -166,7 +172,6 @@ export function useCriarPedido() {
               nome_produto: i.nome_produto,
               quantidade: i.quantidade,
               preco_unitario: i.preco_unitario,
-              subtotal: i.preco_unitario * i.quantidade,
               tipo_item: "produto",
             }))
           );
@@ -179,7 +184,15 @@ export function useCriarPedido() {
           id: novaVenda?.id,
         };
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Erro ao criar pedido";
+        // Erros do Supabase chegam como objeto pleno (PostgrestError) — NÃO são
+        // `instanceof Error`, e viravam a mensagem genérica "Erro ao criar pedido"
+        // que engoliu o problema real (subtotal gerado, 15/10). Extrai o `message`.
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : err && typeof err === "object" && "message" in err
+              ? String((err as { message: unknown }).message)
+              : "Erro ao criar pedido";
         setError(errorMessage);
         return {
           success: false,
