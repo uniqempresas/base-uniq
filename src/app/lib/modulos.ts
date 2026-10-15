@@ -17,6 +17,11 @@ export interface Modulo {
 
 export const MODULOS_STORAGE_KEY = 'uniq-modulos-ativos';
 
+// 15/10/2026 (fundador): menu IGUAL no notebook × celular — Visão Geral, Pedidos
+// e Cadastros sempre disponíveis. O localStorage de cada navegador ainda vence o
+// catálogo (B10 — migração por dispositivo), então estados guardados num aparelho
+// permanecem; o default abaixo habilita dispositivos novos (ex.: notebook).
+// Métricas e Marketplace seguem nao_adquirido.
 export const MODULOS_ATIVOS_INICIAIS: Modulo[] = [
   { id: '1', codigo: 'dashboard', nome: 'Dashboard', descricao: 'Visão geral do seu negócio em tempo real.', categoria: 'core', preco: 0, icone: 'LayoutDashboard', status: 'core', funcionalidades: ['KPIs em tempo real', 'Gráficos de desempenho', 'Alertas personalizados'] },
   { id: '2', codigo: 'minha_empresa', nome: 'Minha Empresa', descricao: 'Gerencie dados e identidade da sua empresa.', categoria: 'core', preco: 0, icone: 'Building2', status: 'core', funcionalidades: ['Dados cadastrais', 'Logo e branding', 'Redes sociais'] },
@@ -32,7 +37,7 @@ export const MODULOS_ATIVOS_INICIAIS: Modulo[] = [
   { id: '11', codigo: 'mel', nome: 'MEL IA', descricao: 'Assistente virtual powered by IA.', categoria: 'premium', preco: 99, icone: 'Sparkles', status: 'core', funcionalidades: ['Respostas automáticas', 'Análise de sentimento', 'Sugestões inteligentes'] },
   { id: '12', codigo: 'chatbot', nome: 'Chatbot', descricao: 'Atendimento automatizado 24/7.', categoria: 'premium', preco: 79, icone: 'MessageSquare', status: 'core', funcionalidades: ['Fluxos de conversa', 'Integração WhatsApp', 'Relatórios de atendimento'] },
   { id: '13', codigo: 'marketplace', nome: 'Marketplace', descricao: 'Venda em múltiplos canais.', categoria: 'premium', preco: 79, icone: 'ShoppingBag', status: 'nao_adquirido', funcionalidades: ['Vitrine de produtos', 'Gestão de pedidos', 'Avaliações de clientes'] },
-  { id: '14', codigo: 'fornecedores', nome: 'Fornecedores', descricao: 'Gestão de fornecedores e compras.', categoria: 'operacional', preco: 49, icone: 'Truck', status: 'nao_adquirido', funcionalidades: ['Cadastro de fornecedores', 'Ordens de compra', 'Comparativo de preços'] },
-  { id: '15', codigo: 'servicos', nome: 'Catálogo de Serviços', descricao: 'Cadastre e gerencie seus serviços.', categoria: 'operacional', preco: 49, icone: 'Scissors', status: 'nao_adquirido', funcionalidades: ['Cadastro de serviços', 'Comissionamento', 'Agenda integrada'] },
-  { id: '16', codigo: 'colaboradores', nome: 'Colaboradores', descricao: 'Gestão de equipe e permissões.', categoria: 'operacional', preco: 49, icone: 'UserCog', status: 'nao_adquirido', funcionalidades: ['Cadastro de colaboradores', 'Controle de permissões', 'Escala de trabalho'] },
+  { id: '14', codigo: 'fornecedores', nome: 'Fornecedores', descricao: 'Gestão de fornecedores e compras.', categoria: 'operacional', preco: 49, icone: 'Truck', status: 'ativo', funcionalidades: ['Cadastro de fornecedores', 'Ordens de compra', 'Comparativo de preços'] },
+  { id: '15', codigo: 'servicos', nome: 'Catálogo de Serviços', descricao: 'Cadastre e gerencie seus serviços.', categoria: 'operacional', preco: 49, icone: 'Scissors', status: 'ativo', funcionalidades: ['Cadastro de serviços', 'Comissionamento', 'Agenda integrada'] },
+  { id: '16', codigo: 'colaboradores', nome: 'Colaboradores', descricao: 'Gestão de equipe e permissões.', categoria: 'operacional', preco: 49, icone: 'UserCog', status: 'ativo', funcionalidades: ['Cadastro de colaboradores', 'Controle de permissões', 'Escala de trabalho'] },
 ];

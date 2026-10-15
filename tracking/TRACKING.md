@@ -1379,6 +1379,23 @@ Decision #0 (Supabase oficial) · Diagnóstico real · Plano de 5 semanas aprova
 
 ---
 
+## 🧭 MENU IGUAL NO NOTEBOOK × CELULAR (15/10/2026)
+
+**WHY:** o fundador testando no note não tinha como fazer pedido — clicar "Minha Empresa" ia direto para Configurações, e o menu mostrava menos itens que no celular.
+
+**Diagnóstico (AppLayout + modulos.ts):**
+1. `RAIL_ITEMS["minha-empresa"].path = "/configuracoes/empresa"` → o clique do rail desktop navegava para o cadastro e **trocava a subnav**, escondendo Visão Geral/Pedidos/Cadastros (que já existiam em `SUBNAV_SECTIONS["minha-empresa"]`). No celular o clique é acordeão — por isso parecia diferente.
+2. O filtro de subnav usa `modulosAtivos` do **localStorage por dispositivo** (B10): módulos `nao_adquirido` no catálogo escondem os filhos de Cadastros em um localStorage novo (note), enquanto o celular carrega estado antigo acumulado.
+
+**Correção (commits do dia 15/10):**
+- Rail "Minha Empresa" → `path: "/dashboard"` (Visão Geral; o submenu da seção é o mesmo nos dois dispositivos; Configurações continua no rodapé do rail)
+- Catálogo default (`lib/modulos.ts`): `servicos`, `fornecedores`, `colaboradores` → `ativo` para dispositivos novos (localStorage de cada aparelho continua vencendo — B10); Métricas e Marketplace seguem fora; Pedidos (`vendas`) e Clientes (`crm`) já eram `ativo`, Visão Geral (`dashboard`) e Produtos (`estoque`) são `core`
+- Rollback trivial: voltar `path` e os 3 status no catálogo.
+
+**Verificação:** `tsc` 0 erros · build OK. **Falta:** validação do fundador no note (novo localStorage) e no celular (localStorage antigo).
+
+---
+
 ## ✅ DEFINIÇÃO DE PRONTO (Definition of Done) — para toda tela/tarefa
 
 - [ ] Estado visual completo: **loading (skeleton), empty, error, success**.

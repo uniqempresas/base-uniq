@@ -65,7 +65,12 @@ interface SubNavSection {
 }
 
 const RAIL_ITEMS: NavRailItem[] = [
-  { id: "minha-empresa", label: "Minha Empresa", icon: Fingerprint, path: "/configuracoes/empresa", moduloCodigo: "minha_empresa" },
+  // Decisão do fundador (15/10): menu IGUAL no notebook × celular — clicar em
+  // "Minha Empresa" abre a Visão Geral (/dashboard) com o submenu da seção
+  // (Visão Geral · Pedidos · Cadastros ▸ …). O path antigo
+  // (/configuracoes/empresa) trocava a subnav e escondia os itens de operação;
+  // Configurações continua no rodapé do rail (item próprio).
+  { id: "minha-empresa", label: "Minha Empresa", icon: Fingerprint, path: "/dashboard", moduloCodigo: "minha_empresa" },
   // Estoque de volta ao rail (pedido do fundador, 06/10/2026) — o Menu Enxuto o
   // tinha removido; o único acesso era "Cadastros ▸ Produtos" e o card em
   // Meus Módulos. Módulo é core: sempre visível. Ver TRACKING_ESTOQUE.md.
