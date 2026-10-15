@@ -80,7 +80,15 @@ export function validarConversaoCompra(
     ? Number(fatorConversao)
     : null;
 
-  const mesmaUnidade = uc.toLowerCase() === est.toLowerCase();
+  // Apelidos da mesma unidade — o fundador digita "un", "und" ou "Unidade"
+  // e a regra não pode tratá-los como unidades diferentes (Limão, 15/10).
+  const APELIDO_UNIDADE: Record<string, string> = { un: "unidade", und: "unidade" };
+  const normalizarUnidade = (u: string): string => {
+    const n = u.trim().toLowerCase();
+    return APELIDO_UNIDADE[n] ?? n;
+  };
+
+  const mesmaUnidade = normalizarUnidade(uc) === normalizarUnidade(est);
   if (mesmaUnidade) {
     if (fatorValido === null || fatorValido === 1) return null;
     return (
@@ -92,7 +100,8 @@ export function validarConversaoCompra(
   if (fatorValido === null || !(fatorValido > 1)) {
     return (
       `Se 1 ${uc} ≠ 1 ${est}, diga quantos ${est} tem em 1 ${uc} ` +
-      `(ex.: 1 Caixa = 500 g → fator 500). O fator precisa ser maior que 1.`
+      `(ex.: 1 Caixa = 500 g → fator 500). O fator precisa ser maior que 1. ` +
+      `(Se você compra e guarda na MESMA unidade, escreva os dois campos iguais.)`
     );
   }
   return null;
