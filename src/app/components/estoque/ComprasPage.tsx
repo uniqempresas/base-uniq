@@ -50,10 +50,12 @@ import {
   ShoppingCart,
   Trash2,
   Truck,
+  Undo2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { addDays, format, isSameMonth, parseISO } from "date-fns";
+import { supabase } from "../../../lib/supabase";
 import { formatCurrency } from "../../lib/produto-utils";
 import { useCompras } from "../../hooks/use-compras";
 import { useProdutos } from "../../hooks/use-produtos";
@@ -76,6 +78,7 @@ import {
 import type { Produto } from "../../types/produto";
 import { useReceberCompra, type ReceberCompraParams, type ReceberCompraResult } from "../../hooks/use-receber-compra";
 import { useCancelarCompra } from "../../hooks/use-cancelar-compra";
+import { useEstornarRecebimento } from "../../hooks/use-estornar-recebimento";
 // T4 — WIRE-Producao-Redesign: banda de sucesso + legenda + cálculo front-only
 import { useFichaTecnica } from "../../hooks/use-ficha-tecnica";
 import { perdaAplicada, receitasMaximas } from "../../lib/conversao";
@@ -159,6 +162,47 @@ function toastRecebido(rc: ReceberCompraResult): string {
   return "Compra recebida — estoque atualizado · conta a pagar criada";
 }
 
+/* ───────────────────── disponibilidade de estorno (E1) ─────────────────── */
+
+/** Hint EXATA do WIRE E1 — compra recebida antes da tabela de snapshot existir. */
+const HINT_ESTORNO_ANTIGO =
+  "compra antiga — recebida antes do estorno existir; corrija estoque e conta à mão";
+
+type DisponibilidadeEstorno = "loading" | "disponivel" | "indisponivel" | "erro";
+
+/**
+ * EstornoRecebimento E1 — SELECT leve em `est_recebimento` por compra
+ * (snapshot com `estornado_em IS NULL` ⇒ estornável; sem linha ⇒ compra
+ * antiga). Consulta barata, memoizada por compra id; `erro` de rede mantém o
+ * botão habilitado — a RPC tem o guarda `NO_SNAPSHOT` e devolve a mesma
+ * mensagem humana.
+ */
+function useDisponibilidadeEstorno(compraId: string | null): DisponibilidadeEstorno {
+  const [estado, setEstado] = useState<DisponibilidadeEstorno>("loading");
+
+  useEffect(() => {
+    if (!compraId) return undefined;
+    let ativo = true;
+    setEstado("loading");
+    supabase
+      .from("est_recebimento")
+      .select("id")
+      .eq("compra_id", compraId)
+      .is("estornado_em", null)
+      .limit(1)
+      .then(({ data, error }) => {
+        if (!ativo) return;
+        if (error) setEstado("erro");
+        else setEstado(data && data.length > 0 ? "disponivel" : "indisponivel");
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [compraId]);
+
+  return estado;
+}
+
 /* ───────────────────────────── página ───────────────────────────────── */
 
 const FILTRO_OPCOES: { valor: "TODOS" | StatusCompra; label: string }[] = [
@@ -185,12 +229,21 @@ export function ComprasPage() {
   const { produtos, recarregar: recarregarProdutos } = useProdutos();
   const { receberCompra, loading: recebendo } = useReceberCompra();
   const { cancelarCompra, loading: cancelando } = useCancelarCompra();
+  // EstornoRecebimento E1/E2 — escrita exclusiva via RPC `estornar_recebimento`
+  const { estornar, loading: estornando } = useEstornarRecebimento();
 
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState<"TODOS" | StatusCompra>("TODOS");
   const [receberAlvo, setReceberAlvo] = useState<Compra | null>(null);
   const [cancelarAlvo, setCancelarAlvo] = useState<Compra | null>(null);
   const [detalheAlvo, setDetalheAlvo] = useState<Compra | null>(null);
+  const [estornarAlvo, setEstornarAlvo] = useState<Compra | null>(null);
+  // E2 §Sucesso — banda de nível de página (o modal fecha; o feedback fica
+  // legível junto do card que voltou a PENDENTE)
+  const [estornoSucesso, setEstornoSucesso] = useState<{ compraId: string; fornecedor: string } | null>(
+    null
+  );
+  const estornoRecarregadoRef = useRef<string | null>(null);
 
   // T4 §2 — quando a lista chegar, abre o sheet da compra pedida pelo param —
   // só se existir E estiver PENDENTE (id inválido/já recebido = ignora
@@ -256,6 +309,28 @@ export function ComprasPage() {
     } else {
       toast.error(r.error || "Não foi possível cancelar a compra.");
     }
+  };
+
+  // ---------- EstornoRecebimento E2: abrir / sucesso ----------
+  const abrirEstorno = (compra: Compra) => {
+    setEstornoSucesso(null);
+    // guard de dupla-chamada é POR interação: ao reabrir o modal zera o ref,
+    // senão receber-de-novo + estornar a MESMA compra nunca mais daria refetch
+    estornoRecarregadoRef.current = null;
+    setEstornarAlvo(compra);
+  };
+
+  const aoEstornarSucesso = (compra: Compra) => {
+    // refetch idempotente: compras + produtos uma única vez por estorno
+    if (estornoRecarregadoRef.current !== compra.id) {
+      estornoRecarregadoRef.current = compra.id;
+      recarregar();
+      recarregarProdutos();
+    }
+    setEstornarAlvo(null);
+    // o sheet de detalhe em cima ficou obsoleto (mostra RECEBIDO de antes)
+    setDetalheAlvo(null);
+    setEstornoSucesso({ compraId: compra.id, fornecedor: compra.fornecedorNome });
   };
 
   // ---------- 1ª carga: skeleton ----------
@@ -476,6 +551,30 @@ export function ComprasPage() {
             </div>
           </section>
 
+          {/* EstornoRecebimento E2 §Sucesso — banda pós-estorno no nível da
+              página (o modal fecha; o feedback fica junto do card que voltou
+              a PENDENTE no refetch). role="status" para leitores de tela. */}
+          {estornoSucesso && (
+            <div
+              role="status"
+              className="mb-4 flex items-start justify-between gap-3 rounded-xl border px-4 py-3"
+              style={{ background: "#F0FDF4", borderColor: "#A7F3D0" }}
+            >
+              <p className="text-sm" style={{ color: "#059669", fontWeight: 600 }}>
+                ✓ Estornada · {estornoSucesso.fornecedor} — a compra voltou para PENDENTE. Corrija os
+                itens e receba de novo, ou cancele.
+              </p>
+              <button
+                type="button"
+                onClick={() => setEstornoSucesso(null)}
+                aria-label="Fechar aviso de estorno"
+                className="-mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#059669] transition-colors hover:bg-[#A7F3D0]/40"
+              >
+                <X size={15} />
+              </button>
+            </div>
+          )}
+
           {/* Lista */}
           <section className="overflow-hidden rounded-2xl border border-[#efefef] bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-[#efefef] px-4 py-3">
@@ -523,6 +622,7 @@ export function ComprasPage() {
                       onReceber={() => setReceberAlvo(compra)}
                       onCancelar={() => setCancelarAlvo(compra)}
                       onDetalhe={() => setDetalheAlvo(compra)}
+                      onEstornar={() => abrirEstorno(compra)}
                     />
                   ))}
                 </div>
@@ -549,6 +649,7 @@ export function ComprasPage() {
                           onReceber={() => setReceberAlvo(compra)}
                           onCancelar={() => setCancelarAlvo(compra)}
                           onDetalhe={() => setDetalheAlvo(compra)}
+                          onEstornar={() => abrirEstorno(compra)}
                         />
                       ))}
                     </tbody>
@@ -575,7 +676,19 @@ export function ComprasPage() {
         recarregarProdutos={recarregarProdutos}
       />
 
-      <DetalheCompraSheet compra={detalheAlvo} onClose={() => setDetalheAlvo(null)} />
+      <DetalheCompraSheet compra={detalheAlvo} onClose={() => setDetalheAlvo(null)} onEstornar={abrirEstorno} />
+
+      {/* EstornoRecebimento E2 — modal de confirmação próprio (sem
+          window.confirm), bottom-sheet padrão do Financeiro. Abre por cima do
+          sheet de detalhe quando a ação vem de lá. */}
+      <EstornarRecebimentoSheet
+        key={estornarAlvo?.id ?? "fechada"}
+        compra={estornarAlvo}
+        onClose={() => setEstornarAlvo(null)}
+        onSucesso={aoEstornarSucesso}
+        estornar={estornar}
+        salvando={estornando}
+      />
 
       {/* Confirm Cancelar — padrão do projeto (dialog central, excluir produto) */}
       {cancelarAlvo && (
@@ -639,15 +752,24 @@ function AcoesCompra({
   onReceber,
   onCancelar,
   onDetalhe,
+  onEstornar,
   tall = false,
 }: {
   compra: Compra;
   onReceber: () => void;
   onCancelar: () => void;
   onDetalhe: () => void;
+  onEstornar: () => void;
   tall?: boolean;
 }) {
   const pendente = compra.status === "PENDENTE";
+  // EstornoRecebimento E1 — [Estornar] é ação SECUNDÁRIA do card RECEBIDO,
+  // ao lado do Detalhes. Disponibilidade vem do banco (snapshot em
+  // `est_recebimento`); loading = skeleton do MESMO tamanho (refetch não
+  // refaz layout — HOTFIX 06/10).
+  const recebido = compra.status === "RECEBIDO";
+  const dispEstorno = useDisponibilidadeEstorno(recebido ? compra.id : null);
+
   return (
     <div className="flex items-center justify-end gap-1.5">
       {pendente && (
@@ -669,6 +791,28 @@ function AcoesCompra({
         <Eye size={15} />
         {tall && <span>Detalhe</span>}
       </button>
+      {recebido &&
+        (dispEstorno === "loading" ? (
+          <span
+            aria-hidden="true"
+            className={`inline-block ${tall ? "h-10 w-[88px]" : "h-9 w-[78px]"} animate-pulse rounded-xl bg-[#efefef]`}
+          />
+        ) : (
+          <button
+            onClick={onEstornar}
+            disabled={dispEstorno === "indisponivel"}
+            aria-label={
+              dispEstorno === "indisponivel"
+                ? `Estornar recebimento indisponível — ${HINT_ESTORNO_ANTIGO}`
+                : `Estornar recebimento da compra de ${compra.fornecedorNome}`
+            }
+            title={dispEstorno === "indisponivel" ? HINT_ESTORNO_ANTIGO : "Estornar"}
+            className={`inline-flex ${tall ? "h-10 px-3 text-xs" : "h-9 px-2.5 text-xs"} items-center justify-center gap-1 rounded-xl border border-[#efefef] text-[#627271] transition-colors hover:bg-[#efefef] hover:text-[#1f2937] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[#627271]`}
+          >
+            <Undo2 size={14} />
+            Estornar
+          </button>
+        ))}
       {pendente && (
         <button
           onClick={onCancelar}
@@ -688,11 +832,13 @@ function CompraCard({
   onReceber,
   onCancelar,
   onDetalhe,
+  onEstornar,
 }: {
   compra: Compra;
   onReceber: () => void;
   onCancelar: () => void;
   onDetalhe: () => void;
+  onEstornar: () => void;
 }) {
   const cancelada = compra.status === "CANCELADO";
   return (
@@ -741,7 +887,7 @@ function CompraCard({
       )}
 
       <div className="mt-2.5">
-        <AcoesCompra compra={compra} onReceber={onReceber} onCancelar={onCancelar} onDetalhe={onDetalhe} tall />
+        <AcoesCompra compra={compra} onReceber={onReceber} onCancelar={onCancelar} onDetalhe={onDetalhe} onEstornar={onEstornar} tall />
       </div>
     </div>
   );
@@ -752,11 +898,13 @@ function CompraRow({
   onReceber,
   onCancelar,
   onDetalhe,
+  onEstornar,
 }: {
   compra: Compra;
   onReceber: () => void;
   onCancelar: () => void;
   onDetalhe: () => void;
+  onEstornar: () => void;
 }) {
   const cancelada = compra.status === "CANCELADO";
   return (
@@ -790,7 +938,7 @@ function CompraRow({
         <BadgeCompraStatus status={compra.status} />
       </td>
       <td className="px-4 py-3.5">
-        <AcoesCompra compra={compra} onReceber={onReceber} onCancelar={onCancelar} onDetalhe={onDetalhe} />
+        <AcoesCompra compra={compra} onReceber={onReceber} onCancelar={onCancelar} onDetalhe={onDetalhe} onEstornar={onEstornar} />
       </td>
     </tr>
   );
@@ -1144,7 +1292,19 @@ function FichaMaxRow({
 
 /* ───────────────────────── Sheet Detalhe Compra ──────────────────────── */
 
-function DetalheCompraSheet({ compra, onClose }: { compra: Compra | null; onClose: () => void }) {
+function DetalheCompraSheet({
+  compra,
+  onClose,
+  onEstornar,
+}: {
+  compra: Compra | null;
+  onClose: () => void;
+  onEstornar: (compra: Compra) => void;
+}) {
+  // E1 — [Estornar] também no sheet de detalhe (WIRE: "mesma linha de ações
+  // do Detalhe, também no sheet"). Hook ANTES do guard early-return (regras
+  // dos hooks); só consulta quando o estado da tela é RECEBIDO.
+  const dispEstorno = useDisponibilidadeEstorno(compra && compra.status === "RECEBIDO" ? compra.id : null);
   if (!compra) return null;
 
   return (
@@ -1178,6 +1338,29 @@ function DetalheCompraSheet({ compra, onClose }: { compra: Compra | null; onClos
           <button type="button" onClick={onClose} className={sheetButtonSecundario}>
             Fechar
           </button>
+          {compra.status === "RECEBIDO" &&
+            (dispEstorno === "loading" ? (
+              <span
+                aria-hidden="true"
+                className="block min-h-[44px] w-full animate-pulse rounded-xl bg-[#efefef] sm:flex-1 sm:w-auto"
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => onEstornar(compra)}
+                disabled={dispEstorno === "indisponivel"}
+                aria-label={
+                  dispEstorno === "indisponivel"
+                    ? `Estornar recebimento indisponível — ${HINT_ESTORNO_ANTIGO}`
+                    : `Estornar recebimento da compra de ${compra.fornecedorNome}`
+                }
+                title={dispEstorno === "indisponivel" ? HINT_ESTORNO_ANTIGO : undefined}
+                className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-[#FECACA] px-4 py-2.5 text-sm font-semibold text-[#B91C1C] transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent sm:flex-1"
+              >
+                <Undo2 size={15} />
+                Estornar
+              </button>
+            ))}
         </SheetFooterActions>
       }
     >
@@ -1224,6 +1407,143 @@ function DetalheCompraSheet({ compra, onClose }: { compra: Compra | null; onClos
         <span className="text-xl text-[#1f2937]" style={{ fontWeight: 700 }}>
           {formatCurrency(compra.valorTotal)}
         </span>
+      </div>
+    </BottomSheet>
+  );
+}
+
+/* ─────────────── EstornoRecebimento E2 — Modal de confirmação ─────────── */
+
+interface EstornarRecebimentoSheetProps {
+  compra: Compra | null;
+  onClose: () => void;
+  /** RPC chamada pelo hook (única escrita da ação) */
+  estornar: (p: { compraId: string }) => Promise<{ success: boolean; error?: string; detail?: string }>;
+  salvando: boolean;
+  /** sucesso: pai fecha o modal, recarrega (idempotente) e mostra a banda */
+  onSucesso: (compra: Compra) => void;
+}
+
+/**
+ * WIRE E2 — bottom-sheet de confirmação "Estornar recebimento · {fornecedor}".
+ * Lista "O QUE VAI ACONTECER" (4 itens secos), primário em esquema de perigo
+ * (padrão destrutivo do app), secundário fecha. Loading → "Estornando…"
+ * desabilitado; erro da RPC → banda NÃO ESTORNA com `error` integralmente
+ * (mensagem já humana — nada de raw SQL no jsonb da RPC).
+ */
+function EstornarRecebimentoSheet({
+  compra,
+  onClose,
+  estornar,
+  salvando,
+  onSucesso,
+}: EstornarRecebimentoSheetProps) {
+  const [erro, setErro] = useState("");
+
+  const confirmar = async () => {
+    if (!compra || salvando) return;
+    setErro("");
+    const r = await estornar({ compraId: compra.id });
+    if (r.success) {
+      onSucesso(compra);
+    } else {
+      // banda visível no sheet aberto; ações voltam habilitadas
+      setErro(r.error || "Não foi possível estornar o recebimento.");
+    }
+  };
+
+  if (!compra) return null;
+
+  return (
+    <BottomSheet
+      open
+      onClose={salvando ? () => undefined : onClose}
+      labelledBy="estornar-compra-titulo"
+      header={
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 id="estornar-compra-titulo" className="truncate text-base font-semibold text-[#1f2937] sm:text-lg">
+              Estornar recebimento · {compra.fornecedorNome}
+            </h2>
+            <p className="mt-0.5 text-xs text-[#627271]">
+              {compra.notaFiscal ? `NF ${compra.notaFiscal} · ` : ""}
+              {formatCurrency(compra.valorTotal)} · recebida em{" "}
+              {compra.dataRecebimento ? formatarDataBR(compra.dataRecebimento) : dataCompraBR(compra.dataCompra)}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            disabled={salvando}
+            aria-label="Fechar"
+            className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[#627271] transition-colors hover:bg-[#efefef] hover:text-[#1f2937] disabled:opacity-50"
+          >
+            <X size={20} />
+          </button>
+        </div>
+      }
+      footer={
+        <div>
+          {/* Error (E2) — banda NÃO ESTORNA acima das ações; `error` da RPC é a
+              mensagem humana integral (CONTA_PAGA / MOVIMENTACAO_POSTERIOR já
+              vêm completas no `error`). */}
+          {erro && (
+            <div
+              role="status"
+              className="mb-3 rounded-xl border p-3.5"
+              style={{ background: "#FEF2F2", borderColor: "#FECACA" }}
+            >
+              <p className="text-xs" style={{ color: "#B91C1C", fontWeight: 700 }}>
+                NÃO ESTORNA
+              </p>
+              <p className="mt-1 text-sm leading-snug" style={{ color: "#991B1B" }}>
+                {erro}
+              </p>
+            </div>
+          )}
+          <SheetFooterActions>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={salvando}
+              className={`${sheetButtonSecundario} disabled:opacity-50`}
+            >
+              Manter como está
+            </button>
+            <button
+              type="button"
+              onClick={confirmar}
+              data-sheet-foco
+              disabled={salvando}
+              aria-label={`Estornar recebimento da compra de ${compra.fornecedorNome}`}
+              className={sheetButtonPerigo}
+              style={{ background: "#DC2626" }}
+            >
+              {salvando ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Estornando…
+                </>
+              ) : (
+                "Estornar recebimento"
+              )}
+            </button>
+          </SheetFooterActions>
+        </div>
+      }
+    >
+      {/* O QUE VAI ACONTECER — rótulos secos do WIRE E2, 4 itens */}
+      <div className="rounded-xl border border-[#efefef] bg-[#f8f9fa] p-4" role="group" aria-labelledby="estornar-oque-titulo">
+        <p id="estornar-oque-titulo" className="mb-2 text-xs text-[#1f2937]" style={{ fontWeight: 700 }}>
+          O QUE VAI ACONTECER
+        </p>
+        <ul className="space-y-1.5 text-sm leading-snug text-[#1f2937]">
+          <li>· estoque e custo dos insumos voltam ao estado de ANTES do recebimento</li>
+          <li>· a conta a pagar fica CANCELADA no Financeiro</li>
+          <li>· a compra volta para PENDENTE</li>
+          <li>
+            · o extrato registra a saída "Estorno" — <span style={{ fontWeight: 600 }}>nada é apagado</span>
+          </li>
+        </ul>
       </div>
     </BottomSheet>
   );

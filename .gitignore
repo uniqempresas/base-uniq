@@ -35,5 +35,8 @@ commit_vendas.sh
 # Local scripts (não versionados)
 .local/
 
+# Supabase CLI artifacts
+supabase/.temp/
+
 # Deepwork progress
 .slim/deepwork/
