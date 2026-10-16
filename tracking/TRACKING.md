@@ -1486,37 +1486,75 @@ Commit `e0e7926` Â· entry servido `index-CEVpvBSP.js` Â· chunk `ComprasPage-ooQG
 
 ---
 
-## ? CRM de ponta a ponta (16/10/2026 — commit c500c92)
+## ðŸ§¹ RESET DO ZERO â€” estoque/produtos + financeiro da DoceÃª (16/10/2026)
 
-**Escopo:** (1) Pipeline 100% Supabase; (2) CRM no menu principal desktop + mobile. WIRE aprovado por delegação do fundador (sem validação prévia; valida no final — guia: 	racking/VALIDACAO-CRM-Pipeline-Menu.md).
+**Pedido:** o fundador vai testar o fluxo completo (insumo â†’ compra â†’ receber â†’ estorno â†’ produzir â†’ vender) do zero.
 
-**Feito:**
-- Migração crm_pipeline_melhorias: crm_oportunidades + estagio_desde/tualizado_em + trigger 	rg_crm_oportunidades_touch (recarta estagio_desde ao mudar estágio) + índices (empresa_id e etapas por posicao). Seed das 7 etapas padrão para tenants sem etapas (Doceê, Loja Teste01). UNIQ e Gráfica HQ mantiveram as etapas próprias.
-- Hook novos (padrão use-clientes.ts, guarda de empresa_id em todas as escritas): use-pipeline, use-clientes-lista, use-salvar-oportunidade (insert/update com eq empresa_id), use-mover-oportunidade (update estagio + log crm_atividades tipo 'movimentacao'; estagio_desde pela trigger), use-excluir-oportunidade.
-- PipelinePage.tsx reescrita p/ dados reais: kanban por crm_etapas.nome da empresa (cor hex ou fallback), cards com dias na etapa (=7d = atrasado, exceto ganho/perdido), probabilidade por posição, kano drag&drop otimista + toast com erro real, modal criar (cliente de me_cliente, título, valor mascarado, data), modal editar/excluir (confirmação 2 etapas), KPIs reais (em aberto, ganho no mês, atraso, ativas), filtro por cliente, skeleton/erro+retry/vazio global e por filtro. crmMockData.ts não carrega negociações na página (seguem para o dashboard onde ainda usadas).
-- AppLayout.tsx: item CRM no rail principal (após Financeiro, moduloCodigo 'crm' status ativo) + SUBNAV_SECTIONS CRM (Visão Geral, Pipeline, Clientes, Configurações) + RAIL_BY_PREFIX ['/crm','crm']. Desktop e mobile derivam da MESMA fonte (RAIL_ITEMS/SUBNAV_SECTIONS). "Clientes" em Cadastros mantido (decisão 15/10). CORE_MODULES intocado.
-- SPEC/WIRE: 	racking/specs/SPEC-CRM-Pipeline-Real-Menu.md, 	racking/wireframe/WIRE-CRM-Pipeline-Real-Menu.md.
+**Executado via `supabase db query --linked` (MCP fora; mesma via do estorno), transaÃ§Ã£o Ãºnica com guarda de contagens:**
 
-**Validação da entrega:** npm run build + tsc -b verdes; deploy Vercel READY (dpl_ArbFCGryM9DsLnHfYpmp8GusRweL, commit c500c92). Rollback = git revert c500c92 + migrations ficam (inofensivas).
-**Pendente/atenção:** crm_oportunidades/etapas/atividades RAG RLS desabilitado (mesmo estado global das outras 92 tabelas — hotspot relatado ao fundador; não alterado).
+| | Antes | Depois |
+|---|---|---|
+| est_compra / itens / est_recebimento | 6 / 13 / 2 | **0** |
+| me_produto (insumos + compostos + vendÃ¡veis, 13) | 13 | **0** |
+| est_movimentacao | 27 | **0** |
+| est_ficha_tecnica / est_ordem_producao | 9 / 3 | **0** |
+| me_contas_pagar (vinculadas a compras) | 6 | **0** |
+| me_contas_receber / me_movimentacao_financeira (2Âª rodada) | 2 / 0 | **0** |
+
+**Preservados:** fornecedores (6) Â· categorias (6) Â· categorias financeiras (5) Â· as 3 vendas da DoceÃª (itens de venda nÃ£o foram tocados â€” `produto_id` SET NULL por FK, medido **0** itens afetados) Â· produtos/movimentos das outras empresas (10 produtos intactos).
+
+**Backups no prÃ³prio banco:** `_bk_20261016_*` (9 tabelas â€” compras/produtos/estoque/financeiro de compra) e `_bk_20261016b_fin_*` (3 tabelas financeiras). Restaurar, se precisar: `INSERT INTO <tabela> SELECT * FROM _bk_20261016_<tabela>;` (os Ä‚Ä‘uios figuram na TRACKING normal; dados de teste â€” podem ser removidos quando o fundador confirmar).
+
+**âš ï¸ Ã“rfÃ£os de Storage:** fotos dos 13 produtos em `uniq_me_produtos/` sem dono (inofensivas, precede os resets anteriores).
 
 ---
 
-## ? CRM — Etapas configuráveis + Dashboard desmockado (16/10/2026 — commits e73d826, 38e1cf9)
+## ðŸ“± DENSIDADE MOBILE â€” Insumos E Produtos (16/10/2026)
 
-**Escopo adicional (fundador, 16/10):** (1) etapas do pipeline editáveis em CRM > Configurações; (2) dashboard CRM com dados reais + mobile compacto (padrão estoque dash). Ambos wire aprovado por delegação.
+**Relato real do fundador:** lista ilegÃ­vel Â· grid com 4 cards por tela Â· imagem do insumo (nÃ£o usada) dominando a tela â†’ "diminuir os quadros/numa imagem e caber ~8 por dobra".
 
-**Etapas configuráveis (e73d826):**
-- Hook use-etapas-pipeline.ts: CRUD crm_etapas com guarda empresa_id; rename migra crm_oportunidades.estagio em massa (aviso não-bloqueante); delete bloqueado se houver negociações ou for a última etapa; nome duplicado case-insensitive barrado; cor sempre hex (paleta + input color nativo); reordenação ?? otimista por posicao.
-- ConfiguracoesCRMPage.tsx: seção "Etapas do Pipeline" VISUALMENTE IGUAL à de Tags (components compartilhados SecaoTitulo/PaletteCores/ListaSkeleton/ListaErro/ListaVazia/TileAco/EtapazRow); Tags refatorada p/ os mesmos helpers (comportamento inalterado); excluir em 2 toques.
+**ImplementaÃ§Ã£o (@designer, sessÃ£o Ãºnica reutilizada â€” insumos 1Âª rodada + extensÃ£o Produtos):** commit `784c6e4`.
+- **Card compacto `<sm`:** thumb mÃ­nima 36px com foto real (Ã­cone no tom da categoria quando nÃ£o hÃ¡), nome 2 linhas, **preÃ§o de venda na face** para vendÃ¡veis (+ selo PROMO//////////////////////////////////////////////////////////////////////////// pÃ­lula) e dot colorido + quantidade/unidade de estoque; aÃ§Ãµes ghost â‰¥ 40px (editar/duplicar/excluir); toque abre o produto.
+- **Lista legÃ­vel:** linhas 56â€“62px â€” nome Â· `preÃ§o Â· â—qtd un Â· SKU` Â· (em Produtos) margem + "Promo: R$ x" quando hÃ¡ desconto.
+- **Desktop/tablet byte-intacto** (blocks alternados `hidden`/`sm:`; tabela deæˆ´å£ç½© sm+ preservada); busca/chips/filtros/modais/estados intactos.
+- Componentes unificados (`ProdutoCompactCard`/`ProdutoListRow` com flag `modoVenda`) â€” sem duplicaÃ§Ã£o entre as visÃµes.
+- `tsc` **0 erros** Â· build OK (23,55s) Â· neste commit nÃ£o hÃ¡ mudanÃ§a de backend/hooks.
+
+**Pendente:** validaÃ§Ã£o do fundador no celular nos dois modos (`/estoque/produtos` com os modos Insumos/Produtos) â€” meta prÃ¡tica: ~8 itens na primeira dobra com a busca visÃ­vel.
+
+---
+
+## ? CRM de ponta a ponta (16/10/2026 ï¿½ commit c500c92)
+
+**Escopo:** (1) Pipeline 100% Supabase; (2) CRM no menu principal desktop + mobile. WIRE aprovado por delegaï¿½ï¿½o do fundador (sem validaï¿½ï¿½o prï¿½via; valida no final ï¿½ guia: 	racking/VALIDACAO-CRM-Pipeline-Menu.md).
+
+**Feito:**
+- Migraï¿½ï¿½o crm_pipeline_melhorias: crm_oportunidades + estagio_desde/tualizado_em + trigger 	rg_crm_oportunidades_touch (recarta estagio_desde ao mudar estï¿½gio) + ï¿½ndices (empresa_id e etapas por posicao). Seed das 7 etapas padrï¿½o para tenants sem etapas (Doceï¿½, Loja Teste01). UNIQ e Grï¿½fica HQ mantiveram as etapas prï¿½prias.
+- Hook novos (padrï¿½o use-clientes.ts, guarda de empresa_id em todas as escritas): use-pipeline, use-clientes-lista, use-salvar-oportunidade (insert/update com eq empresa_id), use-mover-oportunidade (update estagio + log crm_atividades tipo 'movimentacao'; estagio_desde pela trigger), use-excluir-oportunidade.
+- PipelinePage.tsx reescrita p/ dados reais: kanban por crm_etapas.nome da empresa (cor hex ou fallback), cards com dias na etapa (=7d = atrasado, exceto ganho/perdido), probabilidade por posiï¿½ï¿½o, kano drag&drop otimista + toast com erro real, modal criar (cliente de me_cliente, tï¿½tulo, valor mascarado, data), modal editar/excluir (confirmaï¿½ï¿½o 2 etapas), KPIs reais (em aberto, ganho no mï¿½s, atraso, ativas), filtro por cliente, skeleton/erro+retry/vazio global e por filtro. crmMockData.ts nï¿½o carrega negociaï¿½ï¿½es na pï¿½gina (seguem para o dashboard onde ainda usadas).
+- AppLayout.tsx: item CRM no rail principal (apï¿½s Financeiro, moduloCodigo 'crm' status ativo) + SUBNAV_SECTIONS CRM (Visï¿½o Geral, Pipeline, Clientes, Configuraï¿½ï¿½es) + RAIL_BY_PREFIX ['/crm','crm']. Desktop e mobile derivam da MESMA fonte (RAIL_ITEMS/SUBNAV_SECTIONS). "Clientes" em Cadastros mantido (decisï¿½o 15/10). CORE_MODULES intocado.
+- SPEC/WIRE: 	racking/specs/SPEC-CRM-Pipeline-Real-Menu.md, 	racking/wireframe/WIRE-CRM-Pipeline-Real-Menu.md.
+
+**Validaï¿½ï¿½o da entrega:** npm run build + tsc -b verdes; deploy Vercel READY (dpl_ArbFCGryM9DsLnHfYpmp8GusRweL, commit c500c92). Rollback = git revert c500c92 + migrations ficam (inofensivas).
+**Pendente/atenï¿½ï¿½o:** crm_oportunidades/etapas/atividades RAG RLS desabilitado (mesmo estado global das outras 92 tabelas ï¿½ hotspot relatado ao fundador; nï¿½o alterado).
+
+---
+
+## ? CRM ï¿½ Etapas configurï¿½veis + Dashboard desmockado (16/10/2026 ï¿½ commits e73d826, 38e1cf9)
+
+**Escopo adicional (fundador, 16/10):** (1) etapas do pipeline editï¿½veis em CRM > Configuraï¿½ï¿½es; (2) dashboard CRM com dados reais + mobile compacto (padrï¿½o estoque dash). Ambos wire aprovado por delegaï¿½ï¿½o.
+
+**Etapas configurï¿½veis (e73d826):**
+- Hook use-etapas-pipeline.ts: CRUD crm_etapas com guarda empresa_id; rename migra crm_oportunidades.estagio em massa (aviso nï¿½o-bloqueante); delete bloqueado se houver negociaï¿½ï¿½es ou for a ï¿½ltima etapa; nome duplicado case-insensitive barrado; cor sempre hex (paleta + input color nativo); reordenaï¿½ï¿½o ?? otimista por posicao.
+- ConfiguracoesCRMPage.tsx: seï¿½ï¿½o "Etapas do Pipeline" VISUALMENTE IGUAL ï¿½ de Tags (components compartilhados SecaoTitulo/PaletteCores/ListaSkeleton/ListaErro/ListaVazia/TileAco/EtapazRow); Tags refatorada p/ os mesmos helpers (comportamento inalterado); excluir em 2 toques.
 - SPEC/WIRE: SPEC/WIRE-CRM-Config-Etapas-Pipeline.md. Build + tsc verdes.
 
 **Dashboard real (38e1cf9):**
-- CRMDashboardPage.tsx deixou de usar mocks: KPIs (clientes totais/ativos, pipeline aberto, conversão), funil por crm_etapas (nomes/cores reais), dark card "Atençaço" com atrasos reais (estagio_desde =7d + dias reais), negociações ativas (5 + prob heurística), clientes recentes por criado_em.
-- Hook use-dashboard-crm.ts: me_cliente (guardas empresa_id) + soma de compras por cliente via me_venda (omit coluna se consulta falhar — flag comprasDisponiveis).
-- Mobile: KPIs grid-cols-2 compactos no padrão EstoqueDashboardPage (p-3 md:p-5, tipografia menor <md, alvos =44px); desktop preservado.
-- Período Todos/30d/90d client-side (created_at clientes / estagio_desde negociações). Skeleton/erro-retry/vazios com CTA.
+- CRMDashboardPage.tsx deixou de usar mocks: KPIs (clientes totais/ativos, pipeline aberto, conversï¿½o), funil por crm_etapas (nomes/cores reais), dark card "Atenï¿½aï¿½o" com atrasos reais (estagio_desde =7d + dias reais), negociaï¿½ï¿½es ativas (5 + prob heurï¿½stica), clientes recentes por criado_em.
+- Hook use-dashboard-crm.ts: me_cliente (guardas empresa_id) + soma de compras por cliente via me_venda (omit coluna se consulta falhar ï¿½ flag comprasDisponiveis).
+- Mobile: KPIs grid-cols-2 compactos no padrï¿½o EstoqueDashboardPage (p-3 md:p-5, tipografia menor <md, alvos =44px); desktop preservado.
+- Perï¿½odo Todos/30d/90d client-side (created_at clientes / estagio_desde negociaï¿½ï¿½es). Skeleton/erro-retry/vazios com CTA.
 - SPEC/WIRE: SPEC/WIRE-CRM-Dashboard-Desmockado.md. Build + tsc verdes.
 
-**Validação:** deploy verificado na Vercel; guia único: 	racking/VALIDACAO-CRM-Pipeline-Menu.md (passo a passo completo fundador).
-**Note:** frente estoque (ProdutosPage M1 card compacto mobile) em working tree NÃO engolida nestes commits — aguardando aval do fundador para commit próprio.
+**Validaï¿½ï¿½o:** deploy verificado na Vercel; guia ï¿½nico: 	racking/VALIDACAO-CRM-Pipeline-Menu.md (passo a passo completo fundador).
+**Note:** frente estoque (ProdutosPage M1 card compacto mobile) em working tree Nï¿½O engolida nestes commits ï¿½ aguardando aval do fundador para commit prï¿½prio.
