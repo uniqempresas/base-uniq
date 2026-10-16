@@ -290,6 +290,226 @@ function ProdutoGridCard({ produto, ocultarInsumo = false, onClick, onDelete, on
   );
 }
 
+/* ─────────── Ações dos cards/linhas (mesma assinatura) ─────────── */
+type CardAcoesProps = {
+  onClick: () => void;
+  onEdit: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+};
+
+/* ─────────── Card compacto para o MOBILE — densidade (as duas visões) ───────────
+   Demanda real do fundador no celular, confirmada para Insumos E Produtos: o
+   card completo gasta ~96px com a faixa de foto/placeholder — vendável tem foto
+   relevante, mas ela não precisa ser hero para ESCANEAR a lista; insumo não tem
+   foto nenhuma — sobrando ~4 cards por dobra. Aqui a foto vira thumb de 36px
+   (ícone no tom da categoria quando não há foto) e sobem os números da visão:
+   · Produtos (modoVenda): preço de venda + selo PROMO quando há desconto.
+     A margem não cabe legível num card de ~151px junto de preço+estoque; vive na
+     linha da lista mobile, no card sm+ e no detalhe.
+   · Insumos (modoVenda=false): custo médio com prefixo "custo".
+   Altura ~115px em 2 colunas → ~8 itens na primeira dobra com a busca visível.
+   Cortes POR DENSIDADE só no mobile (<sm): SKU, chip de categoria, margem,
+   variações e status ativo/inativo seguem no card sm+, no detalhe e no modal.
+   Alvos de toque: card inteiro + botões de 40px. */
+function ProdutoCompactCard({ produto, modoVenda, onClick, onEdit, onDuplicate, onDelete }: { produto: Produto; modoVenda: boolean } & CardAcoesProps) {
+  const [imgFalhou, setImgFalhou] = useState(false);
+  const catColors = corCategoria(produto.categoriaCor, produto.categoria);
+  const temFoto = Boolean(produto.foto) && !imgFalhou;
+  const cfg = getEstoqueStatusConfig(produto.estoqueStatus);
+  const statusColor =
+    produto.estoqueStatus === "zerado" ? "#EF4444" : produto.estoqueStatus === "baixo" ? "#F59E0B" : "#1f2937";
+
+  return (
+    <div
+      onClick={onClick}
+      className={`bg-white rounded-xl border border-[#efefef] shadow-sm p-2 flex flex-col gap-1 cursor-pointer transition-transform active:scale-[0.98] ${
+        produto.status === "inativo" ? "opacity-60" : ""
+      }`}
+    >
+      {/* Thumb mínima + nome (até 2 linhas) */}
+      <div className="flex items-center gap-1.5 min-w-0">
+        <div
+          className="w-9 h-9 rounded-lg shrink-0 overflow-hidden flex items-center justify-center"
+          style={{ background: catColors.bg }}
+        >
+          {temFoto ? (
+            <img
+              src={produto.foto}
+              alt={produto.nome}
+              className="w-full h-full object-cover"
+              onError={() => setImgFalhou(true)}
+              loading="lazy"
+            />
+          ) : (
+            <Package size={17} style={{ color: catColors.text, opacity: 0.55 }} />
+          )}
+        </div>
+        <p className="text-[12px] leading-[1.15] text-[#1f2937] line-clamp-2" style={{ fontWeight: 700 }}>
+          {produto.nome}
+        </p>
+      </div>
+
+      {/* Métrica da visão + estoque à frente: Produtos = preço de venda (+selo
+          PROMO, valor exato do desconto na lista sm+ e no detalhe); Insumos = custo médio. */}
+      <div className="flex items-baseline justify-between gap-1 min-w-0">
+        {modoVenda ? (
+          <p className="flex items-center gap-1 min-w-0">
+            <span className="text-[11px] leading-none text-[#1f2937] truncate" style={{ fontWeight: 700 }}>
+              {formatCurrency(produto.precoVenda)}
+            </span>
+            {produto.precoPromocional && (
+              <span
+                className="shrink-0 rounded-full bg-red-500 text-white text-[8px] leading-none px-1 py-0.5"
+                style={{ fontWeight: 700 }}
+                title={`Promoção: ${formatCurrency(produto.precoPromocional)}`}
+              >
+                PROMO
+              </span>
+            )}
+          </p>
+        ) : (
+          <p className="text-[11px] leading-none text-[#1f2937] truncate" style={{ fontWeight: 700 }}>
+            <span className="text-[9px] text-[#627271] mr-1" style={{ fontWeight: 500 }}>
+              custo
+            </span>
+            {formatCurrency(produto.precoCusto)}
+          </p>
+        )}
+        <p className="flex items-center gap-1 shrink-0 text-[11px] leading-none" style={{ fontWeight: 700, color: statusColor }}>
+          <span className="w-1.5 h-1.5 rounded-full self-center" style={{ background: cfg.dot }} aria-hidden />
+          {produto.estoque}
+          <span className="text-[10px] text-[#627271]" style={{ fontWeight: 500 }}>
+            {produto.unidade}
+          </span>
+        </p>
+      </div>
+
+      {/* Ações touch (40px de alvo; sem hover no mobile) */}
+      <div className="flex items-center justify-end gap-0.5">
+        <button
+          onClick={(e) => { e.stopPropagation(); onEdit(); }}
+          aria-label={`Editar ${produto.nome}`}
+          className="w-10 h-10 rounded-lg text-[#627271] flex items-center justify-center active:bg-[#efefef] transition-colors"
+        >
+          <Edit2 size={15} />
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); onDuplicate(); }}
+          aria-label={`Duplicar ${produto.nome}`}
+          className="w-10 h-10 rounded-lg text-[#627271] flex items-center justify-center active:bg-[#efefef] transition-colors"
+        >
+          <Copy size={15} />
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          aria-label={`Excluir ${produto.nome}`}
+          className="w-10 h-10 rounded-lg text-red-500 flex items-center justify-center active:bg-red-50 transition-colors"
+        >
+          <Trash2 size={15} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────── Linha compacta para o MOBILE — list legível (as duas visões) ───────────
+   A tabela de 8 colunas dentro de overflow-x-auto é o "não dá para ver" do
+   fundador no celular: quase tudo fica fora da tela. No mobile a lista vira
+   linhas (~56–60px): thumb + nome + métricas (preço/custo · estoque · SKU) +
+   ações de 40px. Produtos (modoVenda) ganham 3ª linha com a MARGEM e, quando há
+   desconto, o valor "Promo: R$ x"; Insumos mantêm as 2 linhas originais.
+   sm+ mantém a tabela original. */
+function ProdutoListRow({ produto, modoVenda, onClick, onEdit, onDuplicate, onDelete }: { produto: Produto; modoVenda: boolean } & CardAcoesProps) {
+  const [imgFalhou, setImgFalhou] = useState(false);
+  const catColors = corCategoria(produto.categoriaCor, produto.categoria);
+  const temFoto = Boolean(produto.foto) && !imgFalhou;
+  const cfg = getEstoqueStatusConfig(produto.estoqueStatus);
+  const statusColor =
+    produto.estoqueStatus === "zerado" ? "#EF4444" : produto.estoqueStatus === "baixo" ? "#F59E0B" : "#1f2937";
+  const margem = calcMargem(produto.precoCusto, produto.precoVenda);
+
+  return (
+    <div
+      onClick={onClick}
+      className={`flex items-center gap-2 px-2 py-1.5 min-h-[56px] cursor-pointer transition-colors active:bg-[#efefef] ${
+        produto.status === "inativo" ? "opacity-60" : ""
+      }`}
+    >
+      <div
+        className="w-9 h-9 rounded-lg shrink-0 overflow-hidden flex items-center justify-center"
+        style={{ background: catColors.bg }}
+      >
+        {temFoto ? (
+          <img
+            src={produto.foto}
+            alt={produto.nome}
+            className="w-full h-full object-cover"
+            onError={() => setImgFalhou(true)}
+            loading="lazy"
+          />
+        ) : (
+          <Package size={17} style={{ color: catColors.text, opacity: 0.55 }} />
+        )}
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <p className="text-[13px] leading-tight text-[#1f2937] truncate" style={{ fontWeight: 700 }}>
+          {produto.nome}
+        </p>
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <span className="text-[11px] text-[#1f2937] shrink-0" style={{ fontWeight: 700 }}>
+            {formatCurrency(modoVenda ? produto.precoVenda : produto.precoCusto)}
+          </span>
+          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: cfg.dot }} aria-hidden />
+          <span className="text-[11px] shrink-0" style={{ fontWeight: 700, color: statusColor }}>
+            {produto.estoque}{" "}
+            <span className="text-[10px] text-[#627271]" style={{ fontWeight: 500 }}>
+              {produto.unidade}
+            </span>
+          </span>
+          <span className="text-[10px] text-[#627271] font-mono truncate min-w-0">{produto.sku}</span>
+        </div>
+        {/* Vendável: margem sempre à vista; valor do desconto quando há PROMO */}
+        {modoVenda && (
+          <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+            {produto.precoPromocional && (
+              <span className="text-[10px] shrink-0" style={{ color: "#DC2626", fontWeight: 600 }}>
+                Promo: {formatCurrency(produto.precoPromocional)}
+              </span>
+            )}
+            <MargemChip pct={margem} />
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center shrink-0" onClick={(e) => e.stopPropagation()}>
+        <button
+          onClick={onEdit}
+          aria-label={`Editar ${produto.nome}`}
+          className="w-10 h-10 rounded-lg text-[#627271] flex items-center justify-center active:bg-[#efefef] transition-colors"
+        >
+          <Edit2 size={15} />
+        </button>
+        <button
+          onClick={onDuplicate}
+          aria-label={`Duplicar ${produto.nome}`}
+          className="w-10 h-10 rounded-lg text-[#627271] flex items-center justify-center active:bg-[#efefef] transition-colors"
+        >
+          <Copy size={15} />
+        </button>
+        <button
+          onClick={onDelete}
+          aria-label={`Excluir ${produto.nome}`}
+          className="w-10 h-10 rounded-lg text-red-500 flex items-center justify-center active:bg-red-50 transition-colors"
+        >
+          <Trash2 size={15} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ─────────── Main Page ─────────── */
 export function ProdutosPage() {
   const navigate = useNavigate();
@@ -434,13 +654,14 @@ export function ProdutosPage() {
       )}
 
       {/* Loading skeleton — só na PRIMEIRA carga (sem dados). No refetch em
-          background a lista já renderizada permanece (evita "pisque"). */}
+          background a lista já renderizada permanece (evita "pisque"). No
+          mobile espelha o card compacto (sem faixa de foto hero); sm+ idem. */}
       {loading && produtos.length === 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-4">
           {Array.from({ length: 10 }).map((_, i) => (
             <div key={i} className="bg-white rounded-2xl border border-[#efefef] overflow-hidden">
-              <div className="h-24 sm:h-36 bg-[#efefef] animate-pulse" />
-              <div className="p-3 space-y-2">
+              <div className="h-14 sm:h-36 bg-[#efefef] animate-pulse" />
+              <div className="p-2 sm:p-3 space-y-2">
                 <div className="h-4 bg-[#efefef] rounded animate-pulse w-3/4" />
                 <div className="h-3 bg-[#efefef] rounded animate-pulse w-1/2" />
                 <div className="h-5 bg-[#efefef] rounded animate-pulse w-1/3" />
@@ -723,23 +944,57 @@ export function ProdutosPage() {
           )}
         </div>
       ) : viewMode === "grid" ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-4">
-          {filteredProdutos.map((p) => (
-            <ProdutoGridCard
-              key={p.id}
-              produto={p}
-              // M1: chip "Insumo" só em contexto misto — aqui a lista já é de insumos
-              ocultarInsumo={ehInsumos}
-              onClick={() => navigate(`/estoque/produtos/${p.id}`)}
-              onDelete={() => setProdutoParaExcluir(p)}
-              onEdit={() => setProdutoParaEditar(p)}
-              onDuplicate={() => setProdutoParaDuplicar(p)}
-            />
-          ))}
-        </div>
+        /* Densidade mobile (as duas visões — demanda do fundador confirmada para
+           Insumos E Produtos): grade compacta de 2 colunas com thumb mínimo em
+           <sm; em sm+ o card completo permanece idêntico ao original. */
+        <>
+          <div className="grid grid-cols-2 gap-2 sm:hidden">
+            {filteredProdutos.map((p) => (
+              <ProdutoCompactCard
+                key={`c-${p.id}`}
+                produto={p}
+                modoVenda={!ehInsumos}
+                onClick={() => navigate(`/estoque/produtos/${p.id}`)}
+                onDelete={() => setProdutoParaExcluir(p)}
+                onEdit={() => setProdutoParaEditar(p)}
+                onDuplicate={() => setProdutoParaDuplicar(p)}
+              />
+            ))}
+          </div>
+          <div className="hidden sm:grid sm:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredProdutos.map((p) => (
+              <ProdutoGridCard
+                key={`g-${p.id}`}
+                produto={p}
+                // M1: chip "Insumo" só em contexto misto — cada visão já é homogênea
+                ocultarInsumo={ehInsumos}
+                onClick={() => navigate(`/estoque/produtos/${p.id}`)}
+                onDelete={() => setProdutoParaExcluir(p)}
+                onEdit={() => setProdutoParaEditar(p)}
+                onDuplicate={() => setProdutoParaDuplicar(p)}
+              />
+            ))}
+          </div>
+        </>
       ) : (
         /* List view */
-        <div className="bg-white rounded-2xl border border-[#efefef] shadow-sm overflow-hidden">
+        <>
+          {/* Mobile (as duas visões): linhas compactas no lugar da tabela de 8
+              colunas horizontal — ilegível no celular; a tabela permanece sm+. */}
+          <div className="sm:hidden bg-white rounded-2xl border border-[#efefef] shadow-sm overflow-hidden divide-y divide-[#efefef]">
+            {filteredProdutos.map((p) => (
+              <ProdutoListRow
+                key={`l-${p.id}`}
+                produto={p}
+                modoVenda={!ehInsumos}
+                onClick={() => navigate(`/estoque/produtos/${p.id}`)}
+                onDelete={() => setProdutoParaExcluir(p)}
+                onEdit={() => setProdutoParaEditar(p)}
+                onDuplicate={() => setProdutoParaDuplicar(p)}
+              />
+            ))}
+          </div>
+          <div className="hidden sm:block bg-white rounded-2xl border border-[#efefef] shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -807,6 +1062,7 @@ export function ProdutosPage() {
             </table>
           </div>
         </div>
+          </>
       )}
         </>
       )}
