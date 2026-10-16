@@ -1483,3 +1483,19 @@ Commit `e0e7926` Â· entry servido `index-CEVpvBSP.js` Â· chunk `ComprasPage-ooQG
 **Guia de teste (celular):** Estoque â–¸ Compras â†’ abrir compra **RECEBIDO** â†’ Estornar â†’ "Estornar recebimento" â†’ banda "âœ“ Estornadaâ€¦" â†’ card volta PENDENTE â†’ receber de novo com os dados certos **ou** Cancelar. **Fronteira:** compras recebidas antes de hoje nÃ£o estornam (sem snapshot) â€” a compra recebida errada de hoje entra nesse caso (conserto manual guiado quando pedirem).
 
 **LimitaÃ§Ã£o registrada:** snapshot assume nota Ãºnica por insumo (o app soma itens repetidos na mesma linha â€” telescopagem exata; risco baixo monitorado no SPEC Â§5).
+
+---
+
+## ? CRM de ponta a ponta (16/10/2026 — commit c500c92)
+
+**Escopo:** (1) Pipeline 100% Supabase; (2) CRM no menu principal desktop + mobile. WIRE aprovado por delegação do fundador (sem validação prévia; valida no final — guia: 	racking/VALIDACAO-CRM-Pipeline-Menu.md).
+
+**Feito:**
+- Migração crm_pipeline_melhorias: crm_oportunidades + estagio_desde/tualizado_em + trigger 	rg_crm_oportunidades_touch (recarta estagio_desde ao mudar estágio) + índices (empresa_id e etapas por posicao). Seed das 7 etapas padrão para tenants sem etapas (Doceê, Loja Teste01). UNIQ e Gráfica HQ mantiveram as etapas próprias.
+- Hook novos (padrão use-clientes.ts, guarda de empresa_id em todas as escritas): use-pipeline, use-clientes-lista, use-salvar-oportunidade (insert/update com eq empresa_id), use-mover-oportunidade (update estagio + log crm_atividades tipo 'movimentacao'; estagio_desde pela trigger), use-excluir-oportunidade.
+- PipelinePage.tsx reescrita p/ dados reais: kanban por crm_etapas.nome da empresa (cor hex ou fallback), cards com dias na etapa (=7d = atrasado, exceto ganho/perdido), probabilidade por posição, kano drag&drop otimista + toast com erro real, modal criar (cliente de me_cliente, título, valor mascarado, data), modal editar/excluir (confirmação 2 etapas), KPIs reais (em aberto, ganho no mês, atraso, ativas), filtro por cliente, skeleton/erro+retry/vazio global e por filtro. crmMockData.ts não carrega negociações na página (seguem para o dashboard onde ainda usadas).
+- AppLayout.tsx: item CRM no rail principal (após Financeiro, moduloCodigo 'crm' status ativo) + SUBNAV_SECTIONS CRM (Visão Geral, Pipeline, Clientes, Configurações) + RAIL_BY_PREFIX ['/crm','crm']. Desktop e mobile derivam da MESMA fonte (RAIL_ITEMS/SUBNAV_SECTIONS). "Clientes" em Cadastros mantido (decisão 15/10). CORE_MODULES intocado.
+- SPEC/WIRE: 	racking/specs/SPEC-CRM-Pipeline-Real-Menu.md, 	racking/wireframe/WIRE-CRM-Pipeline-Real-Menu.md.
+
+**Validação da entrega:** npm run build + tsc -b verdes; deploy Vercel READY (dpl_ArbFCGryM9DsLnHfYpmp8GusRweL, commit c500c92). Rollback = git revert c500c92 + migrations ficam (inofensivas).
+**Pendente/atenção:** crm_oportunidades/etapas/atividades RAG RLS desabilitado (mesmo estado global das outras 92 tabelas — hotspot relatado ao fundador; não alterado).
