@@ -34,6 +34,7 @@ import {
   Fingerprint,
   BarChart3,
   CheckCircle,
+  Kanban,
   type LucideIcon,
 } from "lucide-react";
 import { useModulosAtivos } from "../../hooks/useModulosAtivos";
@@ -76,6 +77,11 @@ const RAIL_ITEMS: NavRailItem[] = [
   // Meus Módulos. Módulo é core: sempre visível. Ver TRACKING_ESTOQUE.md.
   { id: "estoque", label: "Estoque", icon: Package, path: "/estoque/dashboard", moduloCodigo: "estoque" },
   { id: "financeiro", label: "Financeiro", icon: DollarSign, path: "/financeiro", moduloCodigo: "financeiro" },
+  // CRM no rail principal (fundador, 16/10/2026): módulo operacional com status
+  // "ativo" em modulos.ts — visibilidade segue a mesma lógica dos demais itens
+  // do rail (visibleRailItems), sem entrada em CORE_MODULES. O item "Clientes"
+  // dentro de Cadastros (Minha Empresa) foi mantido de propósito.
+  { id: "crm", label: "CRM", icon: Kanban, path: "/crm/dashboard", moduloCodigo: "crm" },
   { id: "chatbot", label: "Chatbot", icon: MessageCircle, path: "/chatbot", moduloCodigo: "chatbot" },
   { id: "loja", label: "Loja Virtual", icon: Store, path: "/loja-virtual", moduloCodigo: "loja_virtual" },
   { id: "mel", label: "MEL", icon: Sparkles, path: "/mel", moduloCodigo: "mel" },
@@ -134,6 +140,17 @@ const SUBNAV_SECTIONS: SubNavSection[] = [
       { id: "f-contas-receber", label: "Contas a Receber", path: "/financeiro/contas-receber", icon: Calendar },
       { id: "f-dre", label: "DRE", path: "/financeiro/dre", icon: BarChart3 },
       { id: "f-configuracoes", label: "Configurações", path: "/financeiro/configuracoes", icon: Settings },
+    ],
+  },
+  {
+    railId: "crm",
+    title: "CRM",
+    subtitle: "Clientes e pipeline de vendas",
+    items: [
+      { id: "crm-dashboard", label: "Visão Geral", path: "/crm/dashboard", icon: LayoutDashboard, moduloCodigo: "crm" },
+      { id: "crm-pipeline", label: "Pipeline", path: "/crm/pipeline", icon: Kanban, moduloCodigo: "crm" },
+      { id: "crm-clientes", label: "Clientes", path: "/crm/clientes", icon: UserRound, moduloCodigo: "crm" },
+      { id: "crm-config", label: "Configurações", path: "/crm/configuracoes", icon: Settings, moduloCodigo: "crm" },
     ],
   },
   {
@@ -230,6 +247,7 @@ export function AppLayout() {
     const RAIL_BY_PREFIX: Array<[string, string]> = [
       ["/estoque", "estoque"],
       ["/financeiro", "financeiro"],
+      ["/crm", "crm"],
       ["/chatbot", "chatbot"],
       ["/loja-virtual", "loja"],
       ["/mel", "mel"],
@@ -237,7 +255,7 @@ export function AppLayout() {
       ["/configuracoes", "configuracoes"],
     ];
     const matched = RAIL_BY_PREFIX.find(([prefix]) => currentPath.startsWith(prefix));
-    // Restante (/dashboard, /vendas, /servicos, /crm, /agenda, /fornecedores…)
+    // Restante (/dashboard, /vendas, /servicos, /agenda, /fornecedores…)
     // pertence à visão da empresa — comportamento anterior preservado.
     return matched ? matched[1] : "minha-empresa";
   }, [currentPath]);
