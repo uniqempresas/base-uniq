@@ -1499,3 +1499,24 @@ Commit `e0e7926` Â· entry servido `index-CEVpvBSP.js` Â· chunk `ComprasPage-ooQG
 
 **Validação da entrega:** npm run build + tsc -b verdes; deploy Vercel READY (dpl_ArbFCGryM9DsLnHfYpmp8GusRweL, commit c500c92). Rollback = git revert c500c92 + migrations ficam (inofensivas).
 **Pendente/atenção:** crm_oportunidades/etapas/atividades RAG RLS desabilitado (mesmo estado global das outras 92 tabelas — hotspot relatado ao fundador; não alterado).
+
+---
+
+## ? CRM — Etapas configuráveis + Dashboard desmockado (16/10/2026 — commits e73d826, 38e1cf9)
+
+**Escopo adicional (fundador, 16/10):** (1) etapas do pipeline editáveis em CRM > Configurações; (2) dashboard CRM com dados reais + mobile compacto (padrão estoque dash). Ambos wire aprovado por delegação.
+
+**Etapas configuráveis (e73d826):**
+- Hook use-etapas-pipeline.ts: CRUD crm_etapas com guarda empresa_id; rename migra crm_oportunidades.estagio em massa (aviso não-bloqueante); delete bloqueado se houver negociações ou for a última etapa; nome duplicado case-insensitive barrado; cor sempre hex (paleta + input color nativo); reordenação ?? otimista por posicao.
+- ConfiguracoesCRMPage.tsx: seção "Etapas do Pipeline" VISUALMENTE IGUAL à de Tags (components compartilhados SecaoTitulo/PaletteCores/ListaSkeleton/ListaErro/ListaVazia/TileAco/EtapazRow); Tags refatorada p/ os mesmos helpers (comportamento inalterado); excluir em 2 toques.
+- SPEC/WIRE: SPEC/WIRE-CRM-Config-Etapas-Pipeline.md. Build + tsc verdes.
+
+**Dashboard real (38e1cf9):**
+- CRMDashboardPage.tsx deixou de usar mocks: KPIs (clientes totais/ativos, pipeline aberto, conversão), funil por crm_etapas (nomes/cores reais), dark card "Atençaço" com atrasos reais (estagio_desde =7d + dias reais), negociações ativas (5 + prob heurística), clientes recentes por criado_em.
+- Hook use-dashboard-crm.ts: me_cliente (guardas empresa_id) + soma de compras por cliente via me_venda (omit coluna se consulta falhar — flag comprasDisponiveis).
+- Mobile: KPIs grid-cols-2 compactos no padrão EstoqueDashboardPage (p-3 md:p-5, tipografia menor <md, alvos =44px); desktop preservado.
+- Período Todos/30d/90d client-side (created_at clientes / estagio_desde negociações). Skeleton/erro-retry/vazios com CTA.
+- SPEC/WIRE: SPEC/WIRE-CRM-Dashboard-Desmockado.md. Build + tsc verdes.
+
+**Validação:** deploy verificado na Vercel; guia único: 	racking/VALIDACAO-CRM-Pipeline-Menu.md (passo a passo completo fundador).
+**Note:** frente estoque (ProdutosPage M1 card compacto mobile) em working tree NÃO engolida nestes commits — aguardando aval do fundador para commit próprio.
