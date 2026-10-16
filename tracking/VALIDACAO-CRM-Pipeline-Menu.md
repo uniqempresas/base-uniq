@@ -58,3 +58,29 @@
 - Mensagem de erro real em toast â†’ me mande print/texto.
 - Rollback completo: `git revert c500c92` (deploy reverte sozinho pelo push); migraÃ§Ã£o Ã© aditiva e inofensiva â€” nÃ£o precisa reverter.
 - ðŸ”’ Nota de seguranÃ§a (jÃ¡ relatada antes, nÃ£o mexi): 92 tabelas estÃ£o **sem RLS** (incl. CRM). Com o app em uso real, vale habilitar + polÃ­ticas por empresa numa sprint de seguranÃ§a.
+
+---
+
+# ? NOVO (16/10, tarde) — Etapas em Configurações + Dashboard real
+
+## 9?? Etapas do Pipeline editáveis
+1. CRM ? **Configurações** ? seção **Etapas do Pipeline** (abaixo das Tags — mesmo visual de Tags, como você pediu).
+2. **Criar etapa:** nome + cor (paleta de bolinhas + seletor de cor nativo) ? Adicionar ? etapa entra no fim da lista.
+3. **Editar:** clique no lápis ? mude nome/cor ? Salvar.
+   ? Teste importante: crie uma negociação, depois RENOMEIE a etapa dela ? a negociação deve seguir a etapa nova (rename migra os cards).
+4. **Reordenar:** setas ?? ? a ordem reflete no kanban /crm/pipeline.
+5. **Excluir:** ?? ? confirma em 2 toques. Com negociações na etapa deve BLOQUEAR ("Mova as N negociações antes"). Única etapa restante também bloqueia.
+6. Cor salvo sempre em hex (função no kanban ficou consistente).
+
+## ?? Dashboard CRM real
+1. CRM ? **Visão Geral**.
+2. KPIs somando dados do BANCO: clientes totais/ativos, valor do pipeline aberto, conversão (— até haver ganho/perdido).
+3. **Funil por etapa** com os NOMES E CORES que você configurou na seção acima.
+4. **Card escuro "Atenção"**: só negociações realmente paradas =7 dias (com dias reais) — vazio mostra "Tudo em dia".
+5. **Clientes recentes** = últimos criados no banco (soma de compras se houver vendas ligadas ao cliente).
+6. **Período** (Todos/30d/90d) filtra os KPIs de verdade.
+7. **Celular:** 4 KPIs em quadrinhos menores (2 colunas), tamanho da fonte reduzido — igual padrão do dashboard de Estoque.
+8. Estados: recarregue com F5 — skeleton aparece e depois os dados reais; sem clientes/negociações ? CTA "Cadastrar primeiro cliente" / funil vazio.
+
+## Ordem sugerida do teste EB demo com o futuro cliente
+1. Menu CRM (notebook + celular) ? 2. Configurações (etapas + cores) ? 3. Pipeline (criar cliente do prospect + negociação, arrastar) ? 4. Visão Geral (mostrar funil/conversao) ? 5. Recarregar tudo para provar que ficou salvo.
