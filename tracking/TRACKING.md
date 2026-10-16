@@ -1451,3 +1451,35 @@ Decision #0 (Supabase oficial) · Diagnóstico real · Plano de 5 semanas aprova
 ---
 
 *Kit de construção mantido pelo CEO. Atualizado em 21/09/2026. Fontes: `CONTEXTO_PROJETO.md`, `AGENTS.md`, `DESIGN.md`, schema real do Supabase.*
+
+---
+
+## ⏪ ESTORNO DE RECEBIMENTO DE COMPRA — no ar (15/10/2026)
+
+**WHY:** um recebimento errado não era reversível — o conserto era manual (ajuste de estoque + conta no Financeiro + custo médio enviesado) e o fundador não conseguia *testar* o fluxo de compras sem poder se desfazer. Decisão do fundador: construir o **estorno transacional** no Supabase (não apagar compra, não editar compra).
+
+**SDD:** PRD/SPEC/WIRE (`tracking/plans/PRD-Producao-EstornoRecebimento.md` · `tracking/specs/SPEC-…` · `tracking/wireframe/WIRE-…`).
+
+**Division of labor:** orquestrador = introspecção + PRD/SPEC/WIRE + migration + aplicar + provas (+ 2 bugs pegos nas provas) · @fixer = front (hook + botão + modal).
+
+**Acesso ao banco nesta rodada:** MCP Supabase fora — usado `supabase db query --linked` (Management API, CLI autenticado, projeto linkado). Funciona; registrar como alternativa operacional.
+
+### Banco oficial (aplicado e provado)
+
+- **`est_recebimento`** — snapshot por recebimento (`compra_id, produto_id, qtd_estoque, qtd_movimento, custo_unitario, estoque_antes, custo_antes, recebido_em, estornado_em`, UNIQUE `(compra_id, produto_id)`); RLS com SELECT para authenticated (padrão do projeto, anotado no P5); client nunca escreve nela.
+- **Trigger `trg_est_recebimento`** — `BEFORE UPDATE OF status ON est_compra WHEN NEW.status='RECEBIDO'`: dispara depois dos UPDATEs de `me_produto` e dos movimentos (mesma transação) e grava o estado "antes" por **inversão exata** da média ponderada (`c0 = (custo_novo·(E+Qmov) − Σ(qtd·valor_unit)) / E`). `receber_compra` **intocada** — re-recebimento pós-estorno reescreve o snapshot do zero.
+- **RPC `estornar_recebimento`** (SECURITY DEFINER; `REVOKE` de anon/PUBLIC, `GRANT` authenticated) — all-or-nothing com guards: `INVALID_INPUT · NOT_FOUND · INVALID_STATUS · NO_SNAPSHOT (compra recebida antes do estorno existir → correção manual) · CONTA_PAGA · MOVIMENTACAO_POSTERIOR (nomeia o insumo: "estorne em ordem, do recebimento mais recente para o mais antigo")`. Execução: restaura `estoque_atual`/`preco_custo` pelo snapshot · saída `Estorno` no extrato (a entrada original fica — trilha completa) · conta a pagar `cancelado` · compra volta **PENDENTE** com `data_recebimento = NULL` · snapshot marcado `estornado_em`.
+
+### Provas (transação com ROLLBACK, no banco oficial — todas verdes)
+
+Receber compra de teste (CASQUINHAS fator 10 · LIMÃO fator 1) → estornar: estoque/custo restaurados **bit a bit** (93: estoque 0 · custo mantido 0,50 por `estoque_antes=0`; 96: estoque 5 · custo 10,00), conta `cancelado`, compra `PENDENTE`/`data_recebimento NULL`, extrato `entrada/Compra + saida/Estorno` por insumo, snapshot `estornado`, **segundo estorno recusado** (`INVALID_STATUS`); guard de movimento posterior bloqueia nomeando o insumo; compra real antiga → `NO_SNAPSHOT`.
+
+**🐞 2 bugs pegos nas provas (não por compilar):** (1) coluna da movimentação é `created_at`, não `criado_em` — o `CREATE FUNCTION` passou silencioso (plpgsql resolve em runtime); só a prova executando a pegou — a "linha de base do tsc" não alcança o interior do plpgsql. (2) o guard teste com `now()` fixo da transação dava falso pass — a prova precisa forçar `created_at` futuro para simular outra transação.
+
+### Front (deploy Vercel verificado por conteúdo servido)
+
+Commit `e0e7926` · entry servido `index-CEVpvBSP.js` · chunk `ComprasPage-ooQGVkf7.js` contendo "Estornar recebimentmento", `estornar_recebimento` e a hint de compra antiga. Botão Estornar no card/sheet da compra **RECEBIDO** (secundária, ao lado de Detalhes), desabilitado com hint quando não há snapshot; bottom-sheet de confirmação "O QUE VAI ACONTECER" (4 itens secos); banda **NÃO ESTORNA** com o erro humano da RPC integral; sucesso → compra volta PENDENTE no refetch (bug do guarda anti-dupla-chamada de refetch corrigido na lane).
+
+**Guia de teste (celular):** Estoque ▸ Compras → abrir compra **RECEBIDO** → Estornar → "Estornar recebimento" → banda "✓ Estornada…" → card volta PENDENTE → receber de novo com os dados certos **ou** Cancelar. **Fronteira:** compras recebidas antes de hoje não estornam (sem snapshot) — a compra recebida errada de hoje entra nesse caso (conserto manual guiado quando pedirem).
+
+**Limitação registrada:** snapshot assume nota única por insumo (o app soma itens repetidos na mesma linha — telescopagem exata; risco baixo monitorado no SPEC §5).
