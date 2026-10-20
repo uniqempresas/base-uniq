@@ -1558,3 +1558,11 @@ Commit `e0e7926` Â· entry servido `index-CEVpvBSP.js` Â· chunk `ComprasPage-ooQG
 
 **Validaï¿½ï¿½o:** deploy verificado na Vercel; guia ï¿½nico: 	racking/VALIDACAO-CRM-Pipeline-Menu.md (passo a passo completo fundador).
 **Note:** frente estoque (ProdutosPage M1 card compacto mobile) em working tree Nï¿½O engolida nestes commits ï¿½ aguardando aval do fundador para commit prï¿½prio.
+
+---
+
+## ? Validação do fundador — CRM completo (16/10/2026, fim do dia)
+
+- Fundador confirmou: **"Ocorreu tudo bem"** — pipeline, menu CRM (notebook+celular), configuração de etapas, dashboard real e densidade mobile do estoque validados em produção (ase-uniq.vercel.app, todos os deploys READY).
+- Probabilidade do pipeline fica como heurística por etapa (decisão do fundador se mantém); evolução futura em aberto: probabilidade editável por etapa ou estatística por histórico.
+- Bloqueios: nenhum. Frentes concluídas: c500c92 (pipeline+menu), e73d826 (etapas config), 38e1cf9 (dashboard), 784c6e4 (estoque M1) — rollback individual = git revert do commit.
