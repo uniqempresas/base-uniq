@@ -12,7 +12,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
-import type { OrdemProducao } from "../types/producao";
+import type { OrdemProducao, StatusOrdemProducao } from "../types/producao";
 
 interface DBOrdemProducao {
   id: string;
@@ -25,6 +25,9 @@ interface DBOrdemProducao {
   data_producao: string;
   observacao: string | null;
   created_at: string | null;
+  /** Fase 4a — ciclo de vida da OP (colunas novas; linha antiga sem elas → fallback) */
+  status?: string | null;
+  estornado_em?: string | null;
   /** Embed do PostgREST: est_ordem_producao.produto_pai_id → me_produto */
   me_produto: { nome_produto: string | null } | null;
 }
@@ -36,6 +39,7 @@ function num(valor: string | number | null | undefined): number {
 }
 
 function mapOrdem(db: DBOrdemProducao): OrdemProducao {
+  const status: StatusOrdemProducao = db.status === "ESTORNADA" ? "ESTORNADA" : "ATIVA";
   return {
     id: db.id,
     produtoPaiId: String(db.produto_pai_id),
@@ -45,6 +49,8 @@ function mapOrdem(db: DBOrdemProducao): OrdemProducao {
     custoUnit: num(db.custo_unit),
     dataProducao: db.data_producao,
     observacao: db.observacao || null,
+    status,
+    estornadoEm: db.estornado_em || null,
   };
 }
 

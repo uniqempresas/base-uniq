@@ -21,7 +21,9 @@ import {
   History,
   Loader2,
   RefreshCw,
+  RotateCcw,
   ShoppingCart,
+  Undo2,
   X,
   XCircle,
 } from "lucide-react";
@@ -34,9 +36,10 @@ import { useProdutos } from "../../hooks/use-produtos";
 import { useOrdensProducao } from "../../hooks/use-ordens-producao";
 import { useRegistrarProducao } from "../../hooks/use-registrar-producao";
 import { useCompras } from "../../hooks/use-compras";
+import { useEstornarProducao } from "../../hooks/use-estornar-producao";
 import type { RegistrarProducaoParams, RegistrarProducaoResult } from "../../hooks/use-registrar-producao";
 import type { Produto } from "../../types/produto";
-import type { Compra, ItemFichaTecnica } from "../../types/producao";
+import type { Compra, ItemFichaTecnica, OrdemProducao } from "../../types/producao";
 import { CardMaxProduzir } from "./CardMaxProduzir";
 import { FaixaProximoPasso } from "./FaixaProximoPasso";
 import {
@@ -157,6 +160,11 @@ export function ProducaoTab({ produto, onSuccess }: ProducaoTabProps) {
   // T6-5: banda pós-produção — sonda os compostos que consomem este produto.
   const [produzidoRecente, setProduzidoRecente] = useState(false);
   const [proximoComposto, setProximoComposto] = useState<Produto | null>(null);
+  // Fase 4a — estorno de OP: modal de confirmação (Estornar) + fluxo amend (Corrigir)
+  const [ordemParaEstornar, setOrdemParaEstornar] = useState<OrdemProducao | null>(null);
+  const [erroEstorno, setErroEstorno] = useState("");
+  const [loteInicial, setLoteInicial] = useState<string | undefined>(undefined);
+  const { estornar, loading: estornando } = useEstornarProducao();
 
   const produtosPorId = useMemo(() => new Map(produtos.map((p) => [p.id, p])), [produtos]);
 
@@ -209,6 +217,46 @@ export function ProducaoTab({ produto, onSuccess }: ProducaoTabProps) {
   const registrarCompostoAchado = useCallback(
     (c: Produto) => setProximoComposto((prev) => prev ?? c),
     []
+  );
+
+  /* ── Fase 4a — estorno de OP ── */
+  const deposDoEstorno = useCallback(() => {
+    // estoque/custo de insumos e do pai mudaram — mesma disciplina do pós-produção
+    recarregarProdutos();
+    recarregarOrdens();
+    onSuccess();
+  }, [recarregarProdutos, recarregarOrdens, onSuccess]);
+
+  const confirmarEstorno = useCallback(async () => {
+    if (!ordemParaEstornar) return;
+    setErroEstorno("");
+    const r = await estornar({ ordemId: ordemParaEstornar.id });
+    if (r.success) {
+      toast.success("Produção estornada — insumos devolvidos ao estoque");
+      setOrdemParaEstornar(null);
+      deposDoEstorno();
+    } else {
+      setErroEstorno(r.error || "Não foi possível estornar a produção.");
+    }
+  }, [ordemParaEstornar, estornar, deposDoEstorno]);
+
+  // Fluxo "amend" (WIRE §4): estorna e já abre o Produzir lote pré-preenchido
+  // (quantidade em UNIDADES do produto — o modal abre em modo unidade).
+  const corrigirProducao = useCallback(
+    async (o: OrdemProducao) => {
+      const r = await estornar({ ordemId: o.id });
+      if (r.success) {
+        toast.success(
+          "Produção estornada — corrija a ficha (aba Ficha Técnica) se o erro era nela, e produza de novo"
+        );
+        deposDoEstorno();
+        setLoteInicial(String(o.quantidade));
+        setModalAberta(true);
+      } else {
+        toast.error(r.error || "Não foi possível estornar a produção.");
+      }
+    },
+    [estornar, deposDoEstorno]
   );
 
   return (
@@ -264,7 +312,10 @@ export function ProducaoTab({ produto, onSuccess }: ProducaoTabProps) {
           </div>
           <button
             type="button"
-            onClick={() => setModalAberta(true)}
+            onClick={() => {
+              setLoteInicial(undefined);
+              setModalAberta(true);
+            }}
             disabled={linhas.length === 0 || fichaLoading}
             title={linhas.length === 0 ? "Monte a ficha técnica primeiro" : undefined}
             className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-[#86cb92] px-4 py-2.5 text-sm font-semibold text-[#1f2937] transition-colors hover:bg-[#1f2937] hover:text-white disabled:opacity-50 disabled:hover:bg-[#86cb92] disabled:hover:text-[#1f2937]"
@@ -515,26 +566,163 @@ export function ProducaoTab({ produto, onSuccess }: ProducaoTabProps) {
           </div>
         ) : (
           <ul className="divide-y divide-[#efefef]">
-            {ordens.map((o) => (
-              <li key={o.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3 text-sm">
-                <span className="text-[#627271] text-xs w-16 shrink-0">{dataProducaoBR(o.dataProducao)}</span>
-                <span className="text-[#1f2937]" style={{ fontWeight: 600 }}>
-                  lote {fmtNum(o.quantidade)} un
-                </span>
-                <span className="ml-auto text-[#1f2937]" style={{ fontWeight: 700 }}>
-                  {formatCurrency(o.custoTotal)}
-                </span>
-                <span className="text-[11px] text-[#627271] shrink-0">
-                  ({formatCurrency(o.custoUnit)}/un)
-                </span>
-                {o.observacao && (
-                  <span className="w-full text-[11px] text-[#627271]">{o.observacao}</span>
-                )}
-              </li>
-            ))}
+            {ordens.map((o) => {
+              const estornada = o.status === "ESTORNADA";
+              return (
+                <li key={o.id} className={`px-5 py-3 text-sm ${estornada ? "opacity-60" : ""}`}>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="text-[#627271] text-xs w-16 shrink-0">{dataProducaoBR(o.dataProducao)}</span>
+                    <span
+                      className={`text-[#1f2937] ${estornada ? "line-through" : ""}`}
+                      style={{ fontWeight: 600 }}
+                    >
+                      lote {fmtNum(o.quantidade)} un
+                    </span>
+                    <span className="ml-auto text-[#1f2937]" style={{ fontWeight: 700 }}>
+                      {formatCurrency(o.custoTotal)}
+                    </span>
+                    <span className="text-[11px] text-[#627271] shrink-0">
+                      ({formatCurrency(o.custoUnit)}/un)
+                    </span>
+                    {o.observacao && (
+                      <span className="w-full text-[11px] text-[#627271]">{o.observacao}</span>
+                    )}
+                  </div>
+                  {estornada ? (
+                    <p
+                      className="mt-1.5 inline-flex items-center gap-1.5 rounded-md border border-[#efefef] bg-[#efefef]/60 px-2 py-1 text-[11px] text-[#627271]"
+                      role="status"
+                      style={{ fontWeight: 600 }}
+                    >
+                      <Undo2 size={11} />
+                      Estornada{o.estornadoEm ? ` em ${dataProducaoBR(o.estornadoEm)}` : ""}
+                    </p>
+                  ) : (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOrdemParaEstornar(o);
+                          setErroEstorno("");
+                        }}
+                        disabled={estornando}
+                        aria-label={`Estornar produção de ${dataProducaoBR(o.dataProducao)}`}
+                        className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-[#efefef] bg-white px-3 py-1.5 text-[11px] text-[#627271] transition-colors hover:bg-[#efefef] hover:text-[#1f2937] disabled:opacity-50"
+                        style={{ fontWeight: 600 }}
+                      >
+                        <Undo2 size={12} />
+                        Estornar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => corrigirProducao(o)}
+                        disabled={estornando}
+                        aria-label={`Corrigir produção de ${dataProducaoBR(o.dataProducao)}`}
+                        className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-[#86cb92] bg-white px-3 py-1.5 text-[11px] text-[#1f2937] transition-colors hover:bg-[#86cb92]/20 disabled:opacity-50"
+                        style={{ fontWeight: 600 }}
+                      >
+                        <RotateCcw size={12} />
+                        Corrigir
+                      </button>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
+
+      {/* ── Modal "Estornar produção" — Fase 4a (WIRE §3) — fora de gate de loading ── */}
+      <BottomSheet
+        open={ordemParaEstornar !== null}
+        onClose={estornando ? () => undefined : () => setOrdemParaEstornar(null)}
+        labelledBy="estornar-op-titulo"
+      >
+        {ordemParaEstornar && (
+          <div>
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h2 id="estornar-op-titulo" className="text-lg font-semibold text-[#1f2937]">
+                  Estornar produção — {produto.nome}
+                </h2>
+                <p className="mt-0.5 text-xs text-[#627271]">
+                  lote {fmtNum(ordemParaEstornar.quantidade)} {produto.unidade || "un"} ·{" "}
+                  {dataProducaoBR(ordemParaEstornar.dataProducao)} ·{" "}
+                  {formatCurrency(ordemParaEstornar.custoTotal)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOrdemParaEstornar(null)}
+                disabled={estornando}
+                aria-label="Fechar"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#627271] transition-colors hover:bg-[#efefef] hover:text-[#1f2937] disabled:opacity-50"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <section>
+              <p className="mb-2 text-xs text-[#627271]" style={{ fontWeight: 600 }}>
+                O QUE VAI ACONTECER
+              </p>
+              <ul className="space-y-1.5 text-sm text-[#1f2937]">
+                <li>· os insumos consumidos voltam ao estoque</li>
+                <li>
+                  · {fmtNum(ordemParaEstornar.quantidade)} {produto.unidade || "un"} de{" "}
+                  {produto.nome} saem do estoque
+                </li>
+                <li>· o extrato registra o estorno — nada é apagado</li>
+                <li>· a produção fica marcada como "Estornada"</li>
+              </ul>
+            </section>
+
+            {erroEstorno && (
+              <div
+                className="mt-4 rounded-xl border px-3.5 py-3 text-xs"
+                role="alert"
+                style={{ background: "#FECACA", borderColor: "#FECACA", color: "#B91C1C", fontWeight: 600 }}
+              >
+                {erroEstorno}
+              </div>
+            )}
+
+            <div className="mt-4 border-t border-[#efefef] pt-4">
+              <SheetActions>
+                <button
+                  type="button"
+                  onClick={() => setOrdemParaEstornar(null)}
+                  disabled={estornando}
+                  className={sheetButtonSecundario}
+                >
+                  Manter como está
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmarEstorno}
+                  disabled={estornando}
+                  data-sheet-foco
+                  className={sheetButtonPrimario}
+                  style={{ background: "#B91C1C", color: "#ffffff" }}
+                >
+                  {estornando ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Estornando…
+                    </>
+                  ) : (
+                    <>
+                      <Undo2 size={15} />
+                      Estornar produção
+                    </>
+                  )}
+                </button>
+              </SheetActions>
+            </div>
+          </div>
+        )}
+      </BottomSheet>
 
       {/* ── Modal "Produzir lote" — FORA de qualquer gate de loading ── */}
       <ProduzirLoteModal
@@ -547,6 +735,7 @@ export function ProducaoTab({ produto, onSuccess }: ProducaoTabProps) {
         onEstoqueMudou={recarregarProdutos}
         registrarProducao={registrarProducao}
         salvando={produzindo}
+        loteInicial={loteInicial}
         onSucesso={() => {
           // estoque/custo mudaram em TUDO: insumos (produtos), pai (produto),
           // histórico (ordens) e a ficha segue igual — recarrega por segurança.
@@ -601,6 +790,12 @@ interface ProduzirLoteModalProps {
    * front — a RPC `registrar_producao` continua recebendo a unidade do produto.
    */
   rendimento: number | null;
+  /**
+   * Fase 4a (fluxo "Corrigir produção", WIRE §4): quantidade pré-preenchida em
+   * UNIDADES do produto — abre o modal em modo "unidade" com banda explicativa.
+   * Ausente = comportamento atual ("1", modo receita quando há rendimento).
+   */
+  loteInicial?: string;
   /** T5/T6: PENDENTE cruzada com o insumo faltante → CTA "Receber compra X…" */
   comprasPendentes: Compra[];
   /** Recusa de saldo pela RPC: o estoque do banco mudou — revalida as linhas */
@@ -616,6 +811,7 @@ function ProduzirLoteModal({
   produto,
   linhas,
   rendimento,
+  loteInicial,
   comprasPendentes,
   onEstoqueMudou,
   registrarProducao,
@@ -623,7 +819,7 @@ function ProduzirLoteModal({
   onSucesso,
 }: ProduzirLoteModalProps) {
   const navigate = useNavigate();
-  const [lote, setLote] = useState("1");
+  const [lote, setLote] = useState(loteInicial ?? "1");
   const [data, setData] = useState(hojeLocal());
   const [observacao, setObservacao] = useState("");
   const [erro, setErro] = useState("");
@@ -634,7 +830,10 @@ function ProduzirLoteModal({
   // O sheet desmonta ao fechar (padrão Receber compra) → o estado reseta a cada abertura.
   const rend = rendimento ?? 0;
   const temToggle = rend > 0;
-  const [modo, setModo] = useState<"receita" | "unidade">(temToggle ? "receita" : "unidade");
+  // Fase 4a: loteInicial vem em UNIDADES do produto → abre em modo "unidade"
+  const [modo, setModo] = useState<"receita" | "unidade">(
+    temToggle && !loteInicial ? "receita" : "unidade"
+  );
 
   const loteNum = parseFloat(lote) || 0;
   // Conversão SEMPRE no front: em modo receita o lote vale `qtd × rendimento` unidades.
@@ -761,6 +960,21 @@ function ProduzirLoteModal({
       </div>
 
       <div className="space-y-4">
+        {/* Fase 4a (WIRE §4): banda do fluxo "Corrigir produção" */}
+        {loteInicial && (
+          <div
+            className="flex items-start gap-2 rounded-xl border px-3.5 py-3"
+            role="status"
+            style={{ background: "#FFFBEB", borderColor: "#FDE68A", color: "#B45309" }}
+          >
+            <Undo2 size={14} className="mt-0.5 shrink-0" />
+            <p className="text-xs" style={{ fontWeight: 600 }}>
+              Produção anterior estornada — corrija a ficha (aba Ficha Técnica) se o erro era nela,
+              e produza de novo.
+            </p>
+          </div>
+        )}
+
         {/* Modo Receita (SPEC §4): toggle receita × unidade — WIRE [1 receita | 695 g] */}
         {temToggle && (
           <div className="grid grid-cols-2 gap-2" role="group" aria-label="Unidade do lote">

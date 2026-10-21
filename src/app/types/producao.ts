@@ -138,6 +138,18 @@ export function custoPorUnidadeEstoque(
  * ───────────────────────────────────────────────────────────────────────── */
 
 /**
+ * Status da OP — domínio do CHECK `est_ordem_producao_status_check` (Fase 4a).
+ * OP nunca é deletada/editada; correção = estorno (lançamentos compensatórios).
+ */
+export type StatusOrdemProducao = "ATIVA" | "ESTORNADA";
+
+/** Rótulos da UI (WIRE-Producao-EstornoOP §2) — badge nunca depende de cor sozinha. */
+export const STATUS_ORDEM_LABELS: Record<StatusOrdemProducao, string> = {
+  ATIVA: "Ativa",
+  ESTORNADA: "Estornada",
+};
+
+/**
  * Linha do acabamento (Produção Fase 3) no formato da UI.
  */
 export interface OrdemProducao {
@@ -153,6 +165,10 @@ export interface OrdemProducao {
   /** ISO (`est_ordem_producao.data_producao` timestamptz) */
   dataProducao: string;
   observacao?: string | null;
+  /** Fase 4a — ciclo de vida; mapper resolve ausente → 'ATIVA' */
+  status?: StatusOrdemProducao;
+  /** ISO (`est_ordem_producao.estornado_em`) — preenchido quando ESTORNADA */
+  estornadoEm?: string | null;
 }
 
 /**
