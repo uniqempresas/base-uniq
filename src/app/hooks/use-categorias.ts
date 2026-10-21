@@ -79,6 +79,11 @@ export interface UseCategoriasReturn {
 
 export function useCategorias(): UseCategoriasReturn {
   const { empresa, session, loading: authLoading } = useAuth();
+  // N7 (fundador 20/10 — "pisca"): deps por VALOR (id da empresa + presença de
+  // sessão), nunca pela identidade dos objetos de auth. Ver comentário gêmeo
+  // em `use-produtos.ts` — mesma classe de refetch em cascata.
+  const empresaId = empresa?.id ?? null;
+  const temSessao = session !== null;
   const [categorias, setCategorias] = useState<CategoriaProduto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -92,7 +97,7 @@ export function useCategorias(): UseCategoriasReturn {
     setIsFallback(false);
 
     // MODO DEMO (sem login): mock — regra mock-first de 07/09/2026
-    if (!session) {
+    if (!temSessao) {
       setCategorias(CATEGORIAS_PADRAO);
       setIsFallback(true);
       setLoading(false);
@@ -100,7 +105,6 @@ export function useCategorias(): UseCategoriasReturn {
     }
 
     // Logado mas empresa não resolvida: NÃO consultar outro tenant
-    const empresaId = empresa?.id;
     if (!empresaId) {
       setCategorias([]);
       setError("Empresa não identificada para este usuário. Recarregue a página ou faça login novamente.");
@@ -124,7 +128,7 @@ export function useCategorias(): UseCategoriasReturn {
       setIsFallback(false);
     } catch (err) {
       console.error("[useCategorias] Erro ao buscar categorias:", err);
-      if (!session) {
+      if (!temSessao) {
         setCategorias(CATEGORIAS_PADRAO);
         setIsFallback(true);
       } else {
@@ -135,7 +139,7 @@ export function useCategorias(): UseCategoriasReturn {
     } finally {
       setLoading(false);
     }
-  }, [empresa, session, authLoading]);
+  }, [empresaId, temSessao, authLoading]);
 
   useEffect(() => {
     carregarDados();
@@ -148,7 +152,6 @@ export function useCategorias(): UseCategoriasReturn {
         return { success: false, error: "Informe o nome da categoria." };
       }
 
-      const empresaId = empresa?.id;
       if (!empresaId) {
         return {
           success: false,
@@ -178,7 +181,7 @@ export function useCategorias(): UseCategoriasReturn {
       carregarDados();
       return { success: true, id: Number(data?.id_categoria) };
     },
-    [empresa, carregarDados]
+    [empresaId, carregarDados]
   );
 
   const atualizarCategoria = useCallback(
@@ -186,7 +189,6 @@ export function useCategorias(): UseCategoriasReturn {
       id: number,
       campos: { nome?: string; cor?: string }
     ): Promise<MutarCategoriaResult> => {
-      const empresaId = empresa?.id;
       if (!empresaId) {
         return { success: false, error: "Empresa não identificada para este usuário." };
       }
@@ -220,12 +222,11 @@ export function useCategorias(): UseCategoriasReturn {
       carregarDados();
       return { success: true };
     },
-    [empresa, carregarDados]
+    [empresaId, carregarDados]
   );
 
   const desativarCategoria = useCallback(
     async (id: number): Promise<MutarCategoriaResult> => {
-      const empresaId = empresa?.id;
       if (!empresaId) {
         return { success: false, error: "Empresa não identificada para este usuário." };
       }
@@ -244,12 +245,11 @@ export function useCategorias(): UseCategoriasReturn {
       carregarDados();
       return { success: true };
     },
-    [empresa, carregarDados]
+    [empresaId, carregarDados]
   );
 
   const contarProdutos = useCallback(
     async (id: number): Promise<number> => {
-      const empresaId = empresa?.id;
       if (!empresaId) return 0;
 
       const { count, error: countError } = await supabase
@@ -264,7 +264,7 @@ export function useCategorias(): UseCategoriasReturn {
       }
       return count || 0;
     },
-    [empresa]
+    [empresaId]
   );
 
   return {

@@ -43,6 +43,15 @@ import { useUploadProdutoFoto } from "../../hooks/use-upload-produto";
 
 /** Steps fixos (produção F1: "Ficha Técnica" é condicional à natureza) */
 const STEPS_BASE = ["Informações", "Preços", "Estoque"];
+/**
+ * Fundador 20/10 (notas N1/N2): no insumo o antigo bloco "Como você conta o
+ * estoque" (embutido no rodapé de "Informações") vira fluxo próprio, na ordem
+ * compra → estoque: 1º Informações, 2º "Como é comprado" (unidade de compra +
+ * conversão), 3º "Como é guardado no estoque" (unidade de estoque + quantidades).
+ * Insumo não tem etapa de preço: custo nasce da primeira compra (D9) e insumo
+ * não tem preço de venda nem promocional (nota N3).
+ */
+const STEPS_INSUMO = ["Informações", "Como é comprado", "Como é guardado no estoque"];
 const STEP_FICHA = 4;
 
 /**
@@ -51,6 +60,7 @@ const STEP_FICHA = 4;
  * e os hooks do componente ficam todos no topo — nada de hook condicionado.
  */
 function stepsPara(natureza: NaturezaProduto): string[] {
+  if (natureza === "insumo") return STEPS_INSUMO;
   return natureza === "composto" ? [...STEPS_BASE, "Ficha Técnica"] : STEPS_BASE;
 }
 
@@ -82,7 +92,7 @@ function fatorUnidadeBase(unidade: string): number | null {
 
 interface ProdutoFormModalProps {
   produto?: Produto | null; // null/undefined = modo criar; Produto = modo editar
-  produtoBase?: Produto | null; // null/undefined = modo criar normal; Produto = modo duplicar
+  produtoBase?: Produto | null; // null/undefined = criar normal; Produto = modo duplicar
   categorias: CategoriaProduto[]; // catálogo via useCategorias (o CRUD fica em /estoque/configuracoes)
   /**
    * M1 (WIRE INSUMOS_MENU_M1): pré-seleção do rádio Natureza no modo CRIAR —
@@ -91,11 +101,38 @@ interface ProdutoFormModalProps {
    * duplicação a natureza da base sempre vence.
    */
   naturezaInicial?: NaturezaProduto;
+  /**
+   * N8 (fundador 20/10): o modal aberto de DENTRO da compra (NovaCompraPage).
+   * Criando insumo por aqui não há banda "próximo passo" — a banda navegaria
+   * para /estoque/compras/nova e jogaria fora o rascunho da compra em curso.
+   * Em vez disso o modal fecha e devolve o snapshot do insumo em `onSuccess`,
+   * que é quem sabe encaixar o item na linha rápida do carrinho.
+   */
+  contextoCompra?: boolean;
+  /** N8: pré-cheio do nome quando a compra já tem o termo digitado. */
+  nomeInicial?: string;
   onClose: () => void;
-  onSuccess: () => void;
+  /**
+   * N8: no contexto-compra recebe o snapshot do insumo recém-criado
+   * (undefined = salvou sem criar insumo: vendável, edição, duplicação).
+   */
+  onSuccess: (insumoCriado?: InsumoRecemCriado) => void;
 }
 
-export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaInicial: naturezaInicialProp, onClose, onSuccess }: ProdutoFormModalProps) {
+/**
+ * N8 — insumo criado AGORA dentro do modal (shape do snapshot que a Linha
+ * Rápida da compra já aceita: nome/SKU + unidades + conversão).
+ */
+export interface InsumoRecemCriado {
+  id: number;
+  nome: string;
+  sku: string;
+  unidade: string;
+  unidadeCompra: string | null;
+  fator: number | null;
+}
+
+export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaInicial: naturezaInicialProp, contextoCompra = false, nomeInicial = "", onClose, onSuccess }: ProdutoFormModalProps) {
   const ehEdicao = Boolean(produto);
   const ehDuplicacao = Boolean(produtoBase);
   const { empresa } = useAuth();
@@ -113,7 +150,10 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
     // SPEC §3). mock/produto antigo sem o campo → "simples".
     const naturezaInicial: NaturezaProduto = base?.natureza ?? naturezaInicialProp ?? "simples";
     return {
-      nome: produtoBase ? `${produtoBase.nome} (cópia)` : base?.nome || "",
+      // N8: vindo da compra com o termo digitado, o nome pré-cheio continua
+      // exatamente o que o fundador escreveu (trim = mesma regra do extinto
+      // mini-sheet; em edição/duplicação a base sempre vence).
+      nome: produtoBase ? `${produtoBase.nome} (cópia)` : base?.nome || nomeInicial.trim(),
       sku: produtoBase ? (produtoBase.sku ? `${produtoBase.sku}-COPIA` : "") : base?.sku || "",
       // Categoria vive em `categoria_id`. Antes era um nome vindo de lista mock,
       // gravado por engano em `me_produto.tipo`.
@@ -128,8 +168,12 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
       // Insumo nunca vai para a vitrine (SPEC §6.3) — vale também quando a
       // pré-seleção vem da visão Insumos (M1).
       exibirVitrine: base?.exibirVitrine ?? naturezaInicial !== "insumo",
-      estoque: produtoBase ? "0" : base ? String(base.estoque ?? 0) : "",
-      estoqueMinimo: base ? String(base.estoqueMinimo ?? 0) : "5",
+      // N4 + emenda 20/10 (nota 04): quantidade inicial e estoque mínimo nunca
+      // vazios. Criar: estoque 0 pré-preenchido, mínimo 1 (sugestão do form —
+      // o default da COLUNA no banco segue 5, intocado). Editar: valor real da
+      // base; null só em linha antiga sem a coluna → sugestão 1.
+      estoque: produtoBase ? "0" : base ? String(base.estoque ?? 0) : "0",
+      estoqueMinimo: base ? String(base.estoqueMinimo ?? 1) : "1",
       codigoBarras: base?.codigoBarras || "",
       descricao: base?.descricaoCurta || "",
       // Produção F1: eixo de produção (pré-seleção resolvida acima; o usuário
@@ -151,7 +195,7 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
   const [fotoRemovida, setFotoRemovida] = useState(false);
   const [erroFoto, setErroFoto] = useState("");
   const [erroPromocional, setErroPromocional] = useState("");
-  // WIRE T1: erro inline do bloco "COMO VOCÊ CONTA" (só insumo)
+  // WIRE T1: erro inline da etapa "Como é comprado" do insumo (N1/N2)
   const [erroConversao, setErroConversao] = useState("");
   // WIRE T1 — banda pós-salvar na CRIAÇÃO de insumo (próximo passo: a compra).
   // null = sem banda; {nome, href} = modal mostra FaixaProximoPasso em vez de fechar.
@@ -238,10 +282,18 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
     // "Preço promocional" (→ me_produto.preco_varejo): vazio grava null; se
     // preenchido, precisa ser MAIOR que o preço de venda — a vitrine só mostra
     // o selo "de/por" quando preco_varejo > preco (use-loja-produtos.ts).
+    // Nota N3: insumo não tem preço de venda nem promocional — campos ocultos,
+    // validação também (senão um valor antigo da base travaria o salvar numa
+    // etapa que nem existe no fluxo do insumo).
     const precoVendaNum = parseFloat(form.precoVenda) || 0;
     const precoPromocional =
       form.precoPromocional.trim() === "" ? null : parseFloat(form.precoPromocional);
-    if (precoPromocional !== null && Number.isFinite(precoPromocional) && precoPromocional <= precoVendaNum) {
+    if (
+      !ehInsumo &&
+      precoPromocional !== null &&
+      Number.isFinite(precoPromocional) &&
+      precoPromocional <= precoVendaNum
+    ) {
       setErroPromocional("O preço promocional precisa ser maior que o preço de venda.");
       setStep(2);
       return;
@@ -258,7 +310,8 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
     if (unidadeCompraFinal && !mesmaUnidade) {
       if (form.fatorConversao.trim() === "" || !Number.isFinite(fatorNum) || !(fatorNum > 0)) {
         setErroConversao(`Diga quantos ${form.unidade || "un"} têm em 1 ${unidadeCompraFinal}.`);
-        setStep(1);
+        // N2: no fluxo do insumo a conversão vive na etapa 2 ("Como é comprado")
+        setStep(2);
         return;
       }
     }
@@ -271,7 +324,7 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
       const erroConv = validarConversaoCompra(unidadeCompraFinal, fatorFinal, form.unidade);
       if (erroConv) {
         setErroConversao(erroConv);
-        setStep(1);
+        setStep(2);
         return;
       }
     }
@@ -336,7 +389,7 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
         precoVenda: parseFloat(form.precoVenda) || 0,
         precoCusto: parseFloat(form.precoCusto) || 0,
         estoque: parseInt(form.estoque) || 0,
-        estoqueMinimo: form.estoqueMinimo === "" ? 5 : parseInt(form.estoqueMinimo, 10),
+        estoqueMinimo: form.estoqueMinimo === "" ? 1 : parseInt(form.estoqueMinimo, 10),
         codigoBarras: form.codigoBarras || undefined,
         descricao: form.descricao || undefined,
         fotoUrl: fotoUrlFinal,
@@ -375,7 +428,7 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
       precoVenda: parseFloat(form.precoVenda) || 0,
       precoCusto: parseFloat(form.precoCusto) || 0,
       estoque: parseInt(form.estoque) || 0,
-      estoqueMinimo: form.estoqueMinimo === "" ? 5 : parseInt(form.estoqueMinimo, 10),
+      estoqueMinimo: form.estoqueMinimo === "" ? 1 : parseInt(form.estoqueMinimo, 10),
       codigoBarras: form.codigoBarras || undefined,
       descricao: form.descricao || undefined,
       // No duplicar, herda a URL da foto original; no criar sem foto, undefined → hook grava null.
@@ -414,6 +467,24 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
     // Edição/duplicação mantêm o comportamento atual (fecha via onSuccess).
     // onClose da banda = onSuccess do pai (ProdutosPage fecha + toast + recarrega).
     if (ehInsumo && !ehDuplicacao) {
+      // N8: aberto de dentro da COMPRA — a banda morreria o rascunho em curso
+      // (navega para /estoque/compras/nova). Fecha devolvendo o snapshot: a
+      // página mesma encaixa o item na Linha Rápida (merge do carrinho).
+      if (contextoCompra) {
+        onSuccess(
+          resultado.id
+            ? {
+                id: resultado.id,
+                nome: form.nome,
+                sku: form.sku,
+                unidade: form.unidade,
+                unidadeCompra: unidadeCompraFinal || null,
+                fator: fatorFinal,
+              }
+            : undefined
+        );
+        return;
+      }
       setBandaInsumo({
         nome: form.nome,
         href: resultado.id ? `/estoque/compras/nova?insumo=${resultado.id}` : "/estoque/compras/nova",
@@ -478,7 +549,7 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
                 {i + 1 < step ? <CheckCircle2 size={14} /> : i + 1}
               </div>
               <span
-                className="text-xs hidden sm:inline"
+                className="text-xs hidden sm:inline-block min-w-0 truncate whitespace-nowrap"
                 style={{ color: i + 1 === step ? "#1f2937" : "#627271", fontWeight: i + 1 === step ? 600 : 400 }}
               >
                 {s}
@@ -585,10 +656,10 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
                   autoFocus
                 />
               </div>
-              {/* Unidade: insumo vive no bloco "COMO VOCÊ CONTA" abaixo (WIRE T1);
-                  composto/simples mantêm o atalho equivalente que já existe.
-                  Select do catálogo (D4) — valor antigo fora do catálogo vira
-                  opção extra para nunca perder o dado salvo. */}
+              {/* Unidade: insumo escolhe na etapa "Como é guardado no estoque"
+                  (N1/N2); composto/simples mantêm o atalho equivalente que já
+                  existe. Select do catálogo (D4) — valor antigo fora do
+                  catálogo vira opção extra para nunca perder o dado salvo. */}
               <div className={ehInsumo ? "grid grid-cols-1 gap-3" : "grid grid-cols-2 gap-3"}>
                 <div>
                   <label className="block text-[#1f2937] text-xs mb-1.5" style={{ fontWeight: 500 }}>
@@ -714,9 +785,10 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
                               // Insumo nunca vai para a vitrine (SPEC §6.3)
                               exibirVitrine: n === "insumo" ? false : f.exibirVitrine,
                             }));
-                            // O step "Ficha Técnica" deixa de existir → nunca deixar
-                            // o usuário pendurado num passo que sumiu.
-                            if (n !== "composto" && step > STEPS_BASE.length) setStep(1);
+                            // O step atual pode deixar de existir na nova natureza
+                            // (ficha, ou o fluxo do insumo) → nunca deixar o
+                            // usuário pendurado num passo que sumiu.
+                            if (step > stepsPara(n).length) setStep(1);
                           }}
                           className="mt-0.5 h-4 w-4 shrink-0 accent-[#86cb92]"
                         />
@@ -737,163 +809,9 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
                 </div>
               </div>
 
-              {/* ── COMO VOCÊ CONTA (WIRE T1 — unidades por catálogo em select
-                  (D4), pergunta literal de conversão (F2), legenda permanente
-                  e custo nascendo da compra (D9). Anti-inversão mantida. ─── */}
-              {form.natureza === "insumo" && (
-                <div className="rounded-xl border border-[#efefef] p-4 space-y-3">
-                  <p className="text-[#1f2937] text-xs" style={{ fontWeight: 600 }}>
-                    COMO VOCÊ CONTA
-                  </p>
-
-                  <div>
-                    <label
-                      htmlFor="guarda-no-estoque"
-                      className="block text-[#1f2937] text-xs mb-1.5"
-                      style={{ fontWeight: 500 }}
-                    >
-                      Guarda no estoque
-                    </label>
-                    <select
-                      id="guarda-no-estoque"
-                      value={form.unidade}
-                      onChange={(e) => {
-                        setForm((f) => ({ ...f, unidade: e.target.value }));
-                        setErroConversao("");
-                      }}
-                      aria-label={`Unidade de estoque de ${form.nome || "novo produto"} — o que você pesa ou confere`}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92] appearance-none bg-white"
-                    >
-                      {opcoesUnidadeEstoque.map((u) => (
-                        <option key={u} value={u}>{u}</option>
-                      ))}
-                    </select>
-                    <p className="text-[#627271] text-[11px] mt-1.5">(o que você pesa/confere)</p>
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="compra-em"
-                      className="block text-[#1f2937] text-xs mb-1.5"
-                      style={{ fontWeight: 500 }}
-                    >
-                      Compra em
-                    </label>
-                    <select
-                      id="compra-em"
-                      value={form.unidadeCompra}
-                      onChange={(e) => {
-                        setForm((f) => ({ ...f, unidadeCompra: e.target.value }));
-                        setErroConversao("");
-                      }}
-                      aria-label={`Unidade de compra de ${form.nome || "novo produto"} — o que o fornecedor entrega`}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92] appearance-none bg-white"
-                    >
-                      <option value="">a mesma unidade do estoque</option>
-                      {opcoesUnidadeCompra.map((u) => (
-                        <option key={u} value={u}>{u}</option>
-                      ))}
-                    </select>
-                    <p className="text-[#627271] text-[11px] mt-1.5">(o que o fornecedor entrega)</p>
-                  </div>
-
-                  {/* Pergunta literal: "1 [compra] contém quantos [estoque]?"
-                      Mesma unidade → fator TRAVADO em 1; digitou outro valor
-                      antes de igualar as unidades, o aviso manda deixar vazio. */}
-                  {ucSelecionada !== "" && (
-                    <div>
-                      <label
-                        htmlFor="fator-conversao"
-                        className="block text-[#1f2937] text-xs mb-1.5"
-                        style={{ fontWeight: 500 }}
-                      >
-                        1 {ucSelecionada} contém quantos {form.unidade || "un"}?
-                      </label>
-                      <div className="relative">
-                        <input
-                          id="fator-conversao"
-                          type="number"
-                          min="0"
-                          step="any"
-                          inputMode="decimal"
-                          value={mesmaUnidade ? "1" : form.fatorConversao}
-                          disabled={mesmaUnidade}
-                          onChange={(e) => {
-                            setForm((f) => ({ ...f, fatorConversao: e.target.value }));
-                            setErroConversao("");
-                          }}
-                          placeholder="395"
-                          aria-label={`Quantos ${form.unidade || "unidades de estoque"} equivalem a 1 ${ucSelecionada}`}
-                          className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92] disabled:opacity-60"
-                        />
-                        <span
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#627271] text-[10px]"
-                          style={{ fontWeight: 600 }}
-                        >
-                          {form.unidade || "un"}
-                        </span>
-                      </div>
-                      {fatorDigitadoDiferenteDeUm && (
-                        <p
-                          className="mt-1.5 rounded-lg px-3 py-2 text-[11px]"
-                          style={{ background: "#FFFBEB", border: "1px solid #FDE68A", color: "#B45309", fontWeight: 500 }}
-                          role="status"
-                        >
-                          1 {form.unidade} = 1 {form.unidade}? Deixe vazio — o fator fica em 1.
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Legenda de conversão PERMANENTE (contrato 2 — "1 lata = 395 g")
-                      + custo nascendo da primeira compra (contrato 1 / D9). */}
-                  <div
-                    className="rounded-lg px-3 py-2.5"
-                    style={{ background: "#FAFAFA", border: "1px solid #efefef" }}
-                    role="status"
-                  >
-                    {ucSelecionada === "" ? (
-                      <span className="block text-[11px] text-[#1f2937]" style={{ fontWeight: 600 }}>
-                        Guarda e compra na mesma unidade ({form.unidade || "un"}) — sem conversão.
-                      </span>
-                    ) : mesmaUnidade || Number(form.fatorConversao) > 0 ? (
-                      <LegendaConversao
-                        unCompra={ucSelecionada}
-                        fator={mesmaUnidade ? 1 : Number(form.fatorConversao)}
-                        unEstoque={form.unidade || "un"}
-                        className="block text-[11px] text-[#1f2937]"
-                      />
-                    ) : (
-                      <span className="block text-[11px] text-[#627271]">
-                        1 {ucSelecionada} = ? {form.unidade || "un"} — preencha o quanto contém.
-                      </span>
-                    )}
-                    <span className="block text-[11px] text-[#627271] mt-1">
-                      o custo deste insumo nasce da primeira compra
-                    </span>
-                  </div>
-
-                  {/* heurística anti-inversão: compra em medida + estoque em embalagem */}
-                  {suspeitaInversao && (
-                    <p
-                      className="rounded-lg px-3 py-2 text-[11px]"
-                      style={{ background: "#FFFBEB", border: "1px solid #FDE68A", color: "#B45309", fontWeight: 500 }}
-                      role="status"
-                    >
-                      Você compra por <strong>{ucSelecionada}</strong> mas guarda em{" "}
-                      <strong>{form.unidade}</strong>? Parece invertido: a unidade de compra é o que
-                      sai na nota do fornecedor (ex.: Caixa), a de estoque é o que sobra pra usar
-                      (ex.: g).
-                    </p>
-                  )}
-
-                  {erroConversao && (
-                    <p className="text-xs text-red-600" style={{ fontWeight: 500 }} role="alert">
-                      {erroConversao}
-                    </p>
-                  )}
-                </div>
-              )}
+              {/* N1/N2 (fundador 20/10): o bloco "COMO VOCÊ CONTA" saiu do
+                  rodapé desta etapa e virou as etapas 2 ("Como é comprado")
+                  e 3 ("Como é guardado no estoque") do fluxo do insumo. */}
 
               <div>
                 <label className="block text-[#1f2937] text-xs mb-1.5" style={{ fontWeight: 500 }}>
@@ -948,7 +866,147 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
               </>
           )}
 
-          {step === 2 && (
+          {/* ── N1/N2 (fundador 20/10) — ETAPA 2 do insumo: "COMO É COMPRADO"
+              (unidade de compra + conversão). WIRE T1 continua valendo: selects
+              do catálogo (D4), pergunta literal de conversão (F2), legenda
+              permanente e custo nascendo da compra (D9). Anti-inversão mantida.
+              Vendáveis (simples/composto) permanecem com a etapa "Preços". ─── */}
+          {step === 2 && ehInsumo && (
+            <div className="rounded-xl border border-[#efefef] p-4 space-y-3">
+              <div>
+                <p className="text-[#1f2937] text-xs" style={{ fontWeight: 600 }}>
+                  COMO É COMPRADO
+                </p>
+                <p className="text-[#627271] text-[11px] mt-0.5">
+                  A unidade que o fornecedor entrega — o que sai na nota.
+                </p>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="compra-em"
+                  className="block text-[#1f2937] text-xs mb-1.5"
+                  style={{ fontWeight: 500 }}
+                >
+                  Compra em
+                </label>
+                <select
+                  id="compra-em"
+                  value={form.unidadeCompra}
+                  onChange={(e) => {
+                    setForm((f) => ({ ...f, unidadeCompra: e.target.value }));
+                    setErroConversao("");
+                  }}
+                  aria-label={`Unidade de compra de ${form.nome || "novo produto"} — o que o fornecedor entrega`}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92] appearance-none bg-white"
+                >
+                  <option value="">a mesma unidade do estoque</option>
+                  {opcoesUnidadeCompra.map((u) => (
+                    <option key={u} value={u}>{u}</option>
+                  ))}
+                </select>
+                <p className="text-[#627271] text-[11px] mt-1.5">(o que o fornecedor entrega)</p>
+              </div>
+
+              {/* Pergunta literal: "1 [compra] contém quantos [estoque]?"
+                  Mesma unidade → fator TRAVADO em 1; digitou outro valor
+                  antes de igualar as unidades, o aviso manda deixar vazio. */}
+              {ucSelecionada !== "" && (
+                <div>
+                  <label
+                    htmlFor="fator-conversao"
+                    className="block text-[#1f2937] text-xs mb-1.5"
+                    style={{ fontWeight: 500 }}
+                  >
+                    1 {ucSelecionada} contém quantos {form.unidade || "un"}?
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="fator-conversao"
+                      type="number"
+                      min="0"
+                      step="any"
+                      inputMode="decimal"
+                      value={mesmaUnidade ? "1" : form.fatorConversao}
+                      disabled={mesmaUnidade}
+                      onChange={(e) => {
+                        setForm((f) => ({ ...f, fatorConversao: e.target.value }));
+                        setErroConversao("");
+                      }}
+                      placeholder="395"
+                      aria-label={`Quantos ${form.unidade || "unidades de estoque"} equivalem a 1 ${ucSelecionada}`}
+                      className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92] disabled:opacity-60"
+                    />
+                    <span
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#627271] text-[10px]"
+                      style={{ fontWeight: 600 }}
+                    >
+                      {form.unidade || "un"}
+                    </span>
+                  </div>
+                  {fatorDigitadoDiferenteDeUm && (
+                    <p
+                      className="mt-1.5 rounded-lg px-3 py-2 text-[11px]"
+                      style={{ background: "#FFFBEB", border: "1px solid #FDE68A", color: "#B45309", fontWeight: 500 }}
+                      role="status"
+                    >
+                      1 {form.unidade} = 1 {form.unidade}? Deixe vazio — o fator fica em 1.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Legenda de conversão PERMANENTE (contrato 2 — "1 lata = 395 g")
+                  + custo nascendo da primeira compra (contrato 1 / D9). */}
+              <div
+                className="rounded-lg px-3 py-2.5"
+                style={{ background: "#FAFAFA", border: "1px solid #efefef" }}
+                role="status"
+              >
+                {ucSelecionada === "" ? (
+                  <span className="block text-[11px] text-[#1f2937]" style={{ fontWeight: 600 }}>
+                    Guarda e compra na mesma unidade ({form.unidade || "un"}) — sem conversão.
+                  </span>
+                ) : mesmaUnidade || Number(form.fatorConversao) > 0 ? (
+                  <LegendaConversao
+                    unCompra={ucSelecionada}
+                    fator={mesmaUnidade ? 1 : Number(form.fatorConversao)}
+                    unEstoque={form.unidade || "un"}
+                    className="block text-[11px] text-[#1f2937]"
+                  />
+                ) : (
+                  <span className="block text-[11px] text-[#627271]">
+                    1 {ucSelecionada} = ? {form.unidade || "un"} — preencha o quanto contém.
+                  </span>
+                )}
+                <span className="block text-[11px] text-[#627271] mt-1">
+                  o custo deste insumo nasce da primeira compra
+                </span>
+              </div>
+
+              {/* heurística anti-inversão: compra em medida + estoque em embalagem */}
+              {suspeitaInversao && (
+                <p
+                  className="rounded-lg px-3 py-2 text-[11px]"
+                  style={{ background: "#FFFBEB", border: "1px solid #FDE68A", color: "#B45309", fontWeight: 500 }}
+                  role="status"
+                >
+                  Você compra por <strong>{ucSelecionada}</strong> mas guarda em{" "}
+                  <strong>{form.unidade}</strong>? Parece invertido: a unidade de compra é o que
+                  sai na nota do fornecedor (ex.: Caixa), a de estoque é o que sobra pra usar
+                  (ex.: g).
+                </p>
+              )}
+
+              {erroConversao && (
+                <p className="text-xs text-red-600" style={{ fontWeight: 500 }} role="alert">
+                  {erroConversao}
+                </p>
+              )}
+            </div>
+          )}
+
+          {step === 2 && !ehInsumo && (
             <>
               {/* WIRE T1 item 4 / D9: "Preço de custo" removido para natureza
                   insumo — o custo nasce da primeira COMPRA. Simples mantém o
@@ -1048,7 +1106,100 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
             </>
           )}
 
-          {step === 3 && (
+          {/* ── N1/N2 (fundador 20/10) — ETAPA 3 do insumo: "COMO É GUARDADO
+              NO ESTOQUE" (unidade de estoque + quantidades, sempre
+              pré-preenchidas — N4/emenda 04: inicial 0, mínimo 1). ─── */}
+          {step === 3 && ehInsumo && (
+            <div className="rounded-xl border border-[#efefef] p-4 space-y-3">
+              <div>
+                <p className="text-[#1f2937] text-xs" style={{ fontWeight: 600 }}>
+                  COMO É GUARDADO NO ESTOQUE
+                </p>
+                <p className="text-[#627271] text-[11px] mt-0.5">
+                  A unidade que você pesa ou confere no depósito.
+                </p>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="guarda-no-estoque"
+                  className="block text-[#1f2937] text-xs mb-1.5"
+                  style={{ fontWeight: 500 }}
+                >
+                  Guarda no estoque
+                </label>
+                <select
+                  id="guarda-no-estoque"
+                  value={form.unidade}
+                  onChange={(e) => {
+                    setForm((f) => ({ ...f, unidade: e.target.value }));
+                    setErroConversao("");
+                  }}
+                  aria-label={`Unidade de estoque de ${form.nome || "novo produto"} — o que você pesa ou confere`}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92] appearance-none bg-white"
+                >
+                  {opcoesUnidadeEstoque.map((u) => (
+                    <option key={u} value={u}>{u}</option>
+                  ))}
+                </select>
+                <p className="text-[#627271] text-[11px] mt-1.5">(o que você pesa/confere)</p>
+              </div>
+
+              {erroConversao && (
+                <p className="text-xs text-red-600" style={{ fontWeight: 500 }} role="alert">
+                  {erroConversao}
+                </p>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[#1f2937] text-xs mb-1.5" style={{ fontWeight: 500 }}>
+                    Quantidade inicial
+                  </label>
+                  <input
+                    type="number"
+                    value={form.estoque}
+                    onChange={(e) => setForm((f) => ({ ...f, estoque: e.target.value }))}
+                    placeholder="0"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92]"
+                  />
+                  <p className="text-[#627271] text-[11px] mt-1.5">
+                    Sem estoque na criação? Deixe 0 — a quantidade entra na compra.
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-[#1f2937] text-xs mb-1.5" style={{ fontWeight: 500 }}>
+                    Estoque mínimo
+                  </label>
+                  <input
+                    type="number"
+                    value={form.estoqueMinimo}
+                    onChange={(e) => setForm((f) => ({ ...f, estoqueMinimo: e.target.value }))}
+                    placeholder="1"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92]"
+                  />
+                  <p className="text-[#627271] text-[11px] mt-1.5">
+                    Abaixo disso o app avisa "estoque baixo".
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[#1f2937] text-xs mb-1.5" style={{ fontWeight: 500 }}>
+                  Descrição curta
+                </label>
+                <textarea
+                  value={form.descricao}
+                  onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))}
+                  placeholder="Descrição resumida do insumo..."
+                  rows={3}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92] resize-none"
+                />
+              </div>
+            </div>
+          )}
+
+          {step === 3 && !ehInsumo && (
             <>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -1071,7 +1222,7 @@ export function ProdutoFormModal({ produto, produtoBase, categorias, naturezaIni
                     type="number"
                     value={form.estoqueMinimo}
                     onChange={(e) => setForm((f) => ({ ...f, estoqueMinimo: e.target.value }))}
-                    placeholder="5"
+                    placeholder="1"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm outline-none focus:border-[#86cb92]"
                   />
                 </div>
@@ -1231,7 +1382,7 @@ function PassoFichaTecnica({
   const rendNum = parseFloat(rendimento.replace(",", "."));
   const rendAtivo = Number.isFinite(rendNum) && rendNum > 0;
 
-  // ── WIRE T2 item 1 — sugestão automática de "Essa receita rende" ─────────
+  // ── WIRE T2 item 1 — sugestão de "Essa receita rende" ────────────────────
   // Soma das quantidades dos componentes convertidas para a base g/ml (a perda
   // NÃO entra na sugestão). Pai com unidade de estoque não-massa (composto por
   // unidade, ex.: Cone) → sugestão fixa 1 ("essa receita rende 1 unidade").
@@ -1249,14 +1400,24 @@ function PassoFichaTecnica({
           ? Math.round((somaBase / paiBase) * 1000) / 1000
           : null;
 
-  // Preenche automaticamente enquanto o usuário não editou manualmente (flag;
-  // valor já salvo no banco ao abrir conta como edição — nunca sobrescrever).
-  // A sugestão é só campo: NUNCA auto-salva (D2).
+  // N9 (fundador 20/10 — BUG BLOQUEADOR): a sugestão era PERMANENTE — a cada
+  // tecla na quantidade de um componente a soma mudava e o efeito REESCREVIA o
+  // campo "rende". Com modo-receita ativo isso é um loop de re-cálculo contra o
+  // usuário: as quantidades são EXIBIDAS por receita (qtd/unid × rende), então
+  // mexer no "rende" re-converte na tela o dígito que a pessoa está digitando
+  // AGORA e todos os outros valores ("digitei 60 g, os campos mudaram sozinhos").
+  // A sugestão agora é ONE-SHOT: preenche uma única vez enquanto o campo está
+  // intocado (vazio e nunca editado); depois disso o valor é do fundador. A
+  // soma ao vivo continua visível na linha "↳ soma dos ingredientes" com botão
+  // "usar sugestão" — aceitar é decisão, não efeito colateral de tecla.
   const editadoManual = useRef(rendimento.trim() !== "");
+  const sugestaoAplicada = useRef(false);
   useEffect(() => {
-    if (editadoManual.current || sugestao === null) return;
-    const atual = parseFloat(rendimento.replace(",", "."));
-    if (atual !== sugestao) onRendimentoChange(String(sugestao));
+    if (editadoManual.current || sugestaoAplicada.current || sugestao === null) return;
+    if (rendimento.trim() === "") {
+      sugestaoAplicada.current = true;
+      onRendimentoChange(String(sugestao));
+    }
   }, [sugestao, rendimento, onRendimentoChange]);
 
   // WIRE T2 item 3 — forma por grama RECOLHIDA por default (F3/D3)
@@ -1361,9 +1522,27 @@ function PassoFichaTecnica({
           </span>
         </div>
         {paiBase !== null && sugestao !== null && (
-          <p className="text-[#627271] text-[11px] mt-1" role="status">
-            ↳ soma dos ingredientes: {formatarQtd(sugestao)} {unidadePai} — ajuste se a receita reduz
-          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <p className="text-[#627271] text-[11px]" role="status">
+              ↳ soma dos ingredientes: {formatarQtd(sugestao)} {unidadePai} — ajuste se a receita reduz
+            </p>
+            {/* N9: aceitar a sugestão é toque DECIDIDO (não efeito de tecla).
+                Só aparece quando o valor do campo difere da soma ao vivo. */}
+            {Number(rendimento.replace(",", ".")) !== sugestao && (
+              <button
+                type="button"
+                onClick={() => {
+                  editadoManual.current = true;
+                  sugestaoAplicada.current = true;
+                  onRendimentoChange(String(sugestao));
+                }}
+                className="min-h-[36px] rounded-lg px-2.5 text-[11px] transition-colors hover:bg-[#e3e3e3]"
+                style={{ background: "#efefef", color: "#1f2937", fontWeight: 600 }}
+              >
+                usar sugestão
+              </button>
+            )}
+          </div>
         )}
         {paiBase === null && (
           <p className="text-[#627271] text-[11px] mt-1" role="status">

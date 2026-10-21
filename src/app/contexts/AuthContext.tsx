@@ -17,6 +17,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import type { User, Session } from "@supabase/supabase-js";
@@ -140,8 +141,53 @@ async function carregarPerfilEEmpresa(
   return { perfil, empresa, authError: null };
 }
 
+/**
+ * N7 (fundador 20/10/2026 — "pisca" nas telas): igualdade de conteúdo por JSON.
+ * `perfil` e `empresa` são payloads pequenos; o custo é desprezível e o ganho é
+ * estrutural: se a re-aplicação de sessão entrega o MESMO conteúdo em um objeto
+ * novo, preservamos a referência anterior. Hooks de dados usam deps
+ * `[empresa, session]` — sem preservação, cada `TOKEN_REFRESHED`/`SIGNED_IN`
+ * duplicado (abertura da página, sincronização entre abas, retorno de foco)
+ * recriava o objeto, refazia o fetch e a tela com gate `!loading` piscava.
+ */
+function conteudoIgual(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+}
+
+/** Merge preservando referências antigas quando o conteúdo não mudou. */
+function mesclarEstado(prev: AuthState, novo: AuthState): AuthState {
+  return {
+    user: prev.user?.id === novo.user?.id ? prev.user : novo.user,
+    session: prev.session?.user?.id === novo.session?.user?.id ? prev.session : novo.session,
+    perfil: conteudoIgual(prev.perfil, novo.perfil) ? prev.perfil : novo.perfil,
+    empresa: conteudoIgual(prev.empresa, novo.empresa) ? prev.empresa : novo.empresa,
+    loading: novo.loading,
+    authError: novo.authError,
+  };
+}
+
+/** setState via updater: se nada mudou de fato, devolve `prev` (React bail-out). */
+function aplicarEstado(prev: AuthState, novo: AuthState): AuthState {
+  const m = mesclarEstado(prev, novo);
+  const igual =
+    m.user === prev.user &&
+    m.session === prev.session &&
+    m.perfil === prev.perfil &&
+    m.empresa === prev.empresa &&
+    m.loading === prev.loading &&
+    m.authError === prev.authError;
+  return igual ? prev : m;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>(ESTADO_INICIAL);
+
+  // Espelho do último estado para INSPEÇÃO síncrona dentro do listener de auth
+  // (setState com updater não permite ler `state` de fora do closure).
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   // Restaurar sessão existente ao carregar a aplicação
   useEffect(() => {
@@ -152,20 +198,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const aplicarSessao = (sessionAtual: Session | null) => {
       if (!mounted) return;
       if (sessionAtual?.user) {
-        carregarPerfilEEmpresa(sessionAtual.user).then(({ perfil, empresa, authError }) => {
+        const usuario = sessionAtual.user;
+        const prev = stateRef.current;
+        // N7: eventos duplicados (INITIAL_SESSION no subscribe, SIGNED_IN de
+        // sincronização entre abas/visibilidade) entregam a MESMA sessão num
+        // objeto novo. Se já aplicamos este usuário (perfil carregado, sem
+        // loading em curso), não há nada a re-buscar — 0 fetch, 0 re-render.
+        if (
+          !prev.loading &&
+          prev.perfil !== null &&
+          prev.session?.user?.id === usuario.id &&
+          prev.user?.email === usuario.email
+        ) {
+          return;
+        }
+        carregarPerfilEEmpresa(usuario).then(({ perfil, empresa, authError }) => {
           if (!mounted) return;
-          setState({
-            user: sessionAtual.user,
-            session: sessionAtual,
-            perfil,
-            empresa,
-            loading: false,
-            authError,
-          });
+          setState((p) =>
+            aplicarEstado(p, {
+              user: usuario,
+              session: sessionAtual,
+              perfil,
+              empresa,
+              loading: false,
+              authError,
+            })
+          );
         });
       } else {
-        // Sem sessão = modo demo (mock-first preservado)
-        setState({ ...ESTADO_INICIAL, loading: false });
+        // Sem sessão = modo demo (mock-first preservado). Updater + merge:
+        // re-entrega de "sem sessão" não gera re-render nem refetch.
+        setState((p) => aplicarEstado(p, { ...ESTADO_INICIAL, loading: false }));
       }
     };
 
@@ -200,21 +263,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const { perfil, empresa, authError } = await carregarPerfilEEmpresa(data.session.user);
-    setState({
-      user: data.session.user,
-      session: data.session,
-      perfil,
-      empresa,
-      loading: false,
-      authError,
-    });
+    // Local const: preserva o narrowing de `data.session` dentro do updater.
+    const sessaoLogin = data.session;
+    setState((p) =>
+      aplicarEstado(p, {
+        user: sessaoLogin.user,
+        session: sessaoLogin,
+        perfil,
+        empresa,
+        loading: false,
+        authError,
+      })
+    );
 
     return {};
   }, []);
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
-    setState({ ...ESTADO_INICIAL, loading: false });
+    setState((p) => aplicarEstado(p, { ...ESTADO_INICIAL, loading: false }));
   }, []);
 
   return (

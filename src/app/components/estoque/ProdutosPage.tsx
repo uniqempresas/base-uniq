@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router";
 import {
   Search,
@@ -26,11 +26,14 @@ import {
   calcMargem,
   getEstoqueStatusConfig,
   type Produto,
+  type EstoqueStatus,
+  type ProdutoStatus,
 } from "./estoqueMockData";
 import { useProdutos } from "../../hooks/use-produtos";
 import { useAtualizarProduto } from "../../hooks/use-atualizar-produto";
 import { getTagPalette } from "../../hooks/use-tags";
 import { useCategorias } from "../../hooks/use-categorias";
+import { useAuth } from "../../contexts/AuthContext";
 import { NATUREZA_LABELS, type NaturezaProduto } from "../../types/producao";
 import { ProdutoFormModal } from "../produto/ProdutoFormModal";
 
@@ -50,8 +53,20 @@ function corCategoria(cor?: string | null, nome?: string) {
 type ViewMode = "grid" | "list";
 
 const CATEGORIAS = [...new Set(PRODUTOS.map((p) => p.categoria))];
-const STATUS_ESTOQUE_OPTS = ["Todos", "OK", "Baixo", "Zerado"];
-const STATUS_PRODUTO_OPTS = ["Todos", "Ativo", "Inativo"];
+/**
+ * N6 (fundador 20/10): os grupos Estoque e Status viram MULTI-seleção como o
+ * de categoria — array vazio = "Todos" (sem filtro no grupo). As opções são o
+ * próprio valor do domínio; o label é o que aparece no chip.
+ */
+const ESTOQUE_OPTS: { valor: EstoqueStatus; label: string }[] = [
+  { valor: "ok", label: "OK" },
+  { valor: "baixo", label: "Baixo" },
+  { valor: "zerado", label: "Zerado" },
+];
+const STATUS_OPTS: { valor: ProdutoStatus; label: string }[] = [
+  { valor: "ativo", label: "Ativo" },
+  { valor: "inativo", label: "Inativo" },
+];
 
 /* ─────────── Badge helpers ─────────── */
 function EstoqueBadge({ status }: { status: Produto["estoqueStatus"] }) {
@@ -523,19 +538,107 @@ export function ProdutosPage() {
   const { produtos, loading, isFallback, recarregar } = useProdutos();
   const { atualizarProduto, loading: atualizandoProduto } = useAtualizarProduto();
   const { categorias: categoriasConfig } = useCategorias();
+  const { empresa } = useAuth();
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [busca, setBusca] = useState("");
   // W1 (PRODUTOS_FILTRO_MULTI): categoria vira MULTI-seleção (toggle, união).
   // [] = Todas (sem filtro). Antes era string única `catFiltro`.
   const [catsFiltro, setCatsFiltro] = useState<string[]>([]);
-  const [statusEstoque, setStatusEstoque] = useState("Todos");
-  const [statusProduto, setStatusProduto] = useState("Todos");
+  // N6 (20/10): Estoque e Status seguem o mesmo contrato de Categoria —
+  // multi-seleção, array vazio = sem filtro no grupo.
+  const [estoqueFiltros, setEstoqueFiltros] = useState<EstoqueStatus[]>([]);
+  const [statusFiltros, setStatusFiltros] = useState<ProdutoStatus[]>([]);
   const [showFiltros, setShowFiltros] = useState(false);
   const [showNovoProduto, setShowNovoProduto] = useState(false);
   const [produtoParaEditar, setProdutoParaEditar] = useState<Produto | null>(null);
   const [produtoParaExcluir, setProdutoParaExcluir] = useState<Produto | null>(null);
   const [produtoParaDuplicar, setProdutoParaDuplicar] = useState<Produto | null>(null);
   const [toast, setToast] = useState("");
+
+  // ---- N5/N6: persistência de viewMode + filtros — por EMPRESA, nunca global ----
+  // Chave `uniq:estoque:filtros:<empresaId>`: mesmo padrão aprovado em
+  // /vendas/pedidos (`uniq:pedidos:filtros:<empresaId>`). Sem login (modo demo)
+  // não há empresa dona da preferência → nada é persistido.
+  const storageKey = empresa?.id ? `uniq:estoque:filtros:${empresa.id}` : null;
+  const filtrosCarregados = useRef(false);
+
+  // Grava a cada mudança. Declarado ANTES do load: no 1º commit em que a empresa
+  // resolve, esta effect roda com `filtrosCarregados=false` e pula — sem
+  // sobrescrever o que acabou de ser lido do storage no mesmo ciclo.
+  useEffect(() => {
+    if (!storageKey || !filtrosCarregados.current) return;
+    try {
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          viewMode,
+          cats: catsFiltro,
+          estoque: estoqueFiltros,
+          status: statusFiltros,
+        })
+      );
+    } catch {
+      // Storage indisponível/cheio — persistência é best-effort, não quebra a tela.
+    }
+  }, [storageKey, viewMode, catsFiltro, estoqueFiltros, statusFiltros]);
+
+  // Lê na inicialização. JSON inválido/corrompido cai no try/catch → defaults.
+  // Quem nunca escolheu mantém o default atual (cards).
+  useEffect(() => {
+    if (!storageKey || filtrosCarregados.current) return;
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as {
+          viewMode?: unknown;
+          cats?: unknown;
+          estoque?: unknown;
+          status?: unknown;
+        };
+        if (parsed.viewMode === "grid" || parsed.viewMode === "list") {
+          setViewMode(parsed.viewMode);
+        }
+        if (Array.isArray(parsed.cats)) {
+          setCatsFiltro(parsed.cats.filter((c): c is string => typeof c === "string"));
+        }
+        if (Array.isArray(parsed.estoque)) {
+          setEstoqueFiltros(
+            parsed.estoque.filter((e): e is EstoqueStatus =>
+              ESTOQUE_OPTS.some((o) => o.valor === e)
+            )
+          );
+        }
+        if (Array.isArray(parsed.status)) {
+          setStatusFiltros(
+            parsed.status.filter((s): s is ProdutoStatus =>
+              STATUS_OPTS.some((o) => o.valor === s)
+            )
+          );
+        }
+      }
+    } catch {
+      // Storage corrompido/indisponível → defaults
+    } finally {
+      filtrosCarregados.current = true;
+    }
+  }, [storageKey]);
+
+  // N6: "Limpar filtros" apaga a seleção E o storage — senão a escolha "volta"
+  // ao recarregar a página. viewMode NÃO entra na limpeza: é preferência de
+  // exibição (N5), não filtro.
+  const limparFiltros = (incluirBusca = false) => {
+    setCatsFiltro([]);
+    setEstoqueFiltros([]);
+    setStatusFiltros([]);
+    if (incluirBusca) setBusca("");
+    if (storageKey) {
+      try {
+        localStorage.removeItem(storageKey);
+      } catch {
+        // best-effort — não quebra a tela
+      }
+    }
+  };
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -571,9 +674,13 @@ export function ProdutosPage() {
   const escopo = produtos.filter((p) => (ehInsumos ? p.natureza === "insumo" : p.natureza !== "insumo"));
 
   // W1: multi-categoria em UNIÃO — o produto aparece se pertence a QUALQUER
-  // categoria marcada (subtração nenhuma).
+  // categoria marcada (subtração nenhuma). N6: Estoque e Status na mesma regra.
   const toggleCat = (nome: string) =>
     setCatsFiltro((prev) => (prev.includes(nome) ? prev.filter((c) => c !== nome) : [...prev, nome]));
+  const toggleEstoque = (valor: EstoqueStatus) =>
+    setEstoqueFiltros((prev) => (prev.includes(valor) ? prev.filter((e) => e !== valor) : [...prev, valor]));
+  const toggleStatus = (valor: ProdutoStatus) =>
+    setStatusFiltros((prev) => (prev.includes(valor) ? prev.filter((s) => s !== valor) : [...prev, valor]));
 
   const filteredProdutos = escopo.filter((p) => {
     const matchBusca =
@@ -582,23 +689,30 @@ export function ProdutosPage() {
       p.sku.toLowerCase().includes(busca.toLowerCase()) ||
       (p.codigoBarras || "").includes(busca);
     const matchCat = catsFiltro.length === 0 || catsFiltro.includes(p.categoria);
-    const matchEstoque =
-      statusEstoque === "Todos" ||
-      (statusEstoque === "OK" && p.estoqueStatus === "ok") ||
-      (statusEstoque === "Baixo" && p.estoqueStatus === "baixo") ||
-      (statusEstoque === "Zerado" && p.estoqueStatus === "zerado");
-    const matchStatus =
-      statusProduto === "Todos" ||
-      (statusProduto === "Ativo" && p.status === "ativo") ||
-      (statusProduto === "Inativo" && p.status === "inativo");
+    const matchEstoque = estoqueFiltros.length === 0 || estoqueFiltros.includes(p.estoqueStatus);
+    const matchStatus = statusFiltros.length === 0 || statusFiltros.includes(p.status);
     return matchBusca && matchCat && matchEstoque && matchStatus;
   });
 
-  const activeFilters = [
-    ...catsFiltro,
-    statusEstoque !== "Todos" && statusEstoque,
-    statusProduto !== "Todos" && statusProduto,
-  ].filter(Boolean) as string[];
+  // Chips ativos (grupo do painel recolhido + contador do botão Filtros):
+  // cada chip sabe de qual grupo sai — remover um não limpa os outros.
+  const activeChips: { id: string; label: string; remover: () => void }[] = [
+    ...catsFiltro.map((c) => ({
+      id: `cat-${c}`,
+      label: c,
+      remover: () => setCatsFiltro((prev) => prev.filter((x) => x !== c)),
+    })),
+    ...estoqueFiltros.map((e) => ({
+      id: `estoque-${e}`,
+      label: ESTOQUE_OPTS.find((o) => o.valor === e)?.label ?? e,
+      remover: () => setEstoqueFiltros((prev) => prev.filter((x) => x !== e)),
+    })),
+    ...statusFiltros.map((s) => ({
+      id: `status-${s}`,
+      label: STATUS_OPTS.find((o) => o.valor === s)?.label ?? s,
+      remover: () => setStatusFiltros((prev) => prev.filter((x) => x !== s)),
+    })),
+  ];
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto">
@@ -769,7 +883,7 @@ export function ProdutosPage() {
           )}
           {escopo.some((p) => p.estoqueStatus === "baixo") && (
             <button
-              onClick={() => setStatusEstoque("Baixo")}
+              onClick={() => setEstoqueFiltros(["baixo"])}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs"
               style={{ background: "#FFFBEB", color: "#B45309", fontWeight: 600, border: "1px solid #FDE68A" }}
             >
@@ -797,25 +911,40 @@ export function ProdutosPage() {
             onClick={() => setShowFiltros(!showFiltros)}
             className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-sm transition-all"
             style={{
-              background: showFiltros || activeFilters.length > 0 ? "#efefef" : "white",
-              borderColor: showFiltros || activeFilters.length > 0 ? "#86cb92" : "#efefef",
-              color: showFiltros || activeFilters.length > 0 ? "#1f2937" : "#627271",
+              background: showFiltros || activeChips.length > 0 ? "#efefef" : "white",
+              borderColor: showFiltros || activeChips.length > 0 ? "#86cb92" : "#efefef",
+              color: showFiltros || activeChips.length > 0 ? "#1f2937" : "#627271",
               fontWeight: 500,
             }}
           >
             <Filter size={14} />
             Filtros
-            {activeFilters.length > 0 && (
+            {activeChips.length > 0 && (
               <span className="w-5 h-5 rounded-full text-[10px] flex items-center justify-center text-[#1f2937]" style={{ background: "#86cb92" }}>
-                {activeFilters.length}
+                {activeChips.length}
               </span>
             )}
           </button>
-          <div className="flex border border-[#efefef] rounded-xl overflow-hidden bg-[#efefef]">
-            <button onClick={() => setViewMode("grid")} className="px-3 py-2.5 transition-all" style={{ background: viewMode === "grid" ? "white" : "transparent", color: viewMode === "grid" ? "#1f2937" : "#627271" }}>
+          {/* N5: viewMode é preferência persistida por empresa (storage) — os
+              botões ganham estado acessível; o default de quem nunca escolheu
+              permanece cards. */}
+          <div className="flex border border-[#efefef] rounded-xl overflow-hidden bg-[#efefef]" role="group" aria-label="Modo de exibição">
+            <button
+              onClick={() => setViewMode("grid")}
+              aria-pressed={viewMode === "grid"}
+              aria-label="Ver em cards"
+              className="px-3 py-2.5 min-h-[42px] transition-all"
+              style={{ background: viewMode === "grid" ? "white" : "transparent", color: viewMode === "grid" ? "#1f2937" : "#627271" }}
+            >
               <LayoutGrid size={15} />
             </button>
-            <button onClick={() => setViewMode("list")} className="px-3 py-2.5 transition-all" style={{ background: viewMode === "list" ? "white" : "transparent", color: viewMode === "list" ? "#1f2937" : "#627271" }}>
+            <button
+              onClick={() => setViewMode("list")}
+              aria-pressed={viewMode === "list"}
+              aria-label="Ver em lista"
+              className="px-3 py-2.5 min-h-[42px] transition-all"
+              style={{ background: viewMode === "list" ? "white" : "transparent", color: viewMode === "list" ? "#1f2937" : "#627271" }}
+            >
               <List size={15} />
             </button>
           </div>
@@ -862,30 +991,85 @@ export function ProdutosPage() {
                 )}
               </div>
             </div>
+            {/* N6: Estoque vira MULTI-seleção como Categoria (união; vazio =
+                sem filtro). Chip ativo ganha a cor semântica do status
+                (configuração que a própria lista já usa), "Todas" limpa o grupo. */}
             <div>
               <label className="block text-[#627271] text-xs mb-2" style={{ fontWeight: 500 }}>Estoque</label>
-              <div className="flex gap-1.5">
-                {STATUS_ESTOQUE_OPTS.map((s) => (
-                  <button key={s} onClick={() => setStatusEstoque(s)}
-                    className="px-3 py-1.5 rounded-lg text-xs transition-all"
-                    style={{ background: statusEstoque === s ? "#efefef" : "#efefef", color: statusEstoque === s ? "#1f2937" : "#627271", border: statusEstoque === s ? "1px solid #86cb92" : "1px solid transparent", fontWeight: statusEstoque === s ? 600 : 400 }}
-                  >{s}</button>
-                ))}
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  onClick={() => setEstoqueFiltros([])}
+                  className="px-3 py-1.5 rounded-lg text-xs transition-all"
+                  style={{
+                    background: "#efefef",
+                    color: "#627271",
+                    border: estoqueFiltros.length === 0 ? "1px solid #62727140" : "1px solid transparent",
+                    fontWeight: estoqueFiltros.length === 0 ? 600 : 400,
+                  }}
+                >Todas</button>
+                {ESTOQUE_OPTS.map(({ valor, label }) => {
+                  const cfg = getEstoqueStatusConfig(valor);
+                  const marcada = estoqueFiltros.includes(valor);
+                  return (
+                    <button key={valor} onClick={() => toggleEstoque(valor)} aria-pressed={marcada}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all"
+                      style={{
+                        background: marcada ? cfg.bg : "#efefef",
+                        color: marcada ? cfg.text : "#627271",
+                        border: marcada ? `1px solid ${cfg.border}` : "1px solid transparent",
+                        fontWeight: marcada ? 600 : 400,
+                      }}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: cfg.dot }} aria-hidden />
+                      {label}
+                    </button>
+                  );
+                })}
+                {estoqueFiltros.length >= 2 && (
+                  <button
+                    onClick={() => setEstoqueFiltros([])}
+                    className="px-2.5 py-1.5 rounded-lg text-xs underline underline-offset-2 transition-all"
+                    style={{ color: "#B45309", background: "#FFFBEB", border: "1px solid #FDE68A", fontWeight: 600 }}
+                  >Limpar</button>
+                )}
               </div>
             </div>
+            {/* N6: Status idem — multi-seleção, ativo em verde, inativo em cinza */}
             <div>
               <label className="block text-[#627271] text-xs mb-2" style={{ fontWeight: 500 }}>Status</label>
-              <div className="flex gap-1.5">
-                {STATUS_PRODUTO_OPTS.map((s) => (
-                  <button key={s} onClick={() => setStatusProduto(s)}
-                    className="px-3 py-1.5 rounded-lg text-xs transition-all"
-                    style={{ background: statusProduto === s ? "#efefef" : "#efefef", color: statusProduto === s ? "#1f2937" : "#627271", border: statusProduto === s ? "1px solid #86cb92" : "1px solid transparent", fontWeight: statusProduto === s ? 600 : 400 }}
-                  >{s}</button>
-                ))}
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  onClick={() => setStatusFiltros([])}
+                  className="px-3 py-1.5 rounded-lg text-xs transition-all"
+                  style={{
+                    background: "#efefef",
+                    color: "#627271",
+                    border: statusFiltros.length === 0 ? "1px solid #62727140" : "1px solid transparent",
+                    fontWeight: statusFiltros.length === 0 ? 600 : 400,
+                  }}
+                >Todos</button>
+                {STATUS_OPTS.map(({ valor, label }) => {
+                  const marcada = statusFiltros.includes(valor);
+                  const cores =
+                    valor === "ativo"
+                      ? { bg: "#F0FDF4", text: "#15803D", border: "#86EFAC" }
+                      : { bg: "#F3F4F6", text: "#4B5563", border: "#9CA3AF" };
+                  return (
+                    <button key={valor} onClick={() => toggleStatus(valor)} aria-pressed={marcada}
+                      className="px-3 py-1.5 rounded-lg text-xs transition-all"
+                      style={{
+                        background: marcada ? cores.bg : "#efefef",
+                        color: marcada ? cores.text : "#627271",
+                        border: marcada ? `1px solid ${cores.border}` : "1px solid transparent",
+                        fontWeight: marcada ? 600 : 400,
+                      }}
+                    >{label}</button>
+                  );
+                })}
               </div>
             </div>
-            {activeFilters.length > 0 && (
-              <button onClick={() => { setCatsFiltro([]); setStatusEstoque("Todos"); setStatusProduto("Todos"); }}
+            {activeChips.length > 0 && (
+              <button onClick={() => limparFiltros()}
                 className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 mt-auto" style={{ fontWeight: 500 }}>
                 <X size={12} />Limpar filtros
               </button>
@@ -893,13 +1077,13 @@ export function ProdutosPage() {
           </div>
         )}
 
-        {/* Active filter chips */}
-        {activeFilters.length > 0 && !showFiltros && (
+        {/* Active filter chips — um por seleção, com X próprio (N6) */}
+        {activeChips.length > 0 && !showFiltros && (
           <div className="mt-3 flex flex-wrap gap-2">
-            {activeFilters.map((f) => (
-              <span key={f} className="flex items-center gap-1 px-2 py-1 rounded-full bg-[#efefef] text-[#1f2937] text-xs" style={{ fontWeight: 500 }}>
-                {f}
-                <button onClick={() => { if (catsFiltro.includes(f)) setCatsFiltro((prev) => prev.filter((c) => c !== f)); else if (statusEstoque === f) setStatusEstoque("Todos"); else setStatusProduto("Todos"); }}>
+            {activeChips.map((chip) => (
+              <span key={chip.id} className="flex items-center gap-1 px-2 py-1 rounded-full bg-[#efefef] text-[#1f2937] text-xs" style={{ fontWeight: 500 }}>
+                {chip.label}
+                <button onClick={chip.remover} aria-label={`Remover filtro ${chip.label}`}>
                   <X size={11} />
                 </button>
               </span>
@@ -915,9 +1099,10 @@ export function ProdutosPage() {
             <Package size={28} className="text-[#627271]" />
           </div>
           <h3 className="text-[#1f2937] mb-2" style={{ fontWeight: 600 }}>
-            {busca || activeFilters.length > 0
-              ? // W1: filtro multi-categoria ativo e nada casa → mensagem própria
-                catsFiltro.length >= 2
+            {busca || activeChips.length > 0
+              ? // W1/N6: 2+ seleções (categoria, estoque ou status) e nada casa
+                // → mensagem própria de combinação
+                activeChips.length >= 2
                 ? "Nada nesta combinação"
                 : catsFiltro.length === 1
                   ? `Nenhum ${termo} nesta categoria`
@@ -925,14 +1110,14 @@ export function ProdutosPage() {
               : `Nenhum ${termo} cadastrado`}
           </h3>
           <p className="text-[#627271] text-sm mb-5">
-            {busca || activeFilters.length > 0
+            {busca || activeChips.length > 0
               ? "Tente ajustar seus filtros ou termos de busca"
               : ehInsumos
                 ? "Cadastre o que você compra: caixas, embalagens, matéria-prima"
                 : "Comece adicionando seu primeiro produto ao estoque"}
           </p>
-          {busca || activeFilters.length > 0 ? (
-            <button onClick={() => { setBusca(""); setCatsFiltro([]); setStatusEstoque("Todos"); setStatusProduto("Todos"); }}
+          {busca || activeChips.length > 0 ? (
+            <button onClick={() => limparFiltros(true)}
               className="px-5 py-2.5 rounded-xl border border-[#efefef] text-[#1f2937] text-sm" style={{ fontWeight: 500 }}>
               Limpar filtros
             </button>

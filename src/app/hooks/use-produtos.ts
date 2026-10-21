@@ -125,6 +125,14 @@ export interface UseProdutosReturn {
 
 export function useProdutos(): UseProdutosReturn {
   const { empresa, session, loading: authLoading } = useAuth();
+  // N7 (fundador 20/10 — "pisca"): a query depende do ID da empresa e de haver
+  // sessão — não da identidade dos objetos `empresa`/`session`. Evento de auth
+  // duplicado que recriasse esses objetos com o mesmo conteúdo refazia o fetch
+  // em cascade (useCallback -> useEffect) e o gate `!loading` das telas piscava
+  // a lista inteira. AuthContext já preserva as referências (causa raiz); isto é
+  // o segundo cinto: nada aqui re-consulta sem mudança de dado real.
+  const empresaId = empresa?.id ?? null;
+  const temSessao = session !== null;
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -138,7 +146,7 @@ export function useProdutos(): UseProdutosReturn {
     setIsFallback(false);
 
     // MODO DEMO (sem login): usa mock — regra mock-first de 07/09/2026
-    if (!session) {
+    if (!temSessao) {
       setProdutos(PRODUTOS);
       setIsFallback(true);
       setLoading(false);
@@ -146,7 +154,6 @@ export function useProdutos(): UseProdutosReturn {
     }
 
     // Logado mas empresa não resolvida: NÃO consultar outro tenant
-    const empresaId = empresa?.id;
     if (!empresaId) {
       setProdutos([]);
       setError("Empresa não identificada para este usuário. Recarregue a página ou faça login novamente.");
@@ -180,7 +187,7 @@ export function useProdutos(): UseProdutosReturn {
       setProdutos(produtosValidos.map(mapProduto));
     } catch (err) {
       console.error("[useProdutos] Erro ao buscar dados reais:", err);
-      if (!session) {
+      if (!temSessao) {
         setProdutos(PRODUTOS);
         setIsFallback(true);
       } else {
@@ -191,7 +198,7 @@ export function useProdutos(): UseProdutosReturn {
     } finally {
       setLoading(false);
     }
-  }, [empresa, session, authLoading]);
+  }, [empresaId, temSessao, authLoading]);
 
   useEffect(() => {
     carregarDados();

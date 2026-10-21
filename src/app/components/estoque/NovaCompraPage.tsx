@@ -190,6 +190,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import {
   ArrowLeft,
   Check,
+  List,
   Loader2,
   Plus,
   Search,
@@ -210,12 +211,13 @@ import {
   type FornecedorSimples,
 } from "../../hooks/use-fornecedores";
 import { useCriarCompra, type CriarCompraParams, type CriarCompraResult } from "../../hooks/use-criar-compra";
-import {
-  useCriarProduto,
-  validarConversaoCompra,
-  type CriarProdutoParams,
-  type CriarProdutoResult,
-} from "../../hooks/use-criar-produto";
+// N8 (fundador 20/10): a mini-criação de insumo desta tela morreu — o
+// "+ Cadastrar na hora" abriu espaço para o ProdutoFormModal COMPLETO
+// (o mesmo de Estoque ▸ Novo Insumo), que devolve o snapshot criado. O
+// `use-criar-produto` segue vivo dentro do modal; daqui saiu junto com o
+// mini-sheet.
+import { ProdutoFormModal, type InsumoRecemCriado } from "../produto/ProdutoFormModal";
+import { useCategorias } from "../../hooks/use-categorias";
 import {
   BottomSheet,
   campoFormSheet,
@@ -225,7 +227,6 @@ import {
 } from "../financeiro/components";
 import { LegendaConversao } from "./LegendaConversao";
 import { PortaoConversao, type ConversaoConfirmada } from "./PortaoConversao";
-import { UNIDADES_COMPRA, UNIDADES_ESTOQUE, mesmasUnidades } from "../../lib/unidades";
 import type { Produto } from "../../types/produto";
 
 /* ───────────────────────── helpers de exibição ───────────────────────── */
@@ -466,7 +467,9 @@ export function NovaCompraPage() {
     criando: criandoFornecedor,
   } = useFornecedores();
   const { criarCompra, loading: criando } = useCriarCompra();
-  const { criarProduto, loading: criandoProduto } = useCriarProduto();
+  // N8: o ProdutoFormModal exige o catálogo de categorias (o mesmo que a
+  // ProdutosPage passa; o CRUD vive em /estoque/configuracoes).
+  const { categorias } = useCategorias();
   // C4 — teclado educado (iOS): inset em px coberto pelo teclado virtual +
   // flag para limpar a tela (pill "Salvar" some enquanto se digita)
   const { tecladoAberto, inset: insetTeclado } = useViewportTeclado();
@@ -496,7 +499,13 @@ export function NovaCompraPage() {
   const [selInsumo, setSelInsumo] = useState<Produto | LinhaNova | null>(null);
   const [rapidoQtd, setRapidoQtd] = useState("1");
   const [rapidoValor, setRapidoValor] = useState("");
-  const [miniItemAberto, setMiniItemAberto] = useState(false);
+  // N8 (20/10): era `miniItemAberto` (mini-sheet U2.2). Agora abre o
+  // ProdutoFormModal completo — mesma tela de cadastro do Estoque.
+  const [novoInsumoModalAberto, setNovoInsumoModalAberto] = useState(false);
+  // N10 (20/10): a seleção de insumo saiu do datalist HTML e virou MODAL de
+  // lista de verdade (busca + linhas tocáveis), compacto max-w-lg como o
+  // modal de cadastro de produto.
+  const [listaInsumoAberta, setListaInsumoAberta] = useState(false);
   const [miniFornecedorAberto, setMiniFornecedorAberto] = useState(false);
   const [erro, setErro] = useState("");
   // C4 — microconfirmação: chave da linha que acabou de entrar/somar (pisca 1x)
@@ -538,10 +547,11 @@ export function NovaCompraPage() {
   // sem lista de candidatos nossa, sem slice(0,8).
   const qInsumo = termoNome.trim().toLowerCase();
   const insumos = useMemo(() => produtos.filter((p) => p.natureza === "insumo"), [produtos]);
-  // C8 — fonte do <datalist>: catálogo COMPLETO de insumos dedupe-por-nome
-  // (opções repetidas confundem o datalist). O catálogo de microempresa é
-  // pequeno — entregar tudo e deixar o browser filtrar é o fluído.
-  const nomesInsumo = useMemo(() => Array.from(new Set(insumos.map((p) => p.nome))), [insumos]);
+  // C8 — N10 (20/10): o <datalist> nativo morreu (completion errática e
+  // invisível no toque, queixa do fundador). Quem entrega a lista agora é o
+  // ModalListaInsumo — filtro client-side sobre `insumos` dentro do próprio
+  // modal. `insumos` segue sendo o catálogo da Linha Rápida e o portão de
+  // reconhecimento por igualdade de texto ao digitar.
 
   /**
    * C4/C8 — item RECONHECIDO: por IGUALDADE DE TEXTO (nome ou SKU, case-
@@ -693,9 +703,11 @@ export function NovaCompraPage() {
     if (!insumoReconhecido) {
       // C8 — sem painel/candidatos filtrados, a regra do "não existe" é
       // direta: há texto digitado && o memo não reconheceu → cadastrar na
-      // hora (o mini-sheet recebe o termo pré-cheio pela prop `termo`)
+      // hora. N8 (20/10): não é mais o mini-sheet — abre o ProdutoFormModal
+      // completo com o termo pré-cheio (o fundador pediu o cadastro de verdade
+      // dentro da compra; a volta é o snapshot encaixado na Linha Rápida).
       if (qInsumo) {
-        setMiniItemAberto(true);
+        setNovoInsumoModalAberto(true);
         return;
       }
       // C9 — campo totalmente vazio: o ＋ não apaga nada nem finge add; dá a
@@ -725,21 +737,26 @@ export function NovaCompraPage() {
     }
   };
 
-  /** Mini-sheet U2.2: cria o insumo e adiciona na hora via snapshot. */
-  const aoCriarInsumo = (dados: {
-    id: number;
-    nome: string;
-    sku: string;
-    unidade: string;
-    unidadeCompra: string;
-    fator: number | null;
-  }) => {
+  /**
+   * N8 (fundador 20/10): cadastro completo na hora da compra. O
+   * ProdutoFormModal criado aqui devolve o snapshot do insumo (undefined
+   * quando o salvamento não criou insumo — ex.: vendável) e a compra entra
+   * pela MESMA trilha do extinto mini-sheet U2.2: snapshot → merge na Linha
+   * Rápida → recarrega o catálogo.
+   */
+  const aoCriarInsumo = (dados: InsumoRecemCriado | undefined) => {
+    setNovoInsumoModalAberto(false);
+    if (!dados) {
+      // Não nasceu insumo daqui: nada a encaixar — só recarrega o catálogo.
+      recarregarProdutos();
+      return;
+    }
     const snapshot: LinhaNova = {
       id: String(dados.id),
       nome: dados.nome,
       sku: dados.sku,
       unidade: dados.unidade,
-      unidadeCompra: dados.unidadeCompra || null,
+      unidadeCompra: dados.unidadeCompra,
       fatorConversao: dados.fator,
       ultimoPrecoCompra: null,
       ultimaCompraEm: null,
@@ -753,10 +770,35 @@ export function NovaCompraPage() {
     setRapidoQtd("1");
     setRapidoValor("");
     recarregarProdutos();
-    setMiniItemAberto(false);
     // C4: o snapshot entra sem histórico de preço; mesmo id do toast →
     // substitui o "+1 ..." do adicionar() em vez de empilhar dois.
     toast.success("Item cadastrado e já no carrinho.", { id: "nova-compra-carrinho" });
+  };
+
+  /**
+   * N10 (fundador 20/10): a lista de verdade devolve o insumo escolhido —
+   * cai na MESMA trilha do reconhecimento C8 (selInsumo + nome na barra →
+   * efeito pré-cheia qtd=1 + último preço deste item). Nada de foco roubado:
+   * o teclado não abre; o fundador só confere/edita nos quadradinhos e ＋.
+   */
+  const aoSelecionarDaLista = (p: Produto) => {
+    setListaInsumoAberta(false);
+    setSelInsumo(p);
+    setTermoNome(p.nome);
+  };
+
+  /**
+   * N10: "não achei na lista" vira cadastro completo (N8). O termo buscado
+   * pré-cheia o nome do ProdutoFormModal — mesma intenção do extinto
+   * "cadastrar na hora" com o `termo` do mini-sheet.
+   */
+  const aoCadastrarDaLista = (termo: string) => {
+    setListaInsumoAberta(false);
+    if (termo.trim() !== "") {
+      setSelInsumo(null);
+      setTermoNome(termo.trim());
+    }
+    setNovoInsumoModalAberto(true);
   };
 
   /** Mini-sheet U2.3: seleciona o fornecedor novo na hora + recarrega. */
@@ -1196,21 +1238,24 @@ export function NovaCompraPage() {
                 }}
                 placeholder="Item ou SKU (ex.: caixa de uva)"
                 aria-label="Nome do item da compra"
-                autoComplete="on"
-                list="nc-insumo-list"
+                autoComplete="off"
                 enterKeyHint="next"
-                className={`${campoLinhaUnica} w-full pl-9`}
+                className={`${campoLinhaUnica} w-full pl-9 pr-12`}
               />
 
-              {/* C8 — datalist NATIVO (intocado): browser filtra/completa na
-                  barra, zero overlay, teclado nunca fecha. Reconhecimento por
-                  IGUALDADE DE TEXTO no memo → efeito C8 pré-cheia os
-                  quadradinhos com qtd=1 + último preço DESTE item. */}
-              <datalist id="nc-insumo-list">
-                {nomesInsumo.map((nome) => (
-                  <option key={nome} value={nome} />
-                ))}
-              </datalist>
+              {/* N10 (fundador 20/10): gatilho da LISTA REAL de insumos — abre
+                  o ModalListaInsumo (busca + seleção tocável, max-w-lg). O
+                  datalist HTML (list="nc-insumo-list") saiu de cena: no toque
+                  o completion era errático e invisível. Digitar direto segue
+                  valendo: reconhecimento por igualdade de texto (C8) intacto. */}
+              <button
+                type="button"
+                onClick={() => setListaInsumoAberta(true)}
+                aria-label="Procurar insumo na lista do catálogo"
+                className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center rounded-r-xl text-[#627271] transition-colors hover:bg-[#efefef] hover:text-[#1f2937]"
+              >
+                <List size={17} aria-hidden="true" />
+              </button>
             </div>
 
             {/* quadradinho QTD — quantidade na unidade de COMPRA (C2). Gate de
@@ -1321,12 +1366,13 @@ export function NovaCompraPage() {
             </div>
           ) : qInsumo ? (
             // texto digitado sem match no catálogo (produtos carregados, sem
-            // erro): cadastrar na hora — o MESMO mini-sheet U2.2 de antes, com
-            // o termo pré-cheio pela prop `termo`. O ＋ da fileira dispara o
-            // mesmo ramo; este CTA é a trilha visível de quem prefere tocar.
+            // erro): cadastrar na hora — N8 (20/10): abre o ProdutoFormModal
+            // completo com o termo pré-cheio (o mini-sheet U2.2 morreu). O ＋
+            // da fileira dispara o mesmo ramo; este CTA é a trilha visível de
+            // quem prefere tocar.
             <button
               type="button"
-              onClick={() => setMiniItemAberto(true)}
+              onClick={() => setNovoInsumoModalAberto(true)}
               className="mt-1.5 flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl bg-[#86cb92] px-3 text-sm text-[#1f2937] transition-colors hover:bg-[#1f2937] hover:text-white"
               style={{ fontWeight: 600 }}
             >
@@ -1511,14 +1557,37 @@ export function NovaCompraPage() {
           pill no header — habilitado só com ≥1 item e escondido enquanto o
           teclado está aberto. O erro também migrou para o bloco congelado. */}
 
-      {/* ── Mini-sheet "Cadastrar item na hora" (natureza FORÇADA: insumo) ── */}
-      {miniItemAberto && (
-        <MiniSheetNovoItem
-          termo={termoNome}
-          salvando={criandoProduto}
-          criarProduto={criarProduto}
-          onFechar={() => setMiniItemAberto(false)}
-          onCriado={aoCriarInsumo}
+      {/* ── N8 (fundador 20/10) — "Cadastrar item na hora" vira o MESMO
+          ProdutoFormModal do Estoque (natureza pré-marcada insumo, termo
+          pré-cheio, contexto-compra: sem banda pós-criação, o snapshot volta
+          para aoCriarInsumo encaixar o item na Linha Rápida). O mini-sheet
+          U2.2 — formulário resumido que o fundador pediu para aposentar — foi
+          removido com este uso. ── */}
+      {novoInsumoModalAberto && (
+        <ProdutoFormModal
+          categorias={categorias}
+          naturezaInicial="insumo"
+          nomeInicial={termoNome}
+          contextoCompra
+          onClose={() => setNovoInsumoModalAberto(false)}
+          onSuccess={aoCriarInsumo}
+        />
+      )}
+
+      {/* ── N10 (fundador 20/10) — "Procurar insumo na lista": modal compacto
+          (max-w-lg, casca idêntica ao modal de produto) com busca + lista de
+          verdade no lugar do datalist HTML. ── */}
+      {listaInsumoAberta && (
+        <ModalListaInsumo
+          insumos={insumos}
+          loading={produtosLoading && produtos.length === 0}
+          error={produtosError && produtos.length === 0 ? produtosError : null}
+          qtdNoCarrinho={qtdNoCarrinho}
+          termoInicial={termoNome}
+          onFechar={() => setListaInsumoAberta(false)}
+          onRecarregar={recarregarProdutos}
+          onSelecionar={aoSelecionarDaLista}
+          onCadastrar={aoCadastrarDaLista}
         />
       )}
 
@@ -1586,265 +1655,218 @@ function tituloMiniSheet(prefixo: string, termo: string): string {
 }
 
 /**
- * "Cadastrar item na hora": form mínimo de insumo no MESMO padrão sticky do
- * BottomSheet (header + footer). Só o necessário para registrar a compra —
- * a natureza é FORÇADA em insumo; o restante do cadastro pode ser completado
- * depois em Estoque.
+ * N10 (fundador 20/10/2026) — seleção de insumo da compra por LISTA REAL.
+ * Aposenta o <datalist> HTML da Linha Rápida (no toque, o completion do
+ * browser é errático e quase invisível): aqui a busca é nossa e cada insumo
+ * é uma linha tocável de ≥52px. A casca é a MESMA do modal de cadastro de
+ * produto — centro, max-w-lg, máx 85vh — porque o fundador pediu layout
+ * "compacto tipo modal de cadastro de produto", não o popup pequeno do
+ * datalist preso num campo de 44px.
  *
- * T3.5 — o item nasce JÁ CONVERTIDO: "Guarda no estoque" e "Compra em" são
- * selects do catálogo (`lib/unidades`) + fator validado, gravados junto com
- * o nome. Insumo criado por aqui nunca cai no portão de conversão da nota.
+ * Contrato com a página: `onSelecionar(Produto)` entrega o item escolhido
+ * (a trilha C8 mesma preenche a linha: selInsumo + nome → qtd=1 + último
+ * preço), e `onCadastrar(termo)` leva o texto buscado direto para o
+ * cadastro completo (N8). Estados: loading / erro+retry / catálogo vazio /
+ * busca sem match — todos com saída visível.
  */
-function MiniSheetNovoItem({
-  termo,
-  salvando,
-  criarProduto,
+function ModalListaInsumo({
+  insumos,
+  loading,
+  error,
+  qtdNoCarrinho,
+  termoInicial,
   onFechar,
-  onCriado,
+  onRecarregar,
+  onSelecionar,
+  onCadastrar,
 }: {
-  termo: string;
-  salvando: boolean;
-  criarProduto: (p: CriarProdutoParams) => Promise<CriarProdutoResult>;
+  insumos: Produto[];
+  loading: boolean;
+  error: string | null;
+  qtdNoCarrinho: Map<string, number>;
+  termoInicial: string;
   onFechar: () => void;
-  onCriado: (dados: { id: number; nome: string; sku: string; unidade: string; unidadeCompra: string; fator: number | null }) => void;
+  onRecarregar: () => void;
+  onSelecionar: (p: Produto) => void;
+  onCadastrar: (termo: string) => void;
 }) {
-  const [nome, setNome] = useState(termo.trim());
-  const [sku, setSku] = useState("");
-  // T3.5 (D4) — unidades viram SELECT do catálogo (lib/unidades): texto livre
-  // morreu ("un" × "Unidade", F1) e o item nasce JÁ com unidade de compra +
-  // estoque + fator → nunca cai no portão de conversão da nota.
-  const [unidade, setUnidade] = useState("un");
-  const [unidadeCompra, setUnidadeCompra] = useState("un");
-  const [fator, setFator] = useState("1");
-  const [erro, setErro] = useState("");
-
-  const unidadesIguais = mesmasUnidades(unidadeCompra, unidade);
-
-  // mesma regra do portão: unidades iguais → fator sugerido 1; unidades
-  // diferentes → fator em branco para obrigar a resposta real.
-  const trocarUnidade = (alvo: "estoque" | "compra", v: string) => {
-    setErro("");
-    if (alvo === "estoque") {
-      setUnidade(v);
-      if (mesmasUnidades(v, unidadeCompra)) setFator("1");
-      else if (fator === "1") setFator("");
-    } else {
-      setUnidadeCompra(v);
-      if (mesmasUnidades(v, unidade)) setFator("1");
-      else if (fator === "1") setFator("");
-    }
-  };
-
-  const salvar = async () => {
-    if (salvando) return;
-    setErro("");
-    if (!nome.trim()) {
-      setErro("Informe o nome do item.");
-      return;
-    }
-    const nFator = fator.trim() === "" ? null : Number(fator);
-    // F2/H3 + anti-inversão (Caixa de Uva, 07/10/2026): mesma validação do
-    // cadastro completo (mesma unidade → fator 1; diferentes → fator > 1),
-    // client-side antes de gravar.
-    const erroConv = validarConversaoCompra(unidadeCompra, nFator, unidade);
-    if (erroConv) {
-      setErro(erroConv);
-      return;
-    }
-    const fatorFinal = nFator != null && Number.isFinite(nFator) && nFator > 0 ? nFator : 1;
-    const r = await criarProduto({
-      nome: nome.trim(),
-      sku: sku.trim() || undefined,
-      unidade,
-      natureza: "insumo",
-      // insumo nunca aparece na vitrine (SPEC F1 §6.3) — o hook força off,
-      // mas a UI declara a intenção junto
-      exibirVitrine: false,
-      estoque: 0,
-      estoqueMinimo: 5,
-      precoVenda: 0,
-      precoCusto: 0,
-      // T3.5 — conversão gravada JUNTO com o nome: nada de linha no portão
-      unidadeCompra,
-      fatorConversao: fatorFinal,
-    });
-    if (!r.success || !r.id) {
-      // erro inline: o digitado permanece no form (nada se perde)
-      setErro(r.error || "Não foi possível cadastrar o item.");
-      return;
-    }
-    onCriado({
-      id: r.id,
-      nome: nome.trim(),
-      sku: sku.trim(),
-      unidade,
-      unidadeCompra,
-      fator: fatorFinal,
-    });
-  };
+  const [busca, setBusca] = useState(termoInicial);
+  const q = busca.trim().toLowerCase();
+  const lista = useMemo(
+    () =>
+      insumos
+        .filter(
+          (p) =>
+            !q ||
+            p.nome.toLowerCase().includes(q) ||
+            p.sku.toLowerCase().includes(q) ||
+            (p.codigoBarras || "").includes(q)
+        )
+        .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")),
+    [insumos, q]
+  );
 
   return (
-    <BottomSheet
-      open
-      onClose={salvando ? () => undefined : onFechar}
-      labelledBy="nova-item-mini-titulo"
-      header={
-        <div className="flex items-start justify-between gap-3">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={onFechar}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Procurar insumo do catálogo"
+        className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header — mesma casca do modal de produto (N10: compacto, max-w-lg) */}
+        <div className="flex items-center justify-between gap-3 border-b border-[#efefef] px-5 py-4">
           <div className="min-w-0">
-            <h2 id="nova-item-mini-titulo" className="text-base font-semibold text-[#1f2937] sm:text-lg">
-              {tituloMiniSheet("Cadastrar item", termo)}
+            <h2 className="text-sm text-[#1f2937]" style={{ fontWeight: 700 }}>
+              Adicionar insumo à compra
             </h2>
-            <p className="mt-0.5 text-xs text-[#627271]">
-              Só o necessário para registrar a compra. Complete o cadastro depois em Estoque.
+            <p className="text-xs text-[#627271]">
+              {insumos.length} {insumos.length === 1 ? "insumo" : "insumos"} no catálogo
             </p>
           </div>
           <button
             type="button"
             onClick={onFechar}
-            disabled={salvando}
-            aria-label="Fechar"
-            className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[#627271] transition-colors hover:bg-[#efefef] hover:text-[#1f2937] disabled:opacity-50"
+            aria-label="Fechar lista de insumos"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#efefef] text-[#1f2937] transition-colors hover:bg-[#e3e3e3]"
           >
-            <X size={20} />
+            <X size={16} />
           </button>
         </div>
-      }
-      footer={
-        <div>
-          {erro && (
-            <p className="mb-2 text-xs text-red-600" role="alert" style={{ fontWeight: 500 }}>
-              {erro}
-            </p>
-          )}
-          <SheetFooterActions>
-            <button type="button" onClick={onFechar} disabled={salvando} className={sheetButtonSecundario}>
-              Voltar para a compra
-            </button>
-            <button
-              type="button"
-              onClick={salvar}
-              disabled={salvando}
-              className={sheetButtonPrimario}
-              style={{ background: "#86cb92" }}
-            >
-              {salvando ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  Cadastrando...
-                </>
-              ) : (
-                <>
-                  <Plus size={16} />
-                  Cadastrar e adicionar
-                </>
-              )}
-            </button>
-          </SheetFooterActions>
+
+        {/* Busca de verdade (não é completion de browser) */}
+        <div className="border-b border-[#efefef] p-4">
+          <div className="relative">
+            <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#627271]" aria-hidden="true" />
+            <input
+              type="text"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar por nome, SKU ou código de barras..."
+              aria-label="Buscar insumo"
+              autoComplete="off"
+              autoFocus
+              enterKeyHint="search"
+              className="w-full rounded-xl border border-[#efefef] bg-[#FAFAFA] py-2.5 pl-10 pr-4 text-base text-[#1f2937] outline-none focus:border-[#86cb92] focus:ring-2 focus:ring-[#86cb92]/20"
+            />
+          </div>
         </div>
-      }
-    >
-      <div className="space-y-3.5">
-        <label className="block text-sm font-medium text-[#1f2937]">
-          Nome *
-          <input
-            type="text"
-            value={nome}
-            onChange={(e) => {
-              setNome(e.target.value);
-              setErro("");
-            }}
-            placeholder="Ex.: Embalagem kraft 20x30"
-            autoComplete="off"
-            autoFocus
-            data-sheet-foco
-            className={`${campoFormSheet} text-base`}
-          />
-        </label>
 
-        <label className="block text-sm font-medium text-[#1f2937]">
-          SKU (opcional)
-          <input
-            type="text"
-            value={sku}
-            onChange={(e) => {
-              setSku(e.target.value);
-              setErro("");
-            }}
-            placeholder="Ex.: EMK-2030"
-            autoComplete="off"
-            className={`${campoFormSheet} text-base`}
-          />
-        </label>
-
-        <label className="block text-sm font-medium text-[#1f2937]">
-          Guarda no estoque *
-          <select
-            value={unidade}
-            onChange={(e) => trocarUnidade("estoque", e.target.value)}
-            aria-label="unidade de estoque do item a cadastrar"
-            className={`${campoFormSheet} text-base`}
-          >
-            {UNIDADES_ESTOQUE.map((u) => (
-              <option key={u} value={u}>
-                {u}
-              </option>
-            ))}
-          </select>
-          <span className="mt-1 block text-[11px] text-[#627271]">
-            O que você pesa/confere no estoque (ex.: g, un, kg).
-          </span>
-        </label>
-
-        <label className="block text-sm font-medium text-[#1f2937]">
-          Compra em *
-          <select
-            value={unidadeCompra}
-            onChange={(e) => trocarUnidade("compra", e.target.value)}
-            aria-label="unidade de compra do item a cadastrar"
-            className={`${campoFormSheet} text-base`}
-          >
-            {UNIDADES_COMPRA.map((u) => (
-              <option key={u} value={u}>
-                {u}
-              </option>
-            ))}
-          </select>
-          <span className="mt-1 block text-[11px] text-[#627271]">
-            O que o fornecedor entrega e você paga (ex.: lata, caixa, un).
-          </span>
-        </label>
-
-        <label className="block text-sm font-medium text-[#1f2937]">
-          {`1 ${unidadeCompra} contém quantos ${unidade}?`}
-          <input
-            type="number"
-            min="0"
-            step="any"
-            inputMode="decimal"
-            value={fator}
-            onChange={(e) => {
-              setFator(e.target.value);
-              setErro("");
-            }}
-            placeholder="Ex.: 500"
-            className={`${campoFormSheet} text-base`}
-          />
-          {unidadesIguais ? (
-            <span
-              role="status"
-              className="mt-1 block text-[11px]"
-              style={{ color: "#B45309", fontWeight: 600 }}
-            >
-              1 {unidade} = 1 {unidade}? Fator 1 — você compra e guarda na mesma unidade.
-            </span>
+        {/* Lista — rolável, alvo de toque generoso por linha */}
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="space-y-2 p-4">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-12 rounded-xl bg-[#efefef] animate-pulse" />
+              ))}
+            </div>
+          ) : error ? (
+            <div className="m-4 flex items-start justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-3" role="alert">
+              <p className="text-xs text-red-600" style={{ fontWeight: 500 }}>
+                {error}
+              </p>
+              <button
+                type="button"
+                onClick={onRecarregar}
+                className="flex min-h-[40px] shrink-0 items-center rounded-lg border border-red-200 bg-white px-2.5 text-[11px] text-red-600 transition-colors hover:bg-red-50"
+                style={{ fontWeight: 600 }}
+              >
+                Tentar novamente
+              </button>
+            </div>
+          ) : insumos.length === 0 ? (
+            <div className="p-8 text-center">
+              <p className="text-sm text-[#1f2937]" style={{ fontWeight: 600 }}>
+                Nenhum insumo cadastrado ainda.
+              </p>
+              <p className="mt-1 text-xs text-[#627271]">Cadastre o primeiro e ele entra na compra direto daqui.</p>
+              <button
+                type="button"
+                onClick={() => onCadastrar(busca)}
+                className="mt-4 flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl px-3 text-sm text-[#1f2937]"
+                style={{ background: "#86cb92", fontWeight: 600 }}
+              >
+                <Plus size={15} />
+                Cadastrar o primeiro insumo
+              </button>
+            </div>
+          ) : lista.length === 0 ? (
+            <div className="p-8 text-center">
+              <p className="text-sm text-[#1f2937]" style={{ fontWeight: 600 }}>
+                Nada com “{busca.trim().slice(0, 40)}”
+              </p>
+              <p className="mt-1 text-xs text-[#627271]">Cadastre agora — o item volta aqui e entra na compra.</p>
+              <button
+                type="button"
+                onClick={() => onCadastrar(busca)}
+                className="mt-4 flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl px-3 text-sm text-[#1f2937]"
+                style={{ background: "#86cb92", fontWeight: 600 }}
+              >
+                <Plus size={15} />
+                {`Cadastrar “${busca.trim().slice(0, 40) || "novo"}” como insumo`}
+              </button>
+            </div>
           ) : (
-            <span className="mt-1 block text-[11px] text-[#627271]">
-              Sempre na direção compra → estoque e maior que 1 quando as unidades diferem — ex.: 1 Caixa tem 500 g → fator 500.
-            </span>
+            <ul className="divide-y divide-[#efefef]">
+              {lista.map((p) => {
+                const noCarrinho = qtdNoCarrinho.get(p.id) ?? 0;
+                return (
+                  <li key={p.id}>
+                    <button
+                      type="button"
+                      onClick={() => onSelecionar(p)}
+                      aria-label={`Selecionar ${p.nome} para a compra`}
+                      className="flex min-h-[52px] w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[#FAFAFA] active:bg-[#efefef]"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm text-[#1f2937]" style={{ fontWeight: 600 }}>
+                          {p.nome}
+                        </span>
+                        <span className="mt-0.5 block truncate text-[11px] text-[#627271]">
+                          {[
+                            p.sku || "sem SKU",
+                            `guarda em ${p.unidade}`,
+                            p.ultimoPrecoCompra != null && p.ultimoPrecoCompra > 0
+                              ? `última compra ${formatCurrency(p.ultimoPrecoCompra)}`
+                              : "sem compra anterior",
+                          ].join(" · ")}
+                        </span>
+                      </span>
+                      {noCarrinho > 0 && (
+                        <span
+                          className="shrink-0 whitespace-nowrap rounded-full border px-1.5 text-[10px] leading-[16px]"
+                          style={{ background: "#F0FDF4", borderColor: "#A7F3D0", color: "#059669", fontWeight: 600 }}
+                        >
+                          {fmtNum(noCarrinho)} no carrinho
+                        </span>
+                      )}
+                      <Plus size={15} className="shrink-0 text-[#627271]" aria-hidden="true" />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           )}
-        </label>
+        </div>
+
+        {/* Rodapé: a saída que o fundador pediu — cadastro completo (N8) */}
+        <div className="border-t border-[#efefef] p-4">
+          <button
+            type="button"
+            onClick={() => onCadastrar(busca)}
+            className="flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl border border-[#efefef] bg-white px-3 text-sm text-[#1f2937] transition-colors hover:bg-[#efefef]"
+            style={{ fontWeight: 600 }}
+          >
+            <Plus size={15} />
+            Cadastrar novo insumo
+          </button>
+        </div>
       </div>
-    </BottomSheet>
+    </div>
   );
 }
 
