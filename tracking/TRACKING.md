@@ -59,6 +59,17 @@ Conectar a **Base UNIQ** para que a demonstração `WhatsApp → CRM → pedido 
 
 **O que ela já faz:** registra venda (produtos em `me_venda`/`me_itens_venda`, serviços em `me_venda_servicos`), baixa estoque, e cria `me_contas_receber` com vencimento (padrão +30 dias). **É a função que o "pedido contabilizado" deve usar na Semana 2.**
 
+### RPC de limpeza de dados de teste (20/10/2026)
+
+`private.limpar_dados_tenant_empresa(p_empresa_nome text, p_criar_backup boolean DEFAULT false)` → retorna **jsonb**: `{empresa_id, empresa, slug, backup_tag, apagados: {tabela: qtd}, total_linhas}`.
+
+- **Para que serve:** limpar TODOS os dados de entrada de um tenant (produtos + estoque/produção, financeiro, CRM) resolvendo o `empresa_id` pelo **nome/slug** — para recomeçar os testes do zero. Uso recorrente pelo agente.
+- **Como chamar (agente, via CLI/MCP como postgres):** `select private.limpar_dados_tenant_empresa('docee');` — aceita slug ou nome_fantasia (ex.: `'Doceê'`). Empresa inexistente → exceção lista os slugs disponíveis; nome ambíguo → erro sem apagar nada.
+- **O que preserva:** `me_empresa`, `me_usuario`, fornecedores, categorias, formas de pagamento, contas, configurações de agenda/CRM, tabelas `_bk_*`.
+- **Backup opcional:** `p_criar_backup=true` cria `_bk_<tag>_<tabela>` no schema `private` (tag `yyyymmdd_hh24mi`) antes de apagar.
+- **Atenção:** NÃO limpa `mel_chat`/`mel_chat_buffer` (sem escopo por tenant, chave = telefone) — nesses casos usar a função legada `limpar_dados_teste(telefone, empresa_id)`.
+- **Fonte:** migration `supabase/migrations/20261021010423_limpa_dados_tenant_por_nome.sql`. Segura: SECURITY DEFINER no schema `private` (não exposto pela Data API), EXECUTE restrito a postgres/service_role, tudo em 1 transação.
+
 ### Funil (MEL) — tabelas JÁ EXISTEM, mas VAZIAS
 
 > 🎯 **O modelo de dados do funil já está pronto.** O agente NÃO precisa criar schema de funil — precisa **popular** e **renderizar**.
@@ -1561,8 +1572,33 @@ Commit `e0e7926` · entry servido `index-CEVpvBSP.js` · chunk `ComprasPage-ooQG
 
 ---
 
-## ? Valida��o do fundador � CRM completo (16/10/2026, fim do dia)
+## ? Valida��o do fundador � CRM completo (16/10/2026, fim do dia)
 
-- Fundador confirmou: **"Ocorreu tudo bem"** � pipeline, menu CRM (notebook+celular), configura��o de etapas, dashboard real e densidade mobile do estoque validados em produ��o (ase-uniq.vercel.app, todos os deploys READY).
-- Probabilidade do pipeline fica como heur�stica por etapa (decis�o do fundador se mant�m); evolu��o futura em aberto: probabilidade edit�vel por etapa ou estat�stica por hist�rico.
-- Bloqueios: nenhum. Frentes conclu�das: c500c92 (pipeline+menu), e73d826 (etapas config), 38e1cf9 (dashboard), 784c6e4 (estoque M1) � rollback individual = git revert do commit.
+- Fundador confirmou: **"Ocorreu tudo bem"** � pipeline, menu CRM (notebook+celular), configura��o de etapas, dashboard real e densidade mobile do estoque validados em produ��o (ase-uniq.vercel.app, todos os deploys READY).
+- Probabilidade do pipeline fica como heur�stica por etapa (decis�o do fundador se mant�m); evolu��o futura em aberto: probabilidade edit�vel por etapa ou estat�stica por hist�rico.
+- Bloqueios: nenhum. Frentes conclu�das: c500c92 (pipeline+menu), e73d826 (etapas config), 38e1cf9 (dashboard), 784c6e4 (estoque M1) � rollback individual = git revert do commit.
+
+
+---
+
+## 📝 LOTE ESTOQUE — 9 notas do teste do fundador (20/10/2026)
+
+**Contexto:** fundador testando a cadeia completa de produção pós-reset; 9 notas registradas ao vivo durante o teste. Fundador autorizou **sem SDD** (dispensou PRD/SPEC/WIRE para ganhar tempo) e sem aprovação de wire ("pode prosseguir"). Implementado em lane única @designer (todas as notas tocam os mesmos arquivos).
+
+| # | Nota do fundador | O que foi feito |
+|---|---|---|
+| N1 | Bloco "Como você conta o estoque" fica na parte de baixo da etapa Informações do insumo — ruim de preencher. Virar etapa própria | ✅ `ProdutoFormModal`: para insumo, o bloco virou etapa dedicada (não fica mais no rodapé de Informações; vendáveis intocados) |
+| N2 | Ordem importa: 1º Informações → "Como é comprado" → "Como é guardado no estoque" | ✅ `STEPS_INSUMO = [Informações, Como é comprado, Como é guardado no estoque]`; erros de conversão reabrem na etapa certa |
+| N3 | Insumo não tem preço de venda nem promocional | ✅ Sem etapa de preço no modo insumo; validação de promocional pula insumo |
+| N4 | Quantidade inicial e estoque mínimo sempre com default pré-marcado (evitar gravar zerado) | ✅ Quantidade inicial default **0**; estoque mínimo default **1** (**emenda do fundador** — não 5). Default da coluna no banco intocado (`?? 5` é defensivo de leitura); a sugestão do formulário agora é 1 |
+| N5 | Persistir visualização (tabela ↔ cards) em Estoque/Produtos/Insumos — fundador prefere tabela, sempre reabria em quadros | ✅ `viewMode` persistido em `uniq:estoque:filtros:${empresaId}` (padrão dos filtros de pedidos); default cards quando nunca escolheu, demo não persiste |
+| N6 | Filtros multi-seleção (categoria / tipo de estoque / status) + chip ativo colorido + guardar última escolha | ✅ "Tipo de estoque" e "Status" multi-seleção (união, vazio = todas), chip colorido com X, "Todas" limpa o grupo, "Limpar" aparece com ≥2 grupos; persistido no mesmo storage; limpar filtros apaga o storage sem resetar viewMode |
+| N7 | Tela pisca periodicamente | ✅ **Causa raiz eliminada, sem botão.** O AuthContext publicava objeto `empresa` NOVO a cada evento de auth (INITIAL_SESSION/SIGNED_IN de sincronização entre abas/TOKEN_REFRESHED) → hooks com deps de referência refaziam o fetch → pisque. Fix em 2 camadas: (1) AuthContext pula re-busca para o mesmo usuário e preserva a identidade de user/session/perfil/empresa quando o conteúdo é igual (bailout de re-render); (2) `use-produtos`/`use-categorias` dependem de **valor** (`empresaId`, `temSessao`), não de referência |
+| N8 | Compra ▸ "Adicionar produto" deve abrir o MESMO modal de criar (cadastrar ali e já adicionar à compra) | ✅ `ProdutoFormModal` completo no lugar do mini-sheet (props `contextoCompra`/`nomeInicial`); insumo recém-criado entra direto na trilha da compra (qtd/valor preservados) |
+| N9 | 🐞 **BLOQUEADOR** — ficha técnica recalcula a cada dígito; impossível cadastrar receita (ex.: 60 g de leite em pó — os valores mudam sozinhos) | ✅ **Causa raiz confirmada:** o efeito de "sugestão automática de rende" reescrevia `rendimento` a cada tecla na quantidade de um componente; no modo-receita isso reconverte TUDO na tela (sobrescreve o que estava sendo digitado). Fix: sugestão **one-shot** (preenche apenas um campo intocado/vazio) + botão explícito "usar sugestão" na soma ao vivo |
+
+**Bônus N10 (achado do fundador ao testar):** a barra de digitação do item de compra tinha `<datalist>` nativo fraco — substituída por `ModalListaInsumo` própria (busca por nome/SKU/código, linhas com SKU · unidade · último preço pago, estados skeleton/erro/vazio/sem-match, e CTA "Cadastrar novo insumo" que leva direto ao formulário completo via N8 com o termo pré-preenchido). Digitação direta continua funcionando.
+
+**Verificação:** `npx tsc --noEmit` **0 erros** · `npm run build` OK · commits do lote pendem de validação do fundador na Vercel (guia: `tracking/GUIA_TESTE_VERCEL_20-10-2026.md`).
+
+**⚠️ Ressalva (pré-existente, não mexida):** digitar **decimais** num input por-receita da ficha ("60,5") perde o separador (o value controlado re-arma o número a cada tecla) — se o fundador reclamar de casas decimaies na ficha, é outro fix (state de texto local por input).
