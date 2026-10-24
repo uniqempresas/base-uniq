@@ -81,6 +81,22 @@ A UNIQ é uma **Consultoria de Transformação Digital com IA** para microempres
 > **Três razões:** (1) cobre o **tempo investido** com o cliente — não é só software, é consultoria + configuração; (2) **gratuito desvaloriza**; (3) **cria compromisso dos dois lados** — é o sinal que reserva a vaga e separa quem quer de quem vai usar.
 >
 > **R$ 500 é sinal, não desconto.** A mensalidade só começa **após a entrega do MVP**. A âncora de R$ 1.500 segue intacta.
+>
+> ⚠️ **Atualização de 24/10/2026:** na **Onda 1**, o R$ 500 passou a ser cobrado **na entrega do MVP** (até 60 dias após a assinatura), não na assinatura. Ver a seção abaixo. O racional de "sinal" continua como hipótese para as Ondas 2–3.
+
+### 🔑 Onda 1 — quando o R$ 500 é cobrado (decisão do fundador, 24/10/2026)
+
+> **Decisão:** na Onda 1, o setup de **R$ 500** é cobrado **na entrega do MVP, até 60 dias após a assinatura** — não na assinatura. A mensalidade de **R$ 197** também só começa depois do MVP.
+
+**Por que:** o objetivo da Onda 1 é **prova, não caixa**. Tirar o pagamento da mesa reduz a fricção e permite fazer as primeiras conversas com menos medo de "não".
+
+**Hipótese em teste — não é convicção:** o fundador ainda não foi a campo. A condição será validada nas primeiras conversas; se não funcionar, muda na Onda 2.
+
+**O que substitui o compromisso do dinheiro:** termo de co-fundador assinado + **data de onboarding** + **acesso ao WhatsApp** + compromisso de **depoimento em vídeo**. Sem isso, o "sim" fica barato e evapora nos 60 dias.
+
+**Como medir:** de cada 3 "sim" verbais, quantos assinam o termo em até 7 dias? Quantos chegam ao MVP e pagam? Se menos de 1 em 3 converter, a **Onda 2** testa **sinal na assinatura** ou **híbrido** (parte na assinatura, parte na entrega).
+
+**Vale só para a Onda 1.** Ondas 2 e 3 não herdam esta condição sem nova decisão.
 
 ### Setup R$ 1.500 — hipótese de trabalho, não preço definitivo
 
@@ -646,10 +662,10 @@ Esposa valida → muda status → contabiliza
 
 | # | Decisão | Resolução |
 |---|---------|-----------|
-| 1 | Preço dos co-fundadores | **Ancoragem:** tabela = setup **R$ 1.500** + R$ 297/mês; co-fundador = **setup R$ 500 (sinal de compromisso)** + R$ 197/mês — *atualizado 24/09/2026* |
+| 1 | Preço dos co-fundadores | **Ancoragem:** tabela = setup **R$ 1.500** + R$ 297/mês; co-fundador = **setup R$ 500 (sinal de compromisso)** + R$ 197/mês — *atualizado 24/09/2026*; **na Onda 1 o R$ 500 é pago na entrega do MVP** — *24/10/2026* |
 | 2 | Data de faturamento | 3 opções (5, 15, 25); **padrão dia 5** |
 | 3 | Exit Safe | Saída do CLT fim de mar/2027; reserva p/ 18 meses; lançamento jul/2027 |
-| 4 | Nº de co-fundadores | **12 em 3 ondas de 4** — *atualizado 24/09/2026* |
+| 4 | Nº de co-fundadores | **12 no total**; Onda 1 = **2 em 2026** + **2 no início de 2027** (fecham o primeiro bloco de 4) — *atualizado 24/10/2026*; ondas seguintes a definir após a Onda 1 |
 | 5 | Identidade Mínima | **`DESIGN.md` (raiz) é a fonte oficial** |
 | 6 | Prazo antes da 1ª visita | ~3 semanas de laboratório interno (HQ Gráfica + Doceê) |
 | 7 | Metodologia | **SDD sempre** — sem WIRE aprovado não se escreve código de tela |
@@ -670,6 +686,7 @@ Esposa valida → muda status → contabiliza
 | 22 | Sequência de construção | **Produto nas semanas 1–3 · funil na semana 4–5** — funil não entra no ar antes da cadeia de demonstração funcionar |
 | 23 | Nome da IA | **MEL é o nome oficial** — produto, landing e documentos (já é o que está em todo lugar). **"Melissa" fica como forma falada**, no calor da conversa — *"Mel" é o diminutivo de "Melissa"*, então ouvir "Melissa" e ver "MEL" na tela soa natural. **Nada a renomear** (decidido 24/09/2026) |
 | 24 | Visão de parceiros | **52 parceiros até dez/2028** (lançamento jul/2027 + 18 meses). **Linha de base, não promessa** — intenção original de ~1 por semana. O gargalo é **entrega**, não venda: 52 só acontece com productização entre ondas |
+| 25 | Cobrança do setup na Onda 1 | **Na entrega do MVP, até 60 dias após a assinatura** (não na assinatura) — *24/10/2026*. Compromisso substituído por termo + onboarding + acesso ao WhatsApp + depoimento. Onda 2 testa sinal na assinatura ou híbrido |
 
 ---
 

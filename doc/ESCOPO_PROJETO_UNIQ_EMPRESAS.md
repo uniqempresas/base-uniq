@@ -24,9 +24,9 @@ Criar a oferta **UNIQ Empresas**: versão da Base UNIQ direcionada a microempres
 - **Canais secundários de validação:** perfil no Instagram da UNIQ com 1 post semanal, apenas para existir como presença digital. Não é canal de venda ativo nas primeiras 4 semanas.
 - **Laboratório interno (dogfooding):** o fundador opera a **HQ Gráfica** e a esposa opera a **Doceê** (doceria). Ambos testarão o MVP junto com o cliente da primeira semana, aplicando na própria operação antes de entregar aos co-fundadores.
 - **Modelo de entrega:** DFY (Done-For-You) — a UNIQ configura a Base UNIQ para o cliente. Como a plataforma é SaaS, não há instalação física; a entrega é configuração, onboarding e ativação dos módulos.
-- **Modelo financeiro (Fase 1 — atualizado em 24/09/2026):** **ancoragem**. O contrato mostra o preço de tabela (setup **R$ 1.500** + **R$ 297/mês**) e a condição de co-fundador concede **setup R$ 500 (sinal de compromisso)** e redução para **R$ 197/mês**, em troca de uso real + feedback + depoimento em vídeo. **Valor concedido no 1º ano: R$ 2.200.** Fallback de **R$ 107/mês** apenas como plano de emergência diante de objeção explícita. Cobrança da mensalidade inicia após a entrega do MVP, em data de faturamento escolhida pelo co-fundador (dia 5, 15 ou 25; **padrão dia 5**).
-  - **Por que R$ 500 e não grátis:** gratuito desvaloriza ("parece que tem algo errado"), o valor cobre o tempo investido no cliente e traz seriedade. É **sinal que reserva a vaga**, não desconto. O **sinal é pago no fechamento**; a **mensalidade** só começa após a entrega.
-- **Entrega:** módulos + robô de atendimento no WhatsApp prontos até o dia do primeiro pagamento (~30 dias).
+- **Modelo financeiro (Fase 1 — atualizado em 24/10/2026):** **ancoragem**. O contrato mostra o preço de tabela (setup **R$ 1.500** + **R$ 297/mês**) e a condição de co-fundador concede **setup R$ 500 (sinal de compromisso)** e redução para **R$ 197/mês**, em troca de uso real + feedback + depoimento em vídeo. **Valor concedido no 1º ano: R$ 2.200.** Fallback de **R$ 107/mês** apenas como plano de emergência diante de objeção explícita. Cobrança da mensalidade inicia após a entrega do MVP, em data de faturamento escolhida pelo co-fundador (dia 5, 15 ou 25; **padrão dia 5**). **Na Onda 1, o setup de R$ 500 também é cobrado na entrega do MVP, até 60 dias após a assinatura** — decisão de 24/10/2026.
+  - **Por que R$ 500 e não grátis:** gratuito desvaloriza ("parece que tem algo errado"), o valor cobre o tempo investido no cliente e traz seriedade. É **sinal que reserva a vaga**, não desconto. **Na Onda 1 (24/10/2026), o R$ 500 é pago na entrega do MVP**; a **mensalidade** só começa após a entrega. A cobrança na assinatura será testada nos 2 co-fundadores seguintes.
+- **Entrega:** módulos + robô de atendimento no WhatsApp prontos **até a entrega do MVP (até 60 dias após a assinatura)**.
 - **Objetivo imediato (revisado em 07/09/2026):** ~~fechar o primeiro co-fundador em 7 dias~~ → **validar a Base UNIQ internamente na HQ Gráfica e na Doceê durante ~3 semanas** e só então visitar o cliente da ótica com algo digno para apresentar.
 - **Por que a mudança de prazo:** o risco de chegar à visita sem algo demonstrável era alto demais. O fundador decidiu que **prova vale mais que velocidade**. O laboratório interno deixa de ser "Semana 0" e vira a **fase central de preparação**.
 - **Capacidade do fundador:** 16h/semana dedicadas full ao projeto. Durante o dia, mesmo no CLT, consegue alinhar e validar via celular (túnel do OpenCode + Vercel). À noite, acesso total ao computador.
@@ -58,18 +58,18 @@ Modelo de co-fundador com:
 ### Escopo acordado — Fase 1 (Co-fundadores)
 | Entrega | Detalhe |
 |---------|---------|
-| **4 co-fundadores B2B (Onda 1)** | Dores parecidas: atendimento + operação. Ritmo definido pela **capacidade de entrega**, não por calendário fixo. |
+| **2 co-fundadores B2B (Onda 1 — 2026)** | Dores parecidas: atendimento + operação. Ritmo definido pela **capacidade de entrega**, não por calendário fixo. Os **2 seguintes** (início de 2027) fecham o primeiro bloco de 4 e testam a cobrança do setup na assinatura. |
 | Setup | **R$ 500 — sinal de compromisso** — valor de tabela **R$ 1.500** explícito no contrato *(hipótese; o mercado valida nas primeiras 3–5 propostas)* |
 | Mensalidade | **R$ 197/mês** (tabela R$ 297/mês) |
 | Data de faturamento | Co-fundador escolhe dia **5, 15 ou 25**; **padrão dia 5** |
-| Início da cobrança | **Após a entrega do MVP** (~30 dias do fechamento), nunca na assinatura |
+| Início da cobrança | **Na entrega do MVP** (até 60 dias após a assinatura), nunca na assinatura — *Onda 1, decisão 24/10/2026* |
 | Contrapartida | Uso real + feedback sincero + depoimento em vídeo |
 | Valor concedido no 1º ano | **R$ 2.200** (R$ 1.000 de economia no setup + 12 × R$ 100 de desconto) |
 | Módulos-lego | Modelo **default + vertical** (ex.: `CRM` → `CRM_OTICA`). Vertical só se replicável para 2–3 negócios do nicho. |
-| Robô de atendimento WhatsApp | Entregue até o dia do pagamento |
+| Robô de atendimento WhatsApp | Entregue até a entrega do MVP |
 | Prova social | Depoimento/feedback dos co-fundadores |
-| **Onda 2 (+4 → 8)** | Abre em **jan/2027**, após **pausa de productização** que deve cortar o tempo de entrega pela metade. Gatilho é **prontidão**, não calendário |
-| **Onda 3 (+4 → 12)** | Abre em **mar–abr/2027**, com o fundador 100% no projeto, sistema concluído e metodologia madura |
+| **Onda 2 (+2 → 4)** | **Início de 2027**, após **pausa de productização** que deve cortar o tempo de entrega pela metade. Fecha o primeiro bloco de 4 e testa a **cobrança do setup na assinatura**. Gatilho é **prontidão**, não calendário |
+| **Ondas seguintes (+4 +4 → 12)** | Calendário a definir após a Onda 1. Com o fundador 100% no projeto, sistema concluído e metodologia madura |
 
 > **Princípio da Fase 1:** prova vale mais que receita. Um co-fundador a R$ 197/mês com depoimento em vídeo vale mais que um cliente a R$ 297/mês sem case.
 
@@ -160,12 +160,12 @@ Modelo de co-fundador com:
 ### Decisões estratégicas
 | Item | Status | Data | Notas |
 |------|--------|------|-------|
-| Definir preço dos co-fundadores | ✅ **Decidido** | 07/09/2026 | **Ancoragem:** tabela R$ 1.500 setup + R$ 297/mês; co-fundador = setup isento + R$ 197/mês |
+| Definir preço dos co-fundadores | ✅ **Decidido** | 07/09/2026 (rev. 24/10/2026) | **Ancoragem:** tabela R$ 1.500 setup + R$ 297/mês; co-fundador = **setup R$ 500** + R$ 197/mês; na Onda 1 o setup é pago **na entrega do MVP** |
 | Definir setup de tabela | ✅ **Decidido** | 07/09/2026 | **R$ 1.500 como hipótese** — mercado valida nas primeiras 3–5 propostas. **NÃO usar "de R$ 2.500 por R$ 1.500"** (CEO recomenda contra; aguardando validação) |
 | Definir política de data de faturamento | ✅ **Decidido** | 07/09/2026 | Cliente escolhe dia 5, 15 ou 25; **padrão dia 5** |
 | Definir Exit Safe | ✅ **Decidido** | 07/09/2026 | Saída do CLT fim de mar/2027; reserva p/ 18 meses; lançamento jul/2027 |
 | Definir prazo de preparação antes da 1ª visita | ✅ **Decidido** | 07/09/2026 | ~3 semanas de laboratório interno (HQ Gráfica + Doceê) |
-| Definir nº de co-fundadores da Fase 1 | ✅ **Decidido** | 07/09/2026 | **4**, em ondas de 4 + 4 com pausa de productização entre elas |
+| Definir nº de co-fundadores da Fase 1 | ✅ **Decidido** | 07/09/2026 (rev. 24/10/2026) | **12 no total**; Onda 1 = **2 em 2026** + **2 no início de 2027** (teste de cobrança na assinatura); ondas seguintes com pausa de productização |
 | Confirmar Identidade Mínima | ✅ **Decidido** | 07/09/2026 | **`DESIGN.md` (raiz) é a fonte oficial** |
 | Definir arquitetura de módulos | ✅ **Decidido** | 07/09/2026 | **default + vertical** (ex.: `CRM` → `CRM_OTICA`) |
 | Definir dogfooding | ✅ **Decidido** | 07/09/2026 | UNIQ opera a si mesma na Base UNIQ (CRM, Financeiro etc.) |

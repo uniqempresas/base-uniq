@@ -69,7 +69,7 @@
 - 🗣️ O corpo ("você apresenta as dores; a gente monta uma solução sob medida") e a 2ª linha de cada passo.
 
 ## Slide 12 — Por que entrar agora
-- 🖥️ `POR QUE ENTRAR AGORA` · "12 vagas de co-fundador." · **eixo visual:** Alpha (out/26) → Beta (jan/27) → Prod (abr/27) → Lançamento (jul/27) · 3 colunas (título + 1 linha) · **destaque:** "O preço de fundador é real — só para os 12 primeiros."
+- 🖥️ `POR QUE ENTRAR AGORA` · "12 vagas de co-fundador." · **eixo visual:** Alpha (agora) → Beta (jan/27) → Prod (abr/27) → Lançamento (jul/27) · 3 colunas (título + 1 linha) · **destaque:** "O preço de fundador é real — só para os 12 primeiros."
 - 🗣️ Os corpos das 3 colunas (preço de fundador, atenção máxima, co-construção).
 
 ## Slide 13 — Investimento *(refeito em 01/10: "Investimento transparente" estilo Gemini-UNIQ · v3.2: fundo CLARO — direção do fundador 01/10)*
