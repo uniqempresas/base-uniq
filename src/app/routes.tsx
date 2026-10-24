@@ -101,6 +101,16 @@ export const router = createBrowserRouter([
       { path: "/estoque/compras/nova", lazy: pagina(() => import("./components/estoque/NovaCompraPage"), "NovaCompraPage") },
       { path: "/estoque/compras", lazy: pagina(() => import("./components/estoque/ComprasPage"), "ComprasPage") },
       { path: "/estoque/configuracoes", lazy: pagina(() => import("./components/estoque/ConfiguracoesProdutosPage"), "ConfiguracoesProdutosPage") },
+      // Estoque V2 (redesign Compro · Faço · Vendo) — telas espelho em paralelo,
+      // conectadas ao banco real; não substituem o /estoque atual (comparativo).
+      { path: "/estoque-v2", lazy: pagina(() => import("./components/estoque-v2/hoje/HojeV2Page"), "HojeV2Page") },
+      { path: "/estoque-v2/insumos", lazy: pagina(() => import("./components/estoque-v2/insumos/InsumosV2Page"), "InsumosV2Page") },
+      { path: "/estoque-v2/insumos/:id", lazy: pagina(() => import("./components/estoque-v2/insumos/InsumoV2DetalhePage"), "InsumoV2DetalhePage") },
+      { path: "/estoque-v2/compras/nova", lazy: pagina(() => import("./components/estoque-v2/compra/NovaCompraV2Page"), "default") },
+      { path: "/estoque-v2/producao", lazy: pagina(() => import("./components/estoque-v2/producao/ProducaoV2Page"), "ProducaoV2Page") },
+      { path: "/estoque-v2/receita/:id", lazy: pagina(() => import("./components/estoque-v2/receita/ReceitaV2EditorPage"), "ReceitaV2EditorPage") },
+      { path: "/estoque-v2/margem", lazy: pagina(() => import("./components/estoque-v2/margem/MargemV2Page"), "MargemV2Page") },
+      { path: "/estoque-v2/produtos/:id/simulador", lazy: pagina(() => import("./components/estoque-v2/simulador/SimuladorV2Page"), "SimuladorV2Page") },
       // Loja Virtual — módulo: catálogo + aparência da loja (SPEC-LojaVirtual-CompletarModulo §5)
       { path: "/loja-virtual", lazy: pagina(() => import("./components/loja-virtual/LojaVirtualHubPage"), "LojaVirtualHubPage") },
       { path: "/loja-virtual/aparencia", lazy: pagina(() => import("./components/loja-virtual/AparenciaPage"), "AparenciaPage") },
