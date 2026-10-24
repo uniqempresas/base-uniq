@@ -192,6 +192,13 @@ export interface UseMargemV2Return {
   error: string | null;
   /** true quando a empresa não tem sessão e os dados vêm do mock (demo) */
   isFallback: boolean;
+  /**
+   * Mapa componente_id → produto_pai_id[] da ficha técnica da empresa.
+   * Causa-raiz Bug MargemBranca: compras registram INSUMOS, mas a universo
+   * da margem são compostos/vitrine — quem filtra por "comprado no período"
+   * precisa expandir os ids comprados pelos pais (BOM) para cruzar os conjuntos.
+   */
+  paisDeComponente: Map<number, number[]>;
   recarregar: () => void;
 }
 
@@ -202,6 +209,7 @@ export function useMargemV2(): UseMargemV2Return {
   const temSessao = session !== null;
 
   const [itens, setItens] = useState<MargemItem[]>([]);
+  const [paisDeComponente, setPaisDeComponente] = useState<Map<number, number[]>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFallback, setIsFallback] = useState(false);
@@ -219,6 +227,7 @@ export function useMargemV2(): UseMargemV2Return {
         entraNoUniversoV2(p.natureza ?? "simples", p.exibirVitrine)
       ).map(itemDoMock);
       setItens(mocks);
+      setPaisDeComponente(new Map());
       setIsFallback(true);
       setLoading(false);
       return;
@@ -253,6 +262,26 @@ export function useMargemV2(): UseMargemV2Return {
       const custosFicha = await carregarCustosDaFicha(empresaId, paisCompostosSemCusto);
 
       setItens(linhas.map((db) => itemDaLinhaDb(db, custosFicha.get(db.id) ?? null)));
+
+      // Mapa componente → pais da ficha (expansão BOM do filtro "comprado).
+      // Falha aqui é degradável (warn) — o filtro da página mostra tudo.
+      try {
+        const { data: fichaRows, error: fichaError } = await supabase
+          .from("est_ficha_tecnica")
+          .select("produto_pai_id, componente_id")
+          .eq("empresa_id", empresaId);
+        if (fichaError) throw fichaError;
+        const mapa = new Map<number, number[]>();
+        for (const f of (fichaRows as { produto_pai_id: number; componente_id: number }[] | null) || []) {
+          const lista = mapa.get(f.componente_id) ?? [];
+          lista.push(f.produto_pai_id);
+          mapa.set(f.componente_id, lista);
+        }
+        setPaisDeComponente(mapa);
+      } catch (fichaErr) {
+        console.warn("[useMargemV2] Ficha técnica indisponível para expansão BOM do filtro:", fichaErr);
+        setPaisDeComponente(new Map());
+      }
     } catch (err) {
       console.error("[useMargemV2] Erro ao calcular margens:", err);
       setItens([]);
@@ -268,7 +297,7 @@ export function useMargemV2(): UseMargemV2Return {
     }
   }, [carregarDados, authLoading]);
 
-  return { itens, loading, error, isFallback, recarregar: carregarDados };
+  return { itens, loading, error, isFallback, paisDeComponente, recarregar: carregarDados };
 }
 
 /* ------------------------------------------------------------------ */

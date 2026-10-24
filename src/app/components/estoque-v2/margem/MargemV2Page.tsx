@@ -95,7 +95,7 @@ function SkeletonMargem() {
 
 export function MargemV2Page() {
   const navigate = useNavigate();
-  const { itens = [], loading, error, recarregar } = useMargemV2() || ({} as any);
+  const { itens = [], loading, error, recarregar, paisDeComponente = new Map() } = useMargemV2() || ({} as any);
   const { compras = [], loading: comprasLoading = false } = useCompras() || ({} as any);
 
   const [periodo, setPeriodo] = useState<Periodo>(30);
@@ -143,11 +143,24 @@ export function MargemV2Page() {
 
   // "Se indisponível, mostre tudo": só filtra quando há compras no período.
   const itensSeguros = Array.isArray(itens) ? itens : [];
-  const temFiltroReal = !comprasLoading && idsCompradosNoPeriodo.size > 0;
-  const itensVisiveis = temFiltroReal
-    ? itensSeguros.filter((m) => m && idsCompradosNoPeriodo.has(m.produtoId))
+  // Causa-raiz Bug MargemBranca (patch @oracle): compras registram INSUMOS e o
+  // universo da margem são compostos/vitrine — sem expandir a BOM, a interseção
+  // era vazia por construção e a tela caía num dead-end ("toda em branco").
+  const idsCruzados = new Set<string>(idsCompradosNoPeriodo);
+  if (paisDeComponente instanceof Map) {
+    for (const id of idsCompradosNoPeriodo) {
+      for (const pai of paisDeComponente.get(Number(id)) ?? []) {
+        idsCruzados.add(String(pai));
+      }
+    }
+  }
+  const temFiltroReal = !comprasLoading && idsCruzados.size > 0;
+  const itensFiltrados = temFiltroReal
+    ? itensSeguros.filter((m) => m && idsCruzados.has(m.produtoId))
     : itensSeguros;
-  const itensDoFiltro = temFiltroReal ? itensVisiveis.length : itensSeguros.length;
+  // Interseção vazia ≠ sem produtos ("se indisponível, mostre tudo" — SPEC).
+  const itensVisiveis = itensFiltrados.length > 0 ? itensFiltrados : itensSeguros;
+  const itensDoFiltro = itensVisiveis.length;
 
   const comMargem = Array.isArray(itensVisiveis) ? itensVisiveis.filter((m) => m && m.margemReais !== null && m.preco !== null && m.custo !== null) : [];
   const sobraMedia = comMargem.length
