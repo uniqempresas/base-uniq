@@ -107,6 +107,7 @@ export const router = createBrowserRouter([
       { path: "/estoque-v2/insumos", lazy: pagina(() => import("./components/estoque-v2/insumos/InsumosV2Page"), "InsumosV2Page") },
       { path: "/estoque-v2/insumos/:id", lazy: pagina(() => import("./components/estoque-v2/insumos/InsumoV2DetalhePage"), "InsumoV2DetalhePage") },
       { path: "/estoque-v2/compras/nova", lazy: pagina(() => import("./components/estoque-v2/compra/NovaCompraV2Page"), "default") },
+      { path: "/estoque-v2/receitas", lazy: pagina(() => import("./components/estoque-v2/receitas/ReceitasV2ListPage"), "ReceitasV2ListPage") },
       { path: "/estoque-v2/producao", lazy: pagina(() => import("./components/estoque-v2/producao/ProducaoV2Page"), "ProducaoV2Page") },
       { path: "/estoque-v2/receita/:id", lazy: pagina(() => import("./components/estoque-v2/receita/ReceitaV2EditorPage"), "ReceitaV2EditorPage") },
       { path: "/estoque-v2/margem", lazy: pagina(() => import("./components/estoque-v2/margem/MargemV2Page"), "MargemV2Page") },

@@ -10,19 +10,30 @@
  *   (embed `est_compra_item.me_produto`, padrão `use-compras.ts`).
  * - MODO DEMO (sem sessão): lista mock plausível (regra mock-first de
  *   `use-produtos.ts`) — `isFallback=true` e a tela desabilita o salvar.
- * - SALVAR: 1 insert em `est_compra` (empresa_id, fornecedor_id,
+ * - SALVAR: 1 insert em `est_compra` (empresa_id, fornecedor_id NULL-able,
  *   status='PENDENTE', valor_total somado no client, nota_fiscal null) +
  *   itens em `est_compra_item` (compra_id, produto_id, quantidade,
  *   valor_unitario). Falha nos itens apaga o pai (compensação — padrão
- *   `use-criar-compra.ts`). NÃO mexe em estoque nem em movimentações:
- *   o fluxo de RECEBER é quem fecha o estoque.
- * - `fornecedor_id` é obrigatório no banco: a tela tem seletor OPCIONAL
- *   ("Quem você comprou?", lista `me_fornecedor` ativo da empresa); sem
- *   fornecedor informado, usa o primeiro `me_fornecedor` ativo (fallback).
+ *   `use-criar-compra.ts`). Sem `receberAgora`, NÃO mexe em estoque nem em
+ *   movimentações: o fluxo de RECEBER é quem fecha o estoque.
+ * - RECEBER AGORA (feedback fundador 24/10): "muitas compras chegam prontas
+ *   do mercado". Depois do salvar bem-sucedido, chama o MESMO recebimento do
+ *   v1 — `useReceberCompra` → RPC `receber_compra` (transação única:
+ *   RECEBIDO + data_recebimento, snapshot `est_recebimento`, `est_movimentacao`,
+ *   estoque/custo médio/`ultimo_preco_compra`, conta a pagar). Datas padrão
+ *   copiadas de `ComprasPage.tsx:983-984` (recebimento hoje, vencimento +30d).
+ *   Falha no recebimento NÃO desfaz a compra: `success:true` + `receberErro`
+ *   (a tela manda finalizar em Compras).
+ * - `fornecedor_id` é NULL-ável no banco (migration aplicada): o seletor da
+ *   tela é OPCIONAL de verdade — em branco salva `fornecedor_id: null`
+ *   (bug Assaí: o antigo fallback "primeiro ativo" atribuía a compra a um
+ *   fornecedor que não era o do dia).
  */
 import { useState, useEffect, useCallback } from "react";
+import { addDays, format } from "date-fns";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import { useReceberCompra } from "./use-receber-compra";
 import { ESTADO_COMPRA } from "../types/producao";
 
 /** Insumo como a tela de compra enxerga (snapshot mínimo de `me_produto`). */
@@ -56,7 +67,9 @@ export interface FornecedorV2 {
 /** Linha fechada para persistência (unidade de COMPRA). */
 export interface ItemCompraV2Input {
   produtoId: number;
+  /** quantidade na unidade de COMPRA (latas, caixas…) */
   quantidade: number;
+  /** preço por UNIDADE DE COMPRA (ex.: R$ 5 a lata) — `est_compra_item.valor_unitario` */
   valorUnitario: number;
 }
 
@@ -64,6 +77,10 @@ export interface SalvarCompraV2Result {
   success: boolean;
   id?: string;
   error?: string;
+  /** `receberAgora=true` e o recebimento (RPC) também deu certo */
+  recebido?: boolean;
+  /** compra salva como PENDENTE, mas o "receber agora" falhou (msg de negócio) */
+  receberErro?: string;
 }
 
 interface DBInsumo {
@@ -149,11 +166,19 @@ export interface UseNovaCompraV2Return {
   temSessao: boolean;
   salvando: boolean;
   recarregar: () => void;
-  salvarCompra: (itens: ItemCompraV2Input[], fornecedorId?: string | null) => Promise<SalvarCompraV2Result>;
+  salvarCompra: (
+    itens: ItemCompraV2Input[],
+    fornecedorId?: string | null,
+    /** true = após salvar, recebe a compra na hora (RPC `receber_compra`, mesmo caminho do v1) */
+    receberAgora?: boolean
+  ) => Promise<SalvarCompraV2Result>;
 }
 
 export function useNovaCompraV2(): UseNovaCompraV2Return {
   const { empresa, session, loading: authLoading } = useAuth();
+  // Recebimento imediato: REUTILIZA o hook/RPC do v1 (`receber_compra`) —
+  // nada de aritmética de estoque reinventada aqui.
+  const { receberCompra } = useReceberCompra();
   // Depende só do ID do tenant e de haver sessão — nunca da identidade dos
   // objetos (padrão anti-"pisca" do use-produtos, N7).
   const empresaId = empresa?.id ?? null;
@@ -228,7 +253,7 @@ export function useNovaCompraV2(): UseNovaCompraV2Return {
 
     // Fornecedores do seletor "Quem você comprou?" (mesma query de
     // `use-fornecedores`). Falha aqui não quebra a tela: o campo é opcional
-    // e o salvar mantém o fallback do primeiro ativo.
+    // de verdade (fornecedor_id NULL no banco) e dá pra salvar sem ele.
     try {
       const { data: forns, error: fornError } = await supabase
         .from("me_fornecedor")
@@ -285,12 +310,17 @@ export function useNovaCompraV2(): UseNovaCompraV2Return {
   /**
    * Persiste a compra: pai `est_compra` (PENDENTE — entra no estoque só quando
    * for RECEBIDA) + itens `est_compra_item`. Validações client espelham os
-   * CHECKs do banco (quantidade > 0, valor_unitario >= 0).
+   * CHECKs do banco (quantidade > 0, valor_unitario >= 0). `valorUnitario` é
+   * o preço por UNIDADE DE COMPRA (mesma unidade do `quantidade`).
+   * Com `receberAgora`, na sequência chama `useReceberCompra` (RPC
+   * `receber_compra` do v1) — falha no recebimento devolve `receberErro`
+   * sem desfazer a compra salva.
    */
   const salvarCompra = useCallback(
     async (
       itens: ItemCompraV2Input[],
-      fornecedorId?: string | null
+      fornecedorId?: string | null,
+      receberAgora?: boolean
     ): Promise<SalvarCompraV2Result> => {
       if (!temSessao || !empresaId) {
         return { success: false, error: "modo demo: entre na sua conta para salvar a compra." };
@@ -306,7 +336,7 @@ export function useNovaCompraV2(): UseNovaCompraV2Return {
           return { success: false, error: "Quantidade deve ser maior que zero em todos os itens." };
         }
         if (!(item.valorUnitario >= 0) || !Number.isFinite(item.valorUnitario)) {
-          return { success: false, error: "Valor inválido — confira o preço total dos itens." };
+          return { success: false, error: "Valor inválido — confira o valor unitário dos itens." };
         }
       }
 
@@ -326,23 +356,10 @@ export function useNovaCompraV2(): UseNovaCompraV2Return {
           throw new Error("Insumo não encontrado nesta empresa. Atualize a lista e tente de novo.");
         }
 
-        // Fornecedor é NOT NULL no banco: a tela tem seletor opcional — usa o
-        // escolhido no passo 1 ou, em branco, o PRIMEIRO me_fornecedor ativo.
-        let fornecedor = fornecedorId?.trim() || null;
-        if (!fornecedor) {
-          const { data: forn, error: fornError } = await supabase
-            .from("me_fornecedor")
-            .select("id")
-            .eq("empresa_id", empresaId)
-            .eq("ativo", true)
-            .order("id", { ascending: true })
-            .limit(1);
-          if (fornError) throw fornError;
-          fornecedor = ((forn as Array<{ id: string }> | null) || [])[0]?.id ?? null;
-        }
-        if (!fornecedor) {
-          throw new Error("Nenhum fornecedor cadastrado ainda. Cadastre um fornecedor para registrar a compra.");
-        }
+        // Fornecedor OPCIONAL de verdade (migration: `est_compra.fornecedor_id`
+        // NULL-ável): em branco salva `null` — SEM fallback "primeiro ativo"
+        // (bug Assaí: a compra era atribuída a um fornecedor que não era o do dia).
+        const fornecedor = fornecedorId?.trim() || null;
 
         const valorTotal =
           Math.round(itens.reduce((s, i) => s + i.quantidade * i.valorUnitario, 0) * 100) / 100;
@@ -379,7 +396,28 @@ export function useNovaCompraV2(): UseNovaCompraV2Return {
           throw itensError;
         }
 
-        return { success: true, id: compra.id };
+        if (!receberAgora) {
+          return { success: true, id: compra.id };
+        }
+
+        // "Comprar no mercado já chega com a sacola": recebe na hora usando o
+        // MESMO caminho do v1 (RPC `receber_compra`). Datas = defaults de
+        // `ComprasPage.tsx:983-984`: recebimento hoje, conta a pagar +30 dias.
+        const hoje = new Date();
+        const rc = await receberCompra({
+          compraId: compra.id,
+          dataRecebimento: format(hoje, "yyyy-MM-dd"),
+          dataVencimento: format(addDays(hoje, 30), "yyyy-MM-dd"),
+        });
+        if (rc.success) {
+          return { success: true, id: compra.id, recebido: true };
+        }
+        // Compra fica PENDENTE salva (não desfaz): a tela oferece finalizar em Compras.
+        return {
+          success: true,
+          id: compra.id,
+          receberErro: rc.error || "Não foi possível receber a compra.",
+        };
       } catch (err) {
         const message = err instanceof Error ? err.message : "Erro ao salvar a compra.";
         return { success: false, error: message };
@@ -387,7 +425,7 @@ export function useNovaCompraV2(): UseNovaCompraV2Return {
         setSalvando(false);
       }
     },
-    [empresaId, temSessao]
+    [empresaId, temSessao, receberCompra]
   );
 
   return {

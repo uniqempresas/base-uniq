@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import "../shared/estoque-v2.css";
 import { MelissaCard } from "../shared/MelissaCard";
+import { SegmentedNav } from "../shared/SegmentedNav";
 import { brl, formatarData } from "../shared/utils";
 import { formatarQtd } from "../../../lib/produto-utils";
 import { brlSmart } from "../../../hooks/use-receitas-v2";
@@ -342,6 +343,9 @@ export function ProducaoV2Page() {
           {isFallback && <span className="eq2-badge eq2-badge--estimado">modo demo</span>}
           {temSessao && !loading && !error && <span className="eq2-badge eq2-badge--ok"><Check size={12} aria-hidden="true" /> estoque de hoje</span>}
         </header>
+
+        {/* Compro · Faço · Vendo — área atual: Faço (as seções abaixo já têm marginTop próprio) */}
+        <SegmentedNav ativo="faco" style={{ margin: "12px 0 0" }} />
 
         {/* ---------- estados ---------- */}
         {loading && (

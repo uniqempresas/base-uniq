@@ -11,13 +11,15 @@ import { ArrowLeft, ArrowRight, ShieldCheck, TriangleAlert } from "lucide-react"
 import { useMargemV2, badgeClassDoSemaforo, type MargemItem } from "../../../hooks/use-margem-v2";
 import { useCompras } from "../../../hooks/use-compras";
 import { MelissaCard } from "../shared/MelissaCard";
+import { SegmentedNav } from "../shared/SegmentedNav";
 import { brl } from "../shared/utils";
 import "../shared/estoque-v2.css";
 
 const PERIODOS = [7, 30, 90] as const;
 type Periodo = (typeof PERIODOS)[number];
 
-const ROTA_HOJE = "/estoque-v2/hoje";
+/** Home "Hoje" — a rota montada é `/estoque-v2` (sem sufixo /hoje em routes.tsx). */
+const ROTA_HOJE = "/estoque-v2";
 const simuladorDe = (id: string) => `/estoque-v2/produtos/${id}/simulador`;
 
 function pctTexto(frac: number | null): string {
@@ -93,8 +95,8 @@ function SkeletonMargem() {
 
 export function MargemV2Page() {
   const navigate = useNavigate();
-  const { itens, loading, error, recarregar } = useMargemV2();
-  const { compras, loading: comprasLoading } = useCompras();
+  const { itens = [], loading, error, recarregar } = useMargemV2() || ({} as any);
+  const { compras = [], loading: comprasLoading = false } = useCompras() || ({} as any);
 
   const [periodo, setPeriodo] = useState<Periodo>(30);
 
@@ -102,10 +104,15 @@ export function MargemV2Page() {
   const idsCompradosNoPeriodo = useMemo(() => {
     const corte = Date.now() - periodo * 24 * 60 * 60 * 1000;
     const ids = new Set<string>();
+    if (!Array.isArray(compras)) return ids;
     for (const compra of compras) {
       const t = new Date(compra.dataCompra).getTime();
       if (Number.isFinite(t) && t >= corte) {
-        for (const item of compra.itens) ids.add(item.produtoId);
+        if (Array.isArray(compra.itens)) {
+          for (const item of compra.itens) {
+            if (item?.produtoId) ids.add(item.produtoId);
+          }
+        }
       }
     }
     return ids;
@@ -114,13 +121,17 @@ export function MargemV2Page() {
   // Série de custo por produto (valor_unitário das compras, ordem cronológica)
   const serieDeCusto = useMemo(() => {
     const mapa = new Map<string, { data: number; valor: number }[]>();
+    if (!Array.isArray(compras)) return mapa;
     for (const compra of compras) {
       const t = new Date(compra.dataCompra).getTime();
       if (!Number.isFinite(t)) continue;
-      for (const item of compra.itens) {
-        const lista = mapa.get(item.produtoId) ?? [];
-        lista.push({ data: t, valor: item.valorUnitario });
-        mapa.set(item.produtoId, lista);
+      if (Array.isArray(compra.itens)) {
+        for (const item of compra.itens) {
+          if (!item?.produtoId) continue;
+          const lista = mapa.get(item.produtoId) ?? [];
+          lista.push({ data: t, valor: item.valorUnitario });
+          mapa.set(item.produtoId, lista);
+        }
       }
     }
     const ordenado = new Map<string, number[]>();
@@ -131,20 +142,21 @@ export function MargemV2Page() {
   }, [compras]);
 
   // "Se indisponível, mostre tudo": só filtra quando há compras no período.
+  const itensSeguros = Array.isArray(itens) ? itens : [];
   const temFiltroReal = !comprasLoading && idsCompradosNoPeriodo.size > 0;
   const itensVisiveis = temFiltroReal
-    ? itens.filter((m) => idsCompradosNoPeriodo.has(m.produtoId))
-    : itens;
-  const itensDoFiltro = temFiltroReal ? itensVisiveis.length : itens.length;
+    ? itensSeguros.filter((m) => m && idsCompradosNoPeriodo.has(m.produtoId))
+    : itensSeguros;
+  const itensDoFiltro = temFiltroReal ? itensVisiveis.length : itensSeguros.length;
 
-  const comMargem = itensVisiveis.filter((m) => m.margemReais !== null && m.preco !== null && m.custo !== null);
+  const comMargem = Array.isArray(itensVisiveis) ? itensVisiveis.filter((m) => m && m.margemReais !== null && m.preco !== null && m.custo !== null) : [];
   const sobraMedia = comMargem.length
     ? comMargem.reduce((s, m) => s + (m.margemReais ?? 0), 0) / comMargem.length
     : null;
   const pctMedio = comMargem.length
     ? comMargem.reduce((s, m) => s + (m.margemPct ?? 0), 0) / comMargem.length
     : null;
-  const noVermelho = itensVisiveis.filter((m) => m.semaforo === "vermelho");
+  const noVermelho = Array.isArray(itensVisiveis) ? itensVisiveis.filter((m) => m && m.semaforo === "vermelho") : [];
 
   const protege = [...comMargem]
     .filter((m) => (m.margemReais ?? 0) > 0)
@@ -181,12 +193,8 @@ export function MargemV2Page() {
         </header>
 
         <main>
-          {/* Segmented fake — Vendo é a área atual */}
-          <div className="eq2-segmented" role="group" aria-label="Modo da base" style={{ margin: "12px 0 16px" }}>
-            <button type="button" style={{ minHeight: 44 }} onClick={() => navigate("/estoque-v2/insumos")}>Compro</button>
-            <button type="button" style={{ minHeight: 44 }} onClick={() => navigate("/estoque-v2/producao")}>Faço</button>
-            <button type="button" className="is-active" style={{ minHeight: 44 }} aria-pressed="true">Vendo</button>
-          </div>
+          {/* Compro · Faço · Vendo — área atual: Vendo */}
+          <SegmentedNav ativo="vendo" style={{ margin: "12px 0 16px" }} />
 
           {/* Filtro de período */}
           <div role="group" aria-label="Escolher período" style={{ display: "flex", gap: 8, marginBottom: 16 }}>
@@ -305,7 +313,7 @@ export function MargemV2Page() {
                             </p>
                             {serie.length >= 2 && (
                               <SparklineCusto
-                                valores={serie.slice(-8)}
+                                valores={(serie as number[]).slice(-8)}
                                 ariaLabel={`Histórico de custo de ${m.nome} nas últimas compras`}
                               />
                             )}

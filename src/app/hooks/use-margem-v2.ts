@@ -263,8 +263,10 @@ export function useMargemV2(): UseMargemV2Return {
   }, [empresaId, temSessao, authLoading]);
 
   useEffect(() => {
-    carregarDados();
-  }, [carregarDados]);
+    if (!authLoading) {
+      carregarDados();
+    }
+  }, [carregarDados, authLoading]);
 
   return { itens, loading, error, isFallback, recarregar: carregarDados };
 }

@@ -9,6 +9,7 @@ import { useNavigate, useParams } from "react-router";
 import { ArrowLeft, Check, Info, Lightbulb, RefreshCw } from "lucide-react";
 import { useMargemProdutoV2 } from "../../../hooks/use-margem-v2";
 import { MelissaCard } from "../shared/MelissaCard";
+import { SegmentedNav } from "../shared/SegmentedNav";
 import { brl } from "../shared/utils";
 import "../shared/estoque-v2.css";
 
@@ -150,6 +151,11 @@ export function SimuladorV2Page() {
         </header>
 
         <main>
+          {/* Compro · Faço · Vendo — área atual: Vendo. Nas telas de estado
+              (loading/erro/não-encontrado) o segmented fica de fora para não
+              poluir a imersão do simulador. */}
+          <SegmentedNav ativo="vendo" style={{ margin: "12px 0 0" }} />
+
           {/* ---------- Herói: custo + preço praticado + sugestão ---------- */}
           <section className="eq2-card eq2-card--static" style={{ marginTop: 16 }} aria-label="Resumo do produto">
             <p className="eq2-card__meta">Custo por {produto.unidade}{produto.custoVemDaFicha ? " (ficha técnica)" : ""}</p>

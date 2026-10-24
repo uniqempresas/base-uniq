@@ -10,18 +10,32 @@
  *    chips das últimas compras, cards selecionáveis e "+ Cadastrar insumo novo"
  *    reaproveitando o ProdutoFormModal (contexto-compra, snapshot via onSuccess).
  *    No topo do passo 1, seletor OPCIONAL "Quem você comprou?" (`me_fornecedor`
- *    ativo, busca + chips de 44px): vazio = placeholder "Sem fornecedor registr."
- *    e o hook mantém o fallback do primeiro ativo; lista vazia oferece o chip
- *    "+ Cadastrar fornecedor" → `/fornecedores/novo` (rascunho preservado no
- *    sessionStorage, fornecedor incluso). O escolhido aparece no header fixo.
+ *    ativo, busca + chips de 44px): vazio = placeholder "Sem fornecedor registr.",
+ *    o header mostra "Sem fornecedor" e o hook salva `fornecedor_id: null`
+ *    (migration NULL-ável — bug Assaí: sem fallback "primeiro ativo"); lista
+ *    vazia oferece o chip "+ Cadastrar fornecedor" → `/fornecedores/novo`
+ *    (rascunho preservado no sessionStorage, fornecedor incluso). O escolhido
+ *    aparece no header fixo.
  * 2. "Quanto e por quanto?" — um item por vez: quantidade + unidade de compra,
- *    quanto tem em cada uma (fator sugerido por chips), preço total. Recibo da
- *    conta SEMPRE visível + MelissaCard traduzindo a conta em estoque.
- * 3. "Confira" — itens com "+ X no estoque", total e Salvar compra.
+ *    quanto tem em cada uma (fator sugerido por chips) e DOIS campos de preço
+ *    conectados na mesma linha: "Valor unitário" (por unidade de compra) e
+ *    "Preço total". Editar um recalcula o outro (unitário 4 casas / total 2);
+ *    mexer na quantidade recalcula o lado NÃO travado ("último editado ganha",
+ *    o campo em foco nunca é reformatado — zero loop). Recibo da conta SEMPRE
+ *    visível + MelissaCard traduzindo a conta em estoque.
+ * 3. "Confira" — itens com "+ X no estoque", total e DOIS CTAs: primário
+ *    "Salvar e receber agora" (compra de mercado já chega recebida — reusa a
+ *    RPC `receber_compra` do v1 via `useReceberCompra`) e secundário "Salvar
+ *    como pendente (receber depois)". Sucesso do receber → toast "✓ +X no
+ *    estoque" + [Ir para o estoque]/[Nova compra]; falha do receber → "Compra
+ *    salva; recebimento falhou — finalize em Compras" com link.
  *
  * Regras de dados (SPEC do redesign):
- * - Salvar só com sessão real; sem sessão, botão desabilitado com hint "modo demo".
- * - A compra nasce PENDENTE: NADA muda no estoque aqui — o fluxo de Receber fecha.
+ * - Salvar só com sessão real; sem sessão, os dois botões desabilitados com
+ *   hint "modo demo".
+ * - Sem "receber agora" a compra nasce PENDENTE: o fluxo de Receber fecha o
+ *   estoque. Com "receber agora" o fechamento é a RPC do v1 — a tela não
+ *   manipula estoque/custo/conta a pagar.
  * - Rascunho em sessionStorage 'uniq estoque-v2 nova-compra' (try/catch — storage
  *   corrompido ou modo privado nunca quebra a tela).
  * - Estados visuais sempre: skeleton, empty (Melissa), erro com retry, sucesso.
@@ -51,6 +65,7 @@ import {
 
 import "../shared/estoque-v2.css";
 import { MelissaCard } from "../shared/MelissaCard";
+import { SegmentedNav } from "../shared/SegmentedNav";
 import { brl, UNIDADES_COMPRA } from "../shared/utils";
 import {
   useNovaCompraV2,
@@ -74,7 +89,12 @@ interface ItemRascunho {
   /** strings cruas: o input aceita "5,49" e vírgula sem briga de parseFloat */
   qtd: string;
   porUnidade: string;
+  /** preço por UNIDADE DE COMPRA (raw; ligado bidirecional com precoTotal) */
+  valorUnitario: string;
+  /** quanto pago no total do item (raw; ligado bidirecional com valorUnitario) */
   precoTotal: string;
+  /** "último editado": trava o campo em foco e deriva o outro (sem loop) */
+  precoEditado: "unit" | "total";
   /** sem unidade_compra/fator no cadastro → valor padrão chipado "estimado" */
   estimado: boolean;
 }
@@ -82,7 +102,7 @@ interface ItemRascunho {
 interface Rascunho {
   step: number;
   itens: ItemRascunho[];
-  /** fornecedor do passo 1 — opcional (null = fallback "primeiro ativo" do hook) */
+  /** fornecedor do passo 1 — opcional de verdade (null = `fornecedor_id: null` no banco) */
   fornecedorId: string | null;
   /** nome guardado para o header/card sobreviver ao reload antes da lista voltar */
   fornecedorNome: string;
@@ -104,6 +124,20 @@ function fmtQtd(n: number): string {
 
 function fmtMoeda(n: number): string {
   return n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/** valor unitário: arredonda em 4 casas, visual 2–4 (R$ 5 → "5,00"; R$ 3,3333) */
+function fmtUnit(n: number): string {
+  return n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+}
+
+/** total em R$: 2 casas */
+function fmtTotal(n: number): string {
+  return n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function roundUnit(n: number): number {
+  return Math.round(n * 10000) / 10000;
 }
 
 /** 395 g · 1,185 kg · 24 un (base g/ml ≥ 1000 vira kg/l, como no design) */
@@ -143,6 +177,8 @@ function normalizar(s: string): string {
 /** padrão do cadastro: sem unidade_compra/fator no insumo → 1 na unidade do estoque + chip "estimado" */
 function itemDeInsumo(p: InsumoV2): ItemRascunho {
   const temFator = p.fatorConversao != null && p.fatorConversao > 0;
+  // último preço é por UNIDADE DE COMPRA: com qtd 1, unitário e total batem
+  const precoInicial = p.ultimoPrecoCompra && p.ultimoPrecoCompra > 0 ? p.ultimoPrecoCompra : null;
   return {
     produtoId: p.id,
     nome: p.nome,
@@ -150,7 +186,9 @@ function itemDeInsumo(p: InsumoV2): ItemRascunho {
     unidadeCompra: p.unidadeCompra || p.unidade || "un",
     qtd: "1",
     porUnidade: temFator ? fmtQtd(p.fatorConversao as number) : "1",
-    precoTotal: p.ultimoPrecoCompra && p.ultimoPrecoCompra > 0 ? fmtMoeda(p.ultimoPrecoCompra) : "",
+    valorUnitario: precoInicial != null ? fmtUnit(precoInicial) : "",
+    precoTotal: precoInicial != null ? fmtMoeda(precoInicial) : "",
+    precoEditado: "unit",
     estimado: !temFator,
   };
 }
@@ -191,7 +229,7 @@ function lerRascunho(): Rascunho {
     ) {
       return { step: 1, itens: [], ...forn };
     }
-    const itens = parsed.itens as ItemRascunho[];
+    const itens = normalizarItensRascunho(parsed.itens as ItemRascunho[]);
     const step =
       typeof parsed.step === "number" && parsed.step >= 1 && parsed.step <= 3 ? parsed.step : 1;
     // consistência mínima: passo 2/3 sem item nenhum volta ao 1
@@ -199,6 +237,28 @@ function lerRascunho(): Rascunho {
   } catch {
     return { step: 1, itens: [], fornecedorId: null, fornecedorNome: "" };
   }
+}
+
+/**
+ * Rascunhos antigos (pré-campos conectados) não têm "valor unitário": deriva
+ * o unitário do total (4 casas) e trava em "total" — abre o item como era
+ * antes. Rascunhos novos passam intactos.
+ */
+function normalizarItensRascunho(brutos: ItemRascunho[]): ItemRascunho[] {
+  return brutos.map((b) => {
+    const bruto = b as Partial<ItemRascunho>;
+    const qtdN = parseNum(bruto.qtd);
+    const totalN = parseNum(bruto.precoTotal);
+    const temUnit = typeof bruto.valorUnitario === "string" && bruto.valorUnitario.trim() !== "";
+    const valorUnitario = temUnit
+      ? (bruto.valorUnitario as string)
+      : qtdN > 0 && totalN > 0
+        ? fmtUnit(roundUnit(totalN / qtdN))
+        : "";
+    const precoEditado =
+      bruto.precoEditado === "unit" || bruto.precoEditado === "total" ? bruto.precoEditado : "total";
+    return { ...b, valorUnitario, precoEditado };
+  });
 }
 
 function gravarRascunho(r: Rascunho): void {
@@ -265,6 +325,12 @@ export default function NovaCompraV2Page() {
   const [idx, setIdx] = useState(0);
   const [erro1, setErro1] = useState(false);
   const [salvo, setSalvo] = useState(false);
+  /** "salvar e receber agora" deu certo — a RPC do v1 já fechou o estoque */
+  const [recebido, setRecebido] = useState(false);
+  /** compra salva como PENDENTE mas o receber falhou (aviso inline + link) */
+  const [erroReceber, setErroReceber] = useState<string | null>(null);
+  /** só para o rótulo dos botões enquanto salva ("Salvando e recebendo…") */
+  const [salvandoReceber, setSalvandoReceber] = useState(false);
   const [modalAberto, setModalAberto] = useState(false);
   const [nomeInicial, setNomeInicial] = useState("");
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -356,6 +422,63 @@ export default function NovaCompraV2Page() {
     setItens((prev) => prev.map((i) => (i.produtoId === produtoId ? { ...i, ...patch } : i)));
   };
 
+  /* ── preço conectado (passo 2): "Valor unitário" ↔ "Preço total" ──────────
+   * Fonte = o último campo DIGITADO (`precoEditado`); o outro é derivado e o
+   * campo em foco NUNCA é reformatado (zero loop de atualização, cursor livre).
+   *   unit → total = unitário × quantidade (2 casas)   ex.: 5 × 3 = 15,00
+   *   total → unitário = total ÷ quantidade (4 casas)  ex.: 15 ÷ 3 = 5,00
+   * Mudar a QUANTIDADE recalcula o lado NÃO travado: travado em "unit" (5,00,
+   * qtd 1→3) o total vira 15,00 e o unitário continua 5 — exemplo do fundador. */
+  const recalcComQtd = (i: ItemRascunho, qtdBruta: string): ItemRascunho => {
+    const q = parseNum(qtdBruta);
+    if (i.precoEditado === "unit") {
+      const u = parseNum(i.valorUnitario);
+      return { ...i, qtd: qtdBruta, precoTotal: q > 0 && u > 0 ? fmtTotal(u * q) : i.precoTotal };
+    }
+    const t = parseNum(i.precoTotal);
+    return {
+      ...i,
+      qtd: qtdBruta,
+      valorUnitario: q > 0 && t > 0 ? fmtUnit(roundUnit(t / q)) : i.valorUnitario,
+    };
+  };
+
+  const mudarQtd = (produtoId: number, qtdBruta: string) => {
+    setItens((prev) => prev.map((i) => (i.produtoId === produtoId ? recalcComQtd(i, qtdBruta) : i)));
+  };
+
+  const mudarValorUnitario = (produtoId: number, bruto: string) => {
+    setItens((prev) =>
+      prev.map((i) => {
+        if (i.produtoId !== produtoId) return i;
+        const u = parseNum(bruto);
+        const q = parseNum(i.qtd);
+        return {
+          ...i,
+          valorUnitario: bruto,
+          precoTotal: u > 0 && q > 0 ? fmtTotal(u * q) : "",
+          precoEditado: "unit" as const,
+        };
+      })
+    );
+  };
+
+  const mudarPrecoTotal = (produtoId: number, bruto: string) => {
+    setItens((prev) =>
+      prev.map((i) => {
+        if (i.produtoId !== produtoId) return i;
+        const t = parseNum(bruto);
+        const q = parseNum(i.qtd);
+        return {
+          ...i,
+          precoTotal: bruto,
+          valorUnitario: t > 0 && q > 0 ? fmtUnit(roundUnit(t / q)) : "",
+          precoEditado: "total" as const,
+        };
+      })
+    );
+  };
+
   /* ── cadastrar insumo novo (ProdutoFormModal reaproveitado) ── */
   const abrirCadastro = (termo: string) => {
     setNomeInicial(termo);
@@ -371,19 +494,19 @@ export default function NovaCompraV2Page() {
     setItens((prev) => {
       if (prev.some((i) => i.produtoId === insumoCriado.id)) return prev;
       const temFator = insumoCriado.fator != null && insumoCriado.fator > 0;
-      return [
-        ...prev,
-        {
-          produtoId: insumoCriado.id,
-          nome: insumoCriado.nome.trim() || "Insumo sem nome",
-          unidadeBase: insumoCriado.unidade || "un",
-          unidadeCompra: insumoCriado.unidadeCompra || insumoCriado.unidade || "un",
-          qtd: "1",
-          porUnidade: temFator ? fmtQtd(insumoCriado.fator as number) : "1",
-          precoTotal: "",
-          estimado: !temFator,
-        },
-      ];
+      const novoItem: ItemRascunho = {
+        produtoId: insumoCriado.id,
+        nome: insumoCriado.nome.trim() || "Insumo sem nome",
+        unidadeBase: insumoCriado.unidade || "un",
+        unidadeCompra: insumoCriado.unidadeCompra || insumoCriado.unidade || "un",
+        qtd: "1",
+        porUnidade: temFator ? fmtQtd(insumoCriado.fator as number) : "1",
+        valorUnitario: "",
+        precoTotal: "",
+        precoEditado: "unit",
+        estimado: !temFator,
+      };
+      return [...prev, novoItem];
     });
     toast.success(`${insumoCriado.nome} cadastrado`);
   };
@@ -411,17 +534,37 @@ export default function NovaCompraV2Page() {
     }
   };
 
-  const salvar = async () => {
+  /** soma do que entra em estoque por unidade base (mesma conta do recibo:
+   *  qtd × fator) — só para o toast "✓ +X g no estoque"; a RPC é a fonte real */
+  const entradasEstoqueTxt = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const i of itens) {
+      const entrou = parseNum(i.qtd) * parseNum(i.porUnidade);
+      if (entrou > 0) m.set(i.unidadeBase, (m.get(i.unidadeBase) ?? 0) + entrou);
+    }
+    return [...m.entries()].map(([u, v]) => `+${fmtPer(v, u)}`).join(" · ");
+  }, [itens]);
+
+  /**
+   * `receberAgora=true` → "Salvar e receber agora": salva PENDENTE e a mesma
+   * sequência do v1 fecha o estoque (RPC `receber_compra` via hook próprio —
+   * nada de aritmética copiada aqui). `false` → "Salvar como pendente".
+   */
+  const salvar = async (receberAgora: boolean) => {
     const payload = itens
       .map((i) => {
         const quantidade = parseNum(i.qtd);
+        const unit = parseNum(i.valorUnitario);
         const total = parseNum(i.precoTotal);
-        return {
-          produtoId: i.produtoId,
-          quantidade,
-          // preço total ÷ quantidade → valor_unitario na unidade de compra
-          valorUnitario: quantidade > 0 ? Math.round((total / quantidade) * 10000) / 10000 : 0,
-        };
+        // valor_unitario = campo explícito (4 casas); rascunho torto sem
+        // unitário → deriva do total ÷ quantidade como antes
+        const valorUnitario =
+          unit > 0
+            ? roundUnit(unit)
+            : quantidade > 0 && total > 0
+              ? roundUnit(total / quantidade)
+              : 0;
+        return { produtoId: i.produtoId, quantidade, valorUnitario };
       })
       .filter((p) => p.quantidade > 0);
 
@@ -430,14 +573,33 @@ export default function NovaCompraV2Page() {
       return;
     }
 
-    // fornecedorId null → o hook aplica o fallback (primeiro ativo); não bloqueia
-    const r = await salvarCompra(payload, fornecedorId);
-    if (r.success) {
-      setSalvo(true);
-      limparRascunho();
-      toast.success("Compra registrada. Ela entra no estoque quando for recebida.");
-    } else {
+    // fornecedorId null → `fornecedor_id: null` de verdade no banco (opcional)
+    setSalvandoReceber(receberAgora);
+    setErroReceber(null);
+    const r = await salvarCompra(payload, fornecedorId, receberAgora);
+    setSalvandoReceber(false);
+    if (!r.success) {
       toast.error(r.error || "Erro ao salvar a compra.");
+      return;
+    }
+    setSalvo(true);
+    limparRascunho();
+    if (r.recebido) {
+      setRecebido(true);
+      toast.success(
+        entradasEstoqueTxt
+          ? `Compra registrada e recebida ✓ ${entradasEstoqueTxt} no estoque`
+          : "Compra registrada e recebida ✓ estoque atualizado"
+      );
+    } else if (r.receberErro) {
+      // compra ficou PENDENTE salva (não desfaz) — oferece o fechamento em Compras
+      setErroReceber(r.receberErro);
+      toast.error("Compra salva; recebimento falhou — finalize em Compras.", {
+        duration: 9000,
+        action: { label: "Ir para Compras", onClick: () => navigate("/estoque/compras") },
+      });
+    } else {
+      toast.success("Compra registrada. Ela entra no estoque quando for recebida.");
     }
   };
 
@@ -445,6 +607,9 @@ export default function NovaCompraV2Page() {
     setItens([]);
     setIdx(0);
     setSalvo(false);
+    setRecebido(false);
+    setErroReceber(null);
+    setSalvandoReceber(false);
     setErro1(false);
     removerFornecedor();
     limparRascunho();
@@ -477,7 +642,7 @@ export default function NovaCompraV2Page() {
     }
     const entrouTxt = `${fmtQtd(recibo.qtdN)} ${pluralUnidade(itemAtual!.unidadeCompra, recibo.qtdN)}`;
     if (!recibo.linha2) {
-      return `Você comprou ${entrouTxt} → entram ${fmtPer(recibo.entrou, recibo.base)} no estoque. Agora me diz o preço total pra eu achar o custo.`;
+      return `Você comprou ${entrouTxt} → entram ${fmtPer(recibo.entrou, recibo.base)} no estoque. Agora me diz o preço — o unitário ou o total — pra eu achar o custo.`;
     }
     const custoUnit = recibo.precoN / recibo.entrou;
     const porBase =
@@ -573,23 +738,53 @@ export default function NovaCompraV2Page() {
             <Plus size={16} aria-hidden="true" />
             <span>Nova compra</span>
           </button>
-          <button type="button" className={primario} style={emBarra ? { flex: 1 } : undefined} onClick={() => navigate("/estoque/compras")}>
-            <span>Ver compras</span>
+          <button
+            type="button"
+            className={primario}
+            style={emBarra ? { flex: 1 } : undefined}
+            onClick={() => navigate(recebido ? "/estoque-v2" : "/estoque/compras")}
+          >
+            <span>{recebido ? "Ir para o estoque" : "Ver compras"}</span>
           </button>
         </>
       );
     }
+    // DOIS CTAs (feedback fundador): compra de mercado já chega recebida —
+    // o primário salva E recebe na hora (mesma RPC do v1); o secundário é o
+    // fluxo antigo (pendente, receber depois em Compras). Bloqueados em demo.
+    const bloqueado = !temSessao || salvando || itens.length === 0;
     return (
-      <button
-        type="button"
-        className={primario}
-        style={largura}
-        disabled={!temSessao || salvando || itens.length === 0}
-        onClick={salvar}
-      >
-        {salvando ? <RotateCw size={16} className="eq2-spin" aria-hidden="true" /> : <Check size={16} aria-hidden="true" />}
-        <span>{salvando ? "Salvando…" : "Salvar compra"}</span>
-      </button>
+      <>
+        <button
+          type="button"
+          className={primario}
+          style={largura}
+          disabled={bloqueado}
+          onClick={() => salvar(true)}
+        >
+          {salvando ? (
+            <RotateCw size={16} className="eq2-spin" aria-hidden="true" />
+          ) : (
+            <Package size={16} aria-hidden="true" />
+          )}
+          <span>
+            {salvando
+              ? salvandoReceber
+                ? "Salvando e recebendo…"
+                : "Salvando…"
+              : "Salvar e receber agora"}
+          </span>
+        </button>
+        <button
+          type="button"
+          className={secundario}
+          style={emBarra ? largura : undefined}
+          disabled={bloqueado}
+          onClick={() => salvar(false)}
+        >
+          <span>{salvando && !salvandoReceber ? "Salvando…" : "Salvar como pendente (receber depois)"}</span>
+        </button>
+      </>
     );
   };
 
@@ -611,9 +806,11 @@ export default function NovaCompraV2Page() {
       : step === 2
         ? "Preencha e continue"
         : salvo
-          ? "Estoque muda quando a compra for recebida"
+          ? recebido
+            ? "Estoque atualizado ✓"
+            : "Estoque muda quando a compra for recebida"
           : temSessao
-            ? "O estoque só muda quando você salvar"
+            ? "Escolha: receber agora ou deixar pendente"
             : "modo demo — entre na sua conta para salvar";
 
   /* ── conteúdo dos passos ── */
@@ -627,8 +824,9 @@ export default function NovaCompraV2Page() {
       </p>
 
       {/* ── Quem você comprou? — fornecedor OPCIONAL (mini-sheet acima da lista).
-          Em branco o hook usa o fallback "primeiro ativo"; sem cadastro, o chip
-          leva para /fornecedores/novo com o rascunho já preservado. ── */}
+          Em branco salva `fornecedor_id: null` (migration NULL-ável — bug Assaí
+          corrigido); sem cadastro, o chip leva para /fornecedores/novo com o
+          rascunho já preservado. ── */}
       <div style={{ marginBottom: 16 }}>
         {fornecedorId && fornecedorNome && !trocandoFornecedor ? (
           <div className="eq2-card eq2-card--static" style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -955,7 +1153,7 @@ export default function NovaCompraV2Page() {
               className="eq2-back"
               aria-label="Diminuir quantidade"
               style={{ flex: "none" }}
-              onClick={() => patchItem(itemAtual.produtoId, { qtd: String(Math.max(1, Math.round(parseNum(itemAtual.qtd)) - 1)) })}
+              onClick={() => mudarQtd(itemAtual.produtoId, String(Math.max(1, Math.round(parseNum(itemAtual.qtd)) - 1)))}
             >
               <Minus size={16} aria-hidden="true" />
             </button>
@@ -967,7 +1165,7 @@ export default function NovaCompraV2Page() {
               className="eq2-input"
               style={{ textAlign: "center" }}
               value={itemAtual.qtd}
-              onChange={(e) => patchItem(itemAtual.produtoId, { qtd: e.target.value })}
+              onChange={(e) => mudarQtd(itemAtual.produtoId, e.target.value)}
               aria-label={`Quantidade de ${itemAtual.nome}`}
             />
             <button
@@ -975,7 +1173,7 @@ export default function NovaCompraV2Page() {
               className="eq2-back"
               aria-label="Aumentar quantidade"
               style={{ flex: "none" }}
-              onClick={() => patchItem(itemAtual.produtoId, { qtd: String(Math.max(1, Math.round(parseNum(itemAtual.qtd) || 0) + 1)) })}
+              onClick={() => mudarQtd(itemAtual.produtoId, String(Math.max(1, Math.round(parseNum(itemAtual.qtd) || 0) + 1)))}
             >
               <Plus size={16} aria-hidden="true" />
             </button>
@@ -1033,26 +1231,48 @@ export default function NovaCompraV2Page() {
         )}
       </div>
 
-      {/* Preço total */}
+      {/* Valor unitário × Preço total — conectados na mesma linha (feedback fundador):
+          editar um recalcula o outro; a quantidade re-ancora o lado não travado */}
       <div style={{ marginTop: 14 }}>
-        <label className="eq2-label" htmlFor={`preco-v2-${itemAtual.produtoId}`}>Preço total</label>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <span style={{ fontSize: 13, color: "var(--eq2-muted)", flex: "none" }}>R$</span>
-          <input
-            id={`preco-v2-${itemAtual.produtoId}`}
-            type="text"
-            inputMode="decimal"
-            autoComplete="off"
-            className="eq2-input"
-            style={{ flex: 1, minWidth: 0 }}
-            value={itemAtual.precoTotal}
-            onChange={(e) => patchItem(itemAtual.produtoId, { precoTotal: e.target.value })}
-            placeholder="0,00"
-            aria-label={`Preço total pago em ${itemAtual.nome}`}
-          />
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <label className="eq2-label" htmlFor={`unit-v2-${itemAtual.produtoId}`}>Valor unitário</label>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <span style={{ fontSize: 13, color: "var(--eq2-muted)", flex: "none" }}>R$</span>
+              <input
+                id={`unit-v2-${itemAtual.produtoId}`}
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                className="eq2-input"
+                value={itemAtual.valorUnitario}
+                onChange={(e) => mudarValorUnitario(itemAtual.produtoId, e.target.value)}
+                placeholder="0,00"
+                aria-label={`Valor unitário de ${itemAtual.nome}, por ${itemAtual.unidadeCompra}`}
+              />
+            </div>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <label className="eq2-label" htmlFor={`preco-v2-${itemAtual.produtoId}`}>Preço total</label>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <span style={{ fontSize: 13, color: "var(--eq2-muted)", flex: "none" }}>R$</span>
+              <input
+                id={`preco-v2-${itemAtual.produtoId}`}
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                className="eq2-input"
+                value={itemAtual.precoTotal}
+                onChange={(e) => mudarPrecoTotal(itemAtual.produtoId, e.target.value)}
+                placeholder="0,00"
+                aria-label={`Preço total pago em ${itemAtual.nome}`}
+              />
+            </div>
+          </div>
         </div>
         <p style={{ fontSize: 11, color: "var(--eq2-muted)", marginTop: 6 }}>
-          Quanto você pagou no total, somando todas as unidades.
+          Valor unitário é o preço de 1 {itemAtual.unidadeCompra} (ex.: a lata). Preencha qualquer
+          um dos dois — o outro se ajusta sozinho quando a quantidade muda.
         </p>
       </div>
 
@@ -1070,7 +1290,7 @@ export default function NovaCompraV2Page() {
               {recibo.linha2.split(" = ")[0]} = <strong>{recibo.linha2.split(" = ")[1]}</strong>
             </>
           ) : recibo?.linha1 ? (
-            "Me diz o preço total pra eu fechar a conta."
+            "Me diz o preço — o unitário ou o total — pra eu fechar a conta."
           ) : (
             "Sem as medidas, eu não consigo fechar a conta."
           )}
@@ -1096,7 +1316,8 @@ export default function NovaCompraV2Page() {
         Confira
       </h2>
       <p style={{ fontSize: 13, color: "var(--eq2-muted)", margin: "0 0 14px" }}>
-        Dá uma olhada antes de salvar. Nada muda no estoque até você tocar em “Salvar compra”.
+        Dá uma olhada antes de salvar. Comprou agora no mercado? Use “Salvar e receber agora” —
+        o estoque fecha na hora. A mercadoria chega depois? Salve como pendente.
       </p>
 
       {salvo && (
@@ -1105,10 +1326,36 @@ export default function NovaCompraV2Page() {
             <ClipboardCheck size={18} aria-hidden="true" />
           </span>
           <span>
-            <span className="eq2-card__name" style={{ display: "block" }}>Compra salva!</span>
-            <span className="eq2-card__meta" style={{ display: "block" }}>
-              Compra registrada. Ela entra no estoque quando for recebida.
+            <span className="eq2-card__name" style={{ display: "block" }}>
+              {recebido ? "Compra salva e recebida!" : "Compra salva!"}
             </span>
+            <span className="eq2-card__meta" style={{ display: "block" }}>
+              {recebido
+                ? `Estoque atualizado ✓${entradasEstoqueTxt ? ` ${entradasEstoqueTxt}` : ""}`
+                : "Compra registrada. Ela entra no estoque quando for recebida."}
+            </span>
+          </span>
+        </div>
+      )}
+
+      {erroReceber && (
+        <div className="eq2-card eq2-card--static" role="alert" style={{ display: "flex", borderColor: "var(--eq2-warn)", gap: 10, marginBottom: 14 }}>
+          <span className="eq2-card__icon" style={{ background: "#fff8e6", display: "flex", color: "var(--eq2-warn)" }}>
+            <TriangleAlert size={18} aria-hidden="true" />
+          </span>
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <span className="eq2-card__name" style={{ display: "block" }}>Compra salva; recebimento falhou</span>
+            <span className="eq2-card__meta" style={{ display: "block" }}>
+              {erroReceber} — finalize em Compras (tela atual).
+            </span>
+            <button
+              type="button"
+              className="eq2-btn eq2-btn--link"
+              style={{ padding: "6px 0 0" }}
+              onClick={() => navigate("/estoque/compras")}
+            >
+              Ir para Compras
+            </button>
           </span>
         </div>
       )}
@@ -1118,6 +1365,7 @@ export default function NovaCompraV2Page() {
           const qtdN = parseNum(i.qtd);
           const perN = parseNum(i.porUnidade);
           const precoN = parseNum(i.precoTotal);
+          const unitN = parseNum(i.valorUnitario);
           const entrou = qtdN * perN;
           const custo = entrou > 0 ? precoN / entrou : 0;
           return (
@@ -1128,6 +1376,7 @@ export default function NovaCompraV2Page() {
               </span>
               <span className="eq2-card__meta" style={{ display: "block", marginTop: 4 }}>
                 {qtdN > 0 ? `${fmtQtd(qtdN)} ${pluralUnidade(i.unidadeCompra, qtdN)} de ${fmtPer(perN, i.unidadeBase)}` : "sem quantidade"}
+                {unitN > 0 ? ` · ${brl(unitN)}/${i.unidadeCompra}` : ""}
                 {custo > 0 ? ` · ${fmtRate(custo, i.unidadeBase)}` : ""}
                 {i.estimado ? " · estimado" : ""}
               </span>
@@ -1174,7 +1423,11 @@ export default function NovaCompraV2Page() {
       {!salvo && (
         <div style={{ marginTop: 14 }}>
           <MelissaCard
-            msg={`Quando esta compra for recebida, os ${itens.length} ${itens.length === 1 ? "item entra" : "itens entram"} no estoque e o custo médio é atualizado automaticamente.`}
+            msg={
+              !temSessao
+                ? `Quando esta compra for recebida, os ${itens.length} ${itens.length === 1 ? "item entra" : "itens entram"} no estoque e o custo médio é atualizado automaticamente.`
+                : `Comprou agora no mercado? "Salvar e receber agora" já põe os ${itens.length} ${itens.length === 1 ? "item no estoque" : "itens no estoque"} com o custo médio atualizado. Chegando depois, salve como pendente — eu recebo no portão.`
+            }
           />
         </div>
       )}
@@ -1235,8 +1488,10 @@ export default function NovaCompraV2Page() {
       <MelissaCard
         msg={
           salvo
-            ? "Compra registrada. Ela entra no estoque quando for recebida."
-            : "O estoque só muda quando você salvar e depois RECEBER a compra no portão. Aqui eu só anoto o que você pagou."
+            ? recebido
+              ? "Compra recebida — estoque e custo médio atualizados ✓"
+              : "Compra registrada. Ela entra no estoque quando for recebida."
+            : "Comprando no mercado? Salva e recebe agora — o estoque fecha na hora. Chegando depois, salva pendente que eu recebo no portão."
         }
       />
     </aside>
@@ -1256,7 +1511,14 @@ export default function NovaCompraV2Page() {
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{hintEsq}</span>
           <span style={{ flex: "none" }}>{hintDir}</span>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            // passo 3 pré-salvar: dois CTAs empilhados (rótulos longos em 360px)
+            flexDirection: step === 3 && !salvo ? "column" : "row",
+          }}
+        >
           {renderAcoes(true)}
         </div>
       </div>
@@ -1280,16 +1542,20 @@ export default function NovaCompraV2Page() {
             >
               {fornecedorId && fornecedorNome
                 ? `fornecedor · ${fornecedorNome}`
-                : "Compro · registro de insumo"}
+                : "Sem fornecedor"}
             </div>
           </div>
           {(itens.length > 0 || salvo) && (
             <span className="eq2-badge eq2-badge--ok" style={{ flex: "none" }}>
               <Check size={11} aria-hidden="true" />
-              {salvo ? "Compra salva ✓" : "Rascunho salvo ✓"}
+              {salvo ? (recebido ? "Recebida ✓" : "Compra salva ✓") : "Rascunho salvo ✓"}
             </span>
           )}
         </header>
+
+        {/* Compro · Faço · Vendo — mobile: compacto no header, acima dos steps,
+            para não roubar altura do wizard. Desktop vive na coluna esquerda (abaixo). */}
+        {!isDesktop && <SegmentedNav ativo="compro" compacto style={{ margin: "6px 0 2px" }} />}
 
         {/* barra de passos do wizard */}
         <div className="eq2-steps" role="group" aria-label="Progresso da compra">
@@ -1333,6 +1599,8 @@ export default function NovaCompraV2Page() {
           }
         >
           <main style={{ minWidth: 0 }}>
+            {/* desktop: segmented na coluna esquerda do wizard */}
+            {isDesktop && <SegmentedNav ativo="compro" compacto style={{ margin: "10px 0 4px", maxWidth: 480 }} />}
             {itens.length === 0 && step > 1 ? (
               // proteção: rascunho corrompido/sem item — volta ao passo 1
               passo1

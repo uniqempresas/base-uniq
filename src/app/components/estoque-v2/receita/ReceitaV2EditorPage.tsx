@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import "../shared/estoque-v2.css";
 import { MelissaCard } from "../shared/MelissaCard";
+import { SegmentedNav } from "../shared/SegmentedNav";
 import { brl, custoBaseFmt } from "../shared/utils";
 import { formatarQtd } from "../../../lib/produto-utils";
 import {
@@ -449,6 +450,10 @@ export function ReceitaV2EditorPage() {
             )}
           </div>
         </header>
+
+        {/* Compro · Faço · Vendo — área atual: Faço. Editor é tela de foco, mas o
+            segmented fica (cenário completo); as seções abaixo já têm marginTop 16. */}
+        <SegmentedNav ativo="faco" compacto style={{ margin: "10px 0 0" }} />
 
         {/* ---------- estados de carga ---------- */}
         {loading && (

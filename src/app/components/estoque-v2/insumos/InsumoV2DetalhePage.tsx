@@ -14,14 +14,17 @@ import {
   BookOpen,
   ChevronDown,
   ChevronLeft,
+  Edit3,
   Package,
   RotateCcw,
+  ShoppingBag,
   TrendingDown,
   TrendingUp,
   TriangleAlert,
 } from "lucide-react";
 import "../shared/estoque-v2.css";
 import { MelissaCard } from "../shared/MelissaCard";
+import { SegmentedNav } from "../shared/SegmentedNav";
 import { brl, formatarData, formatarQtdEstoque } from "../shared/utils";
 import {
   formatarTaxa,
@@ -369,7 +372,14 @@ export function InsumoV2DetalhePage() {
               {receitas.map((r) => {
                 const custoLinha = (taxa?.valor ?? insumo.precoCusto ?? 0) * r.quantidadePorUnidade;
                 return (
-                  <div key={r.paiId} className="eq2-card eq2-card--static" style={{ padding: 12 }}>
+                  <button
+                    key={r.paiId}
+                    type="button"
+                    className="eq2-card eq2-card--static"
+                    style={{ padding: 12, textAlign: "left", cursor: "pointer" }}
+                    onClick={() => navigate(`/estoque-v2/receita/${r.paiId}`)}
+                    aria-label={`Abrir ficha técnica de ${r.nome}`}
+                  >
                     <div className="eq2-card__top">
                       <span className="eq2-card__icon" aria-hidden="true">
                         <BookOpen size={18} />
@@ -385,7 +395,7 @@ export function InsumoV2DetalhePage() {
                         <div style={{ fontSize: 10, color: "var(--eq2-muted)" }}>na receita</div>
                       </span>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -491,10 +501,38 @@ export function InsumoV2DetalhePage() {
           <div className="eq2-bar__title" style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {loading ? "Carregando…" : insumo?.nome ?? "Insumo"}
           </div>
-          <span style={{ width: 44, flex: "none" }} aria-hidden="true" />
+          <button
+            type="button"
+            className="eq2-btn eq2-btn--ghost"
+            style={{ minHeight: 44, padding: "0 10px", flex: "none" }}
+            onClick={() => navigate(`/estoque/produtos/${id}`)}
+            aria-label="Editar insumo"
+            disabled={!insumo}
+          >
+            <Edit3 size={18} aria-hidden="true" />
+            <span style={{ fontSize: 13 }}>Editar</span>
+          </button>
         </header>
 
-        <main style={{ paddingTop: 14 }}>{renderizarConteudo()}</main>
+        {/* Compro · Faço · Vendo — área atual: Compro */}
+        <main style={{ paddingTop: 14, paddingBottom: insumo ? 92 : 14 }}>
+          <SegmentedNav ativo="compro" />
+          {renderizarConteudo()}
+        </main>
+
+        {insumo && !loading && (
+          <div className="eq2-bottombar">
+            <button
+              type="button"
+              className="eq2-btn eq2-btn--primary"
+              style={{ width: "100%" }}
+              onClick={() => navigate("/estoque-v2/compras/nova")}
+            >
+              <ShoppingBag size={18} aria-hidden="true" />
+              Comprar de novo
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

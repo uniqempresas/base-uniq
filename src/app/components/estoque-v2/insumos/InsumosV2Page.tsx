@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Plus, RotateCcw, Search, TriangleAlert, PackageSearch } from "lucide-react";
 import "../shared/estoque-v2.css";
 import { MelissaCard } from "../shared/MelissaCard";
+import { SegmentedNav } from "../shared/SegmentedNav";
 import { formatarQtdEstoque } from "../shared/utils";
 import {
   formatarTaxa,
@@ -233,6 +234,9 @@ export function InsumosV2Page() {
         </header>
 
         <main style={{ display: "grid", gap: 14, paddingTop: 14 }}>
+          {/* Compro · Faço · Vendo — área atual: Compro (gap do grid cuida do espaço) */}
+          <SegmentedNav ativo="compro" style={{ margin: 0 }} />
+
           {isFallback && (
             <p style={{ fontSize: 11, color: "var(--eq2-warn)", margin: 0 }}>
               dados de demonstração — faça login para ver seus insumos reais

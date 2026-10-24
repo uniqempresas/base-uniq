@@ -5,11 +5,12 @@
  * produtos e margens caem no mock local (demo), compras fica vazio.
  */
 import { useNavigate } from "react-router";
-import { AlertTriangle, ArrowRight, Package, RefreshCw, TrendingDown, Wallet } from "lucide-react";
+import { AlertTriangle, ArrowRight, BookOpen, ClipboardList, Package, RefreshCw, TrendingDown, Wallet } from "lucide-react";
 import { useProdutos } from "../../../hooks/use-produtos";
 import { useCompras } from "../../../hooks/use-compras";
 import { useMargemV2 } from "../../../hooks/use-margem-v2";
 import { MelissaCard } from "../shared/MelissaCard";
+import { SegmentedNav } from "../shared/SegmentedNav";
 import { brl, formatarQtdEstoque } from "../shared/utils";
 import "../shared/estoque-v2.css";
 
@@ -17,6 +18,8 @@ const ROTA_COMPRA_NOVA = "/estoque-v2/compras/nova";
 const ROTA_MARGEM = "/estoque-v2/margem";
 const ROTA_INSUMOS = "/estoque-v2/insumos";
 const ROTA_FACO = "/estoque-v2/producao";
+/** Lista de receitas (Fichas técnicas) — rota a ser ligada pelo orquestrador em routes.tsx. */
+const ROTA_RECEITAS = "/estoque-v2/receitas";
 const simuladorDe = (id: string) => `/estoque-v2/produtos/${id}/simulador`;
 
 /** Custo "subiu": último preço pago > preco_custo × 1,08 (modelo do SPEC V2). */
@@ -136,11 +139,25 @@ export function HojeV2Page() {
         </header>
 
         <main>
-          {/* Segmented fake — ancora para as outras áreas */}
-          <div className="eq2-segmented" role="group" aria-label="Modo da base" style={{ marginBottom: 16 }}>
-            <button type="button" style={{ minHeight: 44 }} onClick={() => navigate(ROTA_INSUMOS)}>Compro</button>
-            <button type="button" style={{ minHeight: 44 }} onClick={() => navigate(ROTA_FACO)}>Faço</button>
-            <button type="button" style={{ minHeight: 44 }} onClick={() => navigate(ROTA_MARGEM)}>Vendo</button>
+          {/* Compro · Faço · Vendo — o cenário completo (componente compartilhado).
+              "Hoje" é a assinatura da home e fica FORA do segmented: aqui nenhuma
+              seção está ativa. */}
+          <SegmentedNav />
+
+          {/* Atalhos rápidos — alinhar com fluxo do redesign */}
+          <div className="eq2-chips" style={{ marginBottom: 16 }}>
+            <button type="button" className="eq2-chip" style={{ minHeight: 44 }} onClick={() => navigate(ROTA_COMPRA_NOVA)}>
+              <Package size={14} aria-hidden="true" style={{ marginRight: 6 }} />
+              Nova compra
+            </button>
+            <button type="button" className="eq2-chip" style={{ minHeight: 44 }} onClick={() => navigate(ROTA_FACO)}>
+              <ClipboardList size={14} aria-hidden="true" style={{ marginRight: 6 }} />
+              Produção
+            </button>
+            <button type="button" className="eq2-chip" style={{ minHeight: 44 }} onClick={() => navigate(ROTA_RECEITAS)}>
+              <BookOpen size={14} aria-hidden="true" style={{ marginRight: 6 }} />
+              Fichas técnicas
+            </button>
           </div>
 
           {/* Valor total em estoque */}
