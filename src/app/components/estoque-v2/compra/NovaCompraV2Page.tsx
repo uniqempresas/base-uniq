@@ -9,6 +9,11 @@
  * 1. "O que você comprou?" — busca real de insumos (`use-nova-compra-v2`),
  *    chips das últimas compras, cards selecionáveis e "+ Cadastrar insumo novo"
  *    reaproveitando o ProdutoFormModal (contexto-compra, snapshot via onSuccess).
+ *    No topo do passo 1, seletor OPCIONAL "Quem você comprou?" (`me_fornecedor`
+ *    ativo, busca + chips de 44px): vazio = placeholder "Sem fornecedor registr."
+ *    e o hook mantém o fallback do primeiro ativo; lista vazia oferece o chip
+ *    "+ Cadastrar fornecedor" → `/fornecedores/novo` (rascunho preservado no
+ *    sessionStorage, fornecedor incluso). O escolhido aparece no header fixo.
  * 2. "Quanto e por quanto?" — um item por vez: quantidade + unidade de compra,
  *    quanto tem em cada uma (fator sugerido por chips), preço total. Recibo da
  *    conta SEMPRE visível + MelissaCard traduzindo a conta em estoque.
@@ -40,12 +45,18 @@ import {
   ShoppingBag,
   TriangleAlert,
   TrendingUp,
+  Truck,
+  X,
 } from "lucide-react";
 
 import "../shared/estoque-v2.css";
 import { MelissaCard } from "../shared/MelissaCard";
 import { brl, UNIDADES_COMPRA } from "../shared/utils";
-import { useNovaCompraV2, type InsumoV2 } from "../../../hooks/use-nova-compra-v2";
+import {
+  useNovaCompraV2,
+  type FornecedorV2,
+  type InsumoV2,
+} from "../../../hooks/use-nova-compra-v2";
 import { useCategorias } from "../../../hooks/use-categorias";
 import { ProdutoFormModal, type InsumoRecemCriado } from "../../produto/ProdutoFormModal";
 
@@ -71,6 +82,10 @@ interface ItemRascunho {
 interface Rascunho {
   step: number;
   itens: ItemRascunho[];
+  /** fornecedor do passo 1 — opcional (null = fallback "primeiro ativo" do hook) */
+  fornecedorId: string | null;
+  /** nome guardado para o header/card sobreviver ao reload antes da lista voltar */
+  fornecedorNome: string;
 }
 
 /* ───────────────────────────── formatação (pt-BR) ────────────────────────── */
@@ -142,11 +157,22 @@ function itemDeInsumo(p: InsumoV2): ItemRascunho {
 
 /* ───────────────────────────── rascunho (sessionStorage) ─────────────────── */
 
+/** Rascunhos antigos (pré-seletor) não têm fornecedor — tolera ausência. */
+function lerFornecedorRascunho(parsed: Partial<Rascunho> | null): {
+  fornecedorId: string | null;
+  fornecedorNome: string;
+} {
+  const id = typeof parsed?.fornecedorId === "string" && parsed.fornecedorId ? parsed.fornecedorId : null;
+  const nome = typeof parsed?.fornecedorNome === "string" ? parsed.fornecedorNome : "";
+  return id ? { fornecedorId: id, fornecedorNome: nome } : { fornecedorId: null, fornecedorNome: "" };
+}
+
 function lerRascunho(): Rascunho {
   try {
     const raw = sessionStorage.getItem(RASCUNHO_KEY);
-    if (!raw) return { step: 1, itens: [] };
+    if (!raw) return { step: 1, itens: [], fornecedorId: null, fornecedorNome: "" };
     const parsed = JSON.parse(raw) as Partial<Rascunho>;
+    const forn = lerFornecedorRascunho(parsed || null);
     if (
       !parsed ||
       !Array.isArray(parsed.itens) ||
@@ -163,15 +189,15 @@ function lerRascunho(): Rascunho {
           typeof i.estimado === "boolean"
       )
     ) {
-      return { step: 1, itens: [] };
+      return { step: 1, itens: [], ...forn };
     }
     const itens = parsed.itens as ItemRascunho[];
     const step =
       typeof parsed.step === "number" && parsed.step >= 1 && parsed.step <= 3 ? parsed.step : 1;
     // consistência mínima: passo 2/3 sem item nenhum volta ao 1
-    return itens.length === 0 ? { step: 1, itens } : { step, itens };
+    return itens.length === 0 ? { step: 1, itens, ...forn } : { step, itens, ...forn };
   } catch {
-    return { step: 1, itens: [] };
+    return { step: 1, itens: [], fornecedorId: null, fornecedorNome: "" };
   }
 }
 
@@ -215,6 +241,9 @@ export default function NovaCompraV2Page() {
   const {
     insumos,
     ultimasCompras,
+    fornecedores,
+    fornecedoresLoading,
+    fornecedoresError,
     loading,
     error,
     temSessao,
@@ -229,6 +258,10 @@ export default function NovaCompraV2Page() {
   const [step, setStep] = useState<number>(inicial.step);
   const [itens, setItens] = useState<ItemRascunho[]>(inicial.itens);
   const [busca, setBusca] = useState("");
+  const [fornecedorId, setFornecedorId] = useState<string | null>(inicial.fornecedorId);
+  const [fornecedorNome, setFornecedorNome] = useState<string>(inicial.fornecedorNome);
+  const [buscaFornecedor, setBuscaFornecedor] = useState("");
+  const [trocandoFornecedor, setTrocandoFornecedor] = useState(false);
   const [idx, setIdx] = useState(0);
   const [erro1, setErro1] = useState(false);
   const [salvo, setSalvo] = useState(false);
@@ -238,8 +271,8 @@ export default function NovaCompraV2Page() {
 
   // rascunho: toda mudança vai para sessionStorage (try/catch dentro do helper)
   useEffect(() => {
-    if (!salvo) gravarRascunho({ step, itens });
-  }, [step, itens, salvo]);
+    if (!salvo) gravarRascunho({ step, itens, fornecedorId, fornecedorNome });
+  }, [step, itens, salvo, fornecedorId, fornecedorNome]);
 
   // consistência: passos 2/3 sem item nenhum (rascunho corrompido, item
   // removido no 1) caem de volta no passo 1 — nunca um passo vazio
@@ -263,6 +296,28 @@ export default function NovaCompraV2Page() {
       return true;
     });
   }, [ultimasCompras, insumos]);
+
+  // seletor "Quem você comprou?" — busca sem acento, mesma trilha dos insumos
+  const qFornecedor = normalizar(buscaFornecedor.trim());
+  const fornecedoresFiltrados = useMemo(
+    () =>
+      qFornecedor ? fornecedores.filter((f) => normalizar(f.nome).includes(qFornecedor)) : fornecedores,
+    [fornecedores, qFornecedor]
+  );
+
+  const escolherFornecedor = (f: FornecedorV2) => {
+    setFornecedorId(f.id);
+    setFornecedorNome(f.nome);
+    setBuscaFornecedor("");
+    setTrocandoFornecedor(false);
+  };
+
+  const removerFornecedor = () => {
+    setFornecedorId(null);
+    setFornecedorNome("");
+    setBuscaFornecedor("");
+    setTrocandoFornecedor(false);
+  };
 
   const totalCompra = useMemo(
     () => itens.reduce((s, i) => s + parseNum(i.precoTotal), 0),
@@ -375,7 +430,8 @@ export default function NovaCompraV2Page() {
       return;
     }
 
-    const r = await salvarCompra(payload);
+    // fornecedorId null → o hook aplica o fallback (primeiro ativo); não bloqueia
+    const r = await salvarCompra(payload, fornecedorId);
     if (r.success) {
       setSalvo(true);
       limparRascunho();
@@ -390,6 +446,7 @@ export default function NovaCompraV2Page() {
     setIdx(0);
     setSalvo(false);
     setErro1(false);
+    removerFornecedor();
     limparRascunho();
     irPara(1);
   };
@@ -568,6 +625,119 @@ export default function NovaCompraV2Page() {
       <p style={{ fontSize: 13, color: "var(--eq2-muted)", margin: "0 0 14px" }}>
         Toque nos insumos que entraram nesta compra. Você escolhe as quantidades depois.
       </p>
+
+      {/* ── Quem você comprou? — fornecedor OPCIONAL (mini-sheet acima da lista).
+          Em branco o hook usa o fallback "primeiro ativo"; sem cadastro, o chip
+          leva para /fornecedores/novo com o rascunho já preservado. ── */}
+      <div style={{ marginBottom: 16 }}>
+        {fornecedorId && fornecedorNome && !trocandoFornecedor ? (
+          <div className="eq2-card eq2-card--static" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span className="eq2-card__icon" style={{ display: "flex" }}>
+              <Truck size={18} aria-hidden="true" />
+            </span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span
+                className="eq2-card__name"
+                style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+              >
+                {fornecedorNome}
+              </span>
+              <span className="eq2-card__meta" style={{ display: "block" }}>fornecedor desta compra</span>
+            </span>
+            <button type="button" className="eq2-btn eq2-btn--link" style={{ flex: "none" }} onClick={() => setTrocandoFornecedor(true)}>
+              Trocar
+            </button>
+            <button type="button" className="eq2-back" aria-label="Remover fornecedor da compra" onClick={removerFornecedor} style={{ flex: "none" }}>
+              <X size={16} aria-hidden="true" />
+            </button>
+          </div>
+        ) : (
+          <>
+            <label className="eq2-label" htmlFor="busca-fornecedor-v2">Quem você comprou?</label>
+            <div style={{ position: "relative" }}>
+              <Search
+                size={16}
+                aria-hidden="true"
+                style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--eq2-muted)" }}
+              />
+              <input
+                id="busca-fornecedor-v2"
+                type="search"
+                className="eq2-input"
+                style={{ paddingLeft: 36 }}
+                placeholder="Sem fornecedor registr."
+                aria-label="Buscar fornecedor"
+                autoComplete="off"
+                value={buscaFornecedor}
+                onChange={(e) => setBuscaFornecedor(e.target.value)}
+              />
+            </div>
+            <p style={{ fontSize: 11, color: "var(--eq2-muted)", margin: "6px 0 0" }}>
+              Opcional — se deixar em branco, nada impede de salvar a compra.
+            </p>
+
+            {fornecedoresLoading && fornecedores.length === 0 ? (
+              /* skeleton do seletor */
+              <div className="eq2-chips" style={{ marginTop: 8 }} aria-hidden="true">
+                <div className="eq2-skeleton" style={{ height: 44, width: 132, borderRadius: 999 }} />
+                <div className="eq2-skeleton" style={{ height: 44, width: 104, borderRadius: 999 }} />
+              </div>
+            ) : fornecedoresError && fornecedores.length === 0 ? (
+              /* erro degradado: o campo é opcional, a tela continua viva */
+              <p role="status" style={{ fontSize: 12, color: "var(--eq2-warn)", margin: "8px 0 0", fontWeight: 600 }}>
+                Não conseguimos listar seus fornecedores agora — dá pra escolher os insumos e salvar mesmo assim.
+              </p>
+            ) : fornecedores.length === 0 ? (
+              /* vazio: cadastrar na hora (rascunho já está no sessionStorage) */
+              <div className="eq2-chips" style={{ marginTop: 8 }}>
+                <button
+                  type="button"
+                  className="eq2-chip"
+                  style={{ minHeight: 44, maxWidth: "100%", borderStyle: "dashed", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6 }}
+                  onClick={() => navigate("/fornecedores/novo")}
+                >
+                  <Plus size={14} aria-hidden="true" />
+                  <span>Cadastrar fornecedor</span>
+                </button>
+              </div>
+            ) : (
+              <div className="eq2-chips" style={{ marginTop: 8 }} role="group" aria-label="Escolher fornecedor">
+                {fornecedoresFiltrados.slice(0, 12).map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    className={`eq2-chip${f.id === fornecedorId ? " is-active" : ""}`}
+                    style={{ minHeight: 44, maxWidth: "100%", display: "inline-flex", alignItems: "center", gap: 6 }}
+                    onClick={() => escolherFornecedor(f)}
+                  >
+                    <Truck size={14} aria-hidden="true" />
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+                      {f.nome}
+                    </span>
+                  </button>
+                ))}
+                {fornecedoresFiltrados.length === 0 ? (
+                  <button
+                    type="button"
+                    className="eq2-chip"
+                    style={{ minHeight: 44, maxWidth: "100%", borderStyle: "dashed", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6 }}
+                    onClick={() => navigate("/fornecedores/novo")}
+                  >
+                    <Plus size={14} aria-hidden="true" />
+                    <span>Cadastrar fornecedor</span>
+                  </button>
+                ) : (
+                  fornecedoresFiltrados.length > 12 && (
+                    <span style={{ fontSize: 11, color: "var(--eq2-muted)", alignSelf: "center" }}>
+                      +{fornecedoresFiltrados.length - 12} fornecedores — busque pelo nome
+                    </span>
+                  )
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
       {/* busca */}
       <div style={{ position: "relative" }}>
@@ -1103,7 +1273,15 @@ export default function NovaCompraV2Page() {
           </button>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="eq2-bar__title">Nova compra</div>
-            <div className="eq2-bar__sub">Compro · registro de insumo</div>
+            {/* bloco congelado: o fornecedor escolhido aparece aqui (redesign) */}
+            <div
+              className="eq2-bar__sub"
+              style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+            >
+              {fornecedorId && fornecedorNome
+                ? `fornecedor · ${fornecedorNome}`
+                : "Compro · registro de insumo"}
+            </div>
           </div>
           {(itens.length > 0 || salvo) && (
             <span className="eq2-badge eq2-badge--ok" style={{ flex: "none" }}>

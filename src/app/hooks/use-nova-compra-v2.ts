@@ -16,8 +16,9 @@
  *   valor_unitario). Falha nos itens apaga o pai (compensação — padrão
  *   `use-criar-compra.ts`). NÃO mexe em estoque nem em movimentações:
  *   o fluxo de RECEBER é quem fecha o estoque.
- * - `fornecedor_id` é obrigatório no banco: sem fornecedor informado,
- *   usa o primeiro `me_fornecedor` ativo da empresa.
+ * - `fornecedor_id` é obrigatório no banco: a tela tem seletor OPCIONAL
+ *   ("Quem você comprou?", lista `me_fornecedor` ativo da empresa); sem
+ *   fornecedor informado, usa o primeiro `me_fornecedor` ativo (fallback).
  */
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
@@ -42,6 +43,13 @@ export interface InsumoV2 {
 
 export interface ChipUltimaCompraV2 {
   produtoId: number;
+  nome: string;
+}
+
+/** Fornecedor como a tela enxerga (mesma forma de `use-fornecedores`, cópia
+ *  mínima para não acoplar o wizard ao hook de cadastro). */
+export interface FornecedorV2 {
+  id: string;
   nome: string;
 }
 
@@ -74,6 +82,11 @@ interface DBUltimaCompra {
     produto_id: number;
     me_produto: { nome_produto: string | null } | null;
   }> | null;
+}
+
+interface DBFornecedor {
+  id: string;
+  nome_fornecedor: string | null;
 }
 
 /** `numeric` pode chegar como string no client (padrão dos hooks reais). */
@@ -124,6 +137,11 @@ export interface UseNovaCompraV2Return {
   insumos: InsumoV2[];
   /** itens da última compra — chips de "últimas compras" do passo 1 */
   ultimasCompras: ChipUltimaCompraV2[];
+  /** fornecedores ativos da empresa — seletor "Quem você comprou?" (passo 1) */
+  fornecedores: FornecedorV2[];
+  fornecedoresLoading: boolean;
+  /** falha do seletor NÃO quebra a tela: só mostra a mensagem inline */
+  fornecedoresError: string | null;
   loading: boolean;
   error: string | null;
   /** lista vinha de mock (sem sessão) */
@@ -143,6 +161,9 @@ export function useNovaCompraV2(): UseNovaCompraV2Return {
 
   const [insumos, setInsumos] = useState<InsumoV2[]>([]);
   const [ultimasCompras, setUltimasCompras] = useState<ChipUltimaCompraV2[]>([]);
+  const [fornecedores, setFornecedores] = useState<FornecedorV2[]>([]);
+  const [fornecedoresLoading, setFornecedoresLoading] = useState(true);
+  const [fornecedoresError, setFornecedoresError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFallback, setIsFallback] = useState(false);
@@ -153,12 +174,17 @@ export function useNovaCompraV2(): UseNovaCompraV2Return {
 
     setLoading(true);
     setError(null);
+    setFornecedoresLoading(true);
 
     // MODO DEMO: lista mock realista para o wizard ser navegável; o salvar
-    // fica bloqueado na tela (temSessao=false).
+    // fica bloqueado na tela (temSessao=false). Fornecedores SEM mock —
+    // mesma disciplina de `use-fornecedores` (criar compra exige tenant).
     if (!temSessao) {
       setInsumos(INSUMOS_DEMO);
       setUltimasCompras([]);
+      setFornecedores([]);
+      setFornecedoresError(null);
+      setFornecedoresLoading(false);
       setIsFallback(true);
       setLoading(false);
       return;
@@ -168,6 +194,9 @@ export function useNovaCompraV2(): UseNovaCompraV2Return {
     if (!empresaId) {
       setInsumos([]);
       setUltimasCompras([]);
+      setFornecedores([]);
+      setFornecedoresError(null);
+      setFornecedoresLoading(false);
       setIsFallback(false);
       setError("Empresa não identificada para este usuário. Recarregue a página ou faça login novamente.");
       setLoading(false);
@@ -195,6 +224,34 @@ export function useNovaCompraV2(): UseNovaCompraV2Return {
       setError(err instanceof Error ? err.message : "Erro ao carregar insumos");
     } finally {
       setLoading(false);
+    }
+
+    // Fornecedores do seletor "Quem você comprou?" (mesma query de
+    // `use-fornecedores`). Falha aqui não quebra a tela: o campo é opcional
+    // e o salvar mantém o fallback do primeiro ativo.
+    try {
+      const { data: forns, error: fornError } = await supabase
+        .from("me_fornecedor")
+        .select("id, nome_fornecedor")
+        .eq("empresa_id", empresaId)
+        .eq("ativo", true)
+        .order("nome_fornecedor", { ascending: true });
+
+      if (fornError) throw fornError;
+
+      setFornecedores(
+        ((forns as DBFornecedor[] | null) || []).map((f) => ({
+          id: f.id,
+          nome: f.nome_fornecedor || "Fornecedor sem nome",
+        }))
+      );
+      setFornecedoresError(null);
+    } catch (err) {
+      console.error("[useNovaCompraV2] Erro ao carregar fornecedores:", err);
+      setFornecedores([]);
+      setFornecedoresError(err instanceof Error ? err.message : "Erro ao carregar fornecedores");
+    } finally {
+      setFornecedoresLoading(false);
     }
 
     // Chips de "últimas compras": falha aqui é enfeite quebrado, não bloqueia
@@ -269,8 +326,8 @@ export function useNovaCompraV2(): UseNovaCompraV2Return {
           throw new Error("Insumo não encontrado nesta empresa. Atualize a lista e tente de novo.");
         }
 
-        // Fornecedor é NOT NULL no banco: a tela não tem seletor — usa o
-        // informado ou o PRIMEIRO me_fornecedor ativo da empresa.
+        // Fornecedor é NOT NULL no banco: a tela tem seletor opcional — usa o
+        // escolhido no passo 1 ou, em branco, o PRIMEIRO me_fornecedor ativo.
         let fornecedor = fornecedorId?.trim() || null;
         if (!fornecedor) {
           const { data: forn, error: fornError } = await supabase
@@ -336,6 +393,9 @@ export function useNovaCompraV2(): UseNovaCompraV2Return {
   return {
     insumos,
     ultimasCompras,
+    fornecedores,
+    fornecedoresLoading,
+    fornecedoresError,
     loading,
     error,
     isFallback,

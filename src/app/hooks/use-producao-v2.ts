@@ -13,6 +13,13 @@
  *   `{ ok:false, parcial:true }` para a tela alertar "produção parcial".
  *   (Nota: existe RPC atômica `registrar_producao` legada — o v2 não a usa,
  *   por pedido explícito do SPEC do redesign; registrar em pendência.)
+ * - **Peso final real (dono, out/2026 — "trabalho estimativa"):** a ENTRADA no
+ *   estoque usa o peso final pesado depois da produção quando o usuário informa
+ *   no sheet (`pesoFinalReal ≠ estimativa`). Custo e `est_ordem_producao.quantidade`
+ *   continuam pela ESTIMATIVA; a divergência é registrada na `observacao` da OP
+ *   (coluna existente — sem migration, sem coluna nova). As SAÍDAS de insumos
+ *   continuam pela estimativa/rendimento. Peso 0 só entra com confirmação
+ *   explícita de "não produzi nada" (UI) e é gravado como entrada 0 com alerta.
  * - **Sem sessão (modo demo):** dataset local pequeno permite PRÉ-VISUALIZAR o
  *   consumo; `produzir()` é bloqueado pela tela (botão desabilitado com hint).
  */
@@ -71,11 +78,19 @@ export interface ProduzirResultado {
   parcial?: boolean;
   etapa?: string;
   error?: string;
-  /** unidades do acabado que entraram (lotes × rendimento) */
+  /** unidades do acabado que entraram (lotes × rendimento) — estimativa */
   unidadesProduzidas?: number;
   custoTotal?: number;
   custoUnit?: number;
   consumos?: ConsumoPrevistoV2[];
+  /** entrada pela estimativa (lotes × rendimento) — base do custo/OP ("trabalho estimativa") */
+  entradaEstimada?: number;
+  /** quantidade que ENTROU no estoque: peso final real quando editado, senão a estimativa */
+  entradaReal?: number;
+  /** true quando o peso final informado diverge da estimativa (registrado na observação da OP) */
+  realEditado?: boolean;
+  /** true quando o real confirmado foi 0 ("não produzi nada") — entrada 0 com alerta */
+  entradaZero?: boolean;
 }
 
 /* ─────────────────────────── helpers numéricos ─────────────────────────── */
@@ -88,6 +103,16 @@ function num(valor: string | number | null | undefined): number | null {
 
 function num0(valor: string | number | null | undefined): number {
   return num(valor) ?? 0;
+}
+
+/** 3 casas decimais — mesma escala das movimentações; usado no comparativo real × estimativa. */
+export function arredondar3(v: number): number {
+  return Math.round(v * 1000) / 1000;
+}
+
+/** `520 g` / `1.190 g` (pt-BR) — para a observação da OP. */
+function fmtObs(v: number, unidade: string): string {
+  return `${v.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} ${unidade}`;
 }
 
 /** `preco_custo` (média da Fase 2) → senão último preço ÷ fator → senão null. */
@@ -140,6 +165,15 @@ export function lotesMaximos(composto: ProducaoComposto): { max: number; limiteI
     composto.itens.map((i) => ({ componenteId: i.componenteId, necessario: consumoPorLote(i, rendimento) })),
     estoques
   );
+}
+
+/**
+ * Entrada pela ESTIMATIVA: `lotes × rendimento_lote` (sem rendimento → nº de
+ * lotes). É o default do campo "Peso final" do sheet e a base de custo/OP.
+ */
+export function estimativaEntrada(composto: ProducaoComposto, lotes: number): number {
+  const rendimento = composto.rendimentoLote && composto.rendimentoLote > 0 ? composto.rendimentoLote : 1;
+  return Math.max(1, Math.round(lotes * rendimento));
 }
 
 /** Custo por unidade do acabado (soma das linhas da ficha, com perda). */
@@ -331,7 +365,12 @@ export interface UseProducaoV2Return {
   isFallback: boolean;
   produzindo: boolean;
   recarregar: () => void;
-  produzir: (composto: ProducaoComposto, lotes: number) => Promise<ProduzirResultado>;
+  /**
+   * Grava a produção. `pesoFinalReal` (opcional): peso final pesado depois de
+   * pronto — quando diverge da estimativa, é a quantidade que ENTRA no estoque
+   * (movimentação 'entrada' + estoque do pai); custo/OP continuam na estimativa.
+   */
+  produzir: (composto: ProducaoComposto, lotes: number, pesoFinalReal?: number | null) => Promise<ProduzirResultado>;
 }
 
 export function useProducaoV2(): UseProducaoV2Return {
@@ -461,7 +500,11 @@ export function useProducaoV2(): UseProducaoV2Return {
   /* ───────────────────── escrita: produzir (sequencial, sem transaction) ───────────────────── */
 
   const produzir = useCallback(
-    async (composto: ProducaoComposto, lotes: number): Promise<ProduzirResultado> => {
+    async (
+      composto: ProducaoComposto,
+      lotes: number,
+      pesoFinalReal?: number | null
+    ): Promise<ProduzirResultado> => {
       if (!temSessao || !empresaId) {
         return { ok: false, error: "Faça login para registrar a produção (modo demo só pré-visualiza)." };
       }
@@ -472,9 +515,30 @@ export function useProducaoV2(): UseProducaoV2Return {
         return { ok: false, error: "A quantidade de lotes precisa ser maior que zero." };
       }
 
-      const rendimento =
-        composto.rendimentoLote && composto.rendimentoLote > 0 ? composto.rendimentoLote : 1;
-      const unidadesProduzidas = Math.max(1, Math.round(lotes * rendimento));
+      const unidadesProduzidas = estimativaEntrada(composto, lotes);
+
+      // Peso final REAL × estimativa ("trabalho estimativa"): a ENTRADA no
+      // estoque segue o peso informado quando divergente; custo e OP ficam com a
+      // estimativa e a divergência vai para a `observacao` da OP. SAÍDAS intocadas.
+      let entradaReal = unidadesProduzidas;
+      let realEditado = false;
+      let entradaZero = false;
+      if (pesoFinalReal != null) {
+        if (!Number.isFinite(pesoFinalReal) || pesoFinalReal < 0) {
+          return { ok: false, error: "Peso final inválido — nada foi gravado." };
+        }
+        if (arredondar3(pesoFinalReal) !== arredondar3(unidadesProduzidas)) {
+          realEditado = true;
+          entradaZero = pesoFinalReal === 0;
+          entradaReal = arredondar3(pesoFinalReal);
+        }
+      }
+      const observacaoOp = realEditado
+        ? `Peso final real: ${fmtObs(entradaReal, composto.unidade)} (estimado: ${fmtObs(
+            unidadesProduzidas,
+            composto.unidade
+          )})${entradaZero ? " — nada entrou no estoque" : ""}`
+        : null;
       const consumos = calcularConsumos(composto, lotes);
       const custoTotal = consumos.reduce((s, c) => s + c.custoLinha, 0);
       const custoUnit = unidadesProduzidas > 0 ? custoTotal / unidadesProduzidas : 0;
@@ -511,9 +575,11 @@ export function useProducaoV2(): UseProducaoV2Return {
         }
 
         // 2) entra o acabado: UPDATE estoque do pai + movimentação 'entrada'
+        //    com o PESO REAL (≠ estimativa quando o usuário pesou; 0 se confirmou
+        //    "não produzi nada" — o extrato fica fiel ao que entrou).
         const { error: updPaiError } = await supabase
           .from("me_produto")
-          .update({ estoque_atual: Math.round(composto.estoqueAtual + unidadesProduzidas) })
+          .update({ estoque_atual: arredondar3(composto.estoqueAtual + entradaReal) })
           .eq("id", Number(composto.id))
           .eq("empresa_id", empresaId);
         if (updPaiError) {
@@ -523,8 +589,9 @@ export function useProducaoV2(): UseProducaoV2Return {
           empresa_id: empresaId,
           produto_id: Number(composto.id),
           tipo: "entrada",
-          quantidade: unidadesProduzidas,
+          quantidade: entradaReal,
           motivo: "Produção",
+          observacao: realEditado ? observacaoOp : null,
           usuario_id: usuarioId,
           data_movimentacao: agora,
         });
@@ -532,7 +599,9 @@ export function useProducaoV2(): UseProducaoV2Return {
           return falhaParcial("movimentação de entrada do produto", movPaiError.message, consumos);
         }
 
-        // 3) ordem de produção + itens (auditoria do consumo real)
+        // 3) ordem de produção + itens (auditoria do consumo real).
+        //    OP é o "trabalho estimativa": quantidade/custo pela estimativa;
+        //    o peso real divergente fica registrado na `observacao` (sem coluna nova).
         const { data: opRow, error: opError } = await supabase
           .from("est_ordem_producao")
           .insert({
@@ -543,6 +612,7 @@ export function useProducaoV2(): UseProducaoV2Return {
             custo_unit: Math.round(custoUnit * 10000) / 10000,
             status: "ATIVA",
             data_producao: agora,
+            observacao: observacaoOp,
             usuario_id: usuarioId,
           })
           .select("id")
@@ -576,6 +646,10 @@ export function useProducaoV2(): UseProducaoV2Return {
           custoTotal: Math.round(custoTotal * 100) / 100,
           custoUnit: Math.round(custoUnit * 10000) / 10000,
           consumos,
+          entradaEstimada: unidadesProduzidas,
+          entradaReal,
+          realEditado,
+          entradaZero,
         };
       } finally {
         setProduzindo(false);

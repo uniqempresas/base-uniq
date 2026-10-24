@@ -6,6 +6,12 @@
  * visível: "faltam 120 g ≈ 1 lata"), confirmação em bottom sheet, resultado em
  * receipt ("saiu X → entrou N") e ordens recentes com badge de status.
  *
+ * Peso final real: o sheet de confirmação traz o campo opcional "Peso final (o
+ * que realmente entrou)" — default é a estimativa (lotes × rendimento); se o
+ * usuário pesar e editar, a ENTRADA no estoque usa o peso real (custo/OP
+ * continuam pela estimativa, divergência na observação da OP). O recibo mostra
+ * as três linhas: custo=estimativa · entrada=peso real · diferença %.
+ *
  * Sem sessão (modo demo): a pré-visualização funciona com dataset local do hook;
  * o botão "Produzir" fica desabilitado com hint. A gravação é client-side
  * sequencial (decisão do v2) — falha no meio vira alerta "produção parcial".
@@ -33,8 +39,10 @@ import { brl, formatarData } from "../shared/utils";
 import { formatarQtd } from "../../../lib/produto-utils";
 import { brlSmart } from "../../../hooks/use-receitas-v2";
 import {
+  arredondar3,
   calcularConsumos,
   custoPorUnidadeAcabado,
+  estimativaEntrada,
   lotesMaximos,
   textoFalta,
   useProducaoV2,
@@ -140,6 +148,73 @@ function MoveLine({
   );
 }
 
+/** Lê o campo "Peso final": aceita "520", "520,5" e "520.5"; vazio/inválido/negativo → null. */
+function lerPeso(texto: string): number | null {
+  const t = texto.trim().replace(",", ".");
+  if (!/^\d+(\.\d+)?$/.test(t)) return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Recibo de três linhas (peso final real): custo na estimativa · entrada no
+ * estoque no peso real · diferença em %. Sem divergência, mostra 0%.
+ */
+function ReciboPesoFinal({ resultado, unidade }: { resultado: ProduzirResultado; unidade: string }) {
+  const estimada = resultado.entradaEstimada ?? resultado.unidadesProduzidas ?? 0;
+  const real = resultado.entradaReal ?? estimada;
+  const editado = resultado.realEditado ?? false;
+  const zero = resultado.entradaZero ?? false;
+  const diff = real - estimada;
+  const pct = estimada > 0 ? (diff / estimada) * 100 : 0;
+  const sinal = pct > 0 ? "+" : pct < 0 ? "−" : "±";
+  const pctTxt = `${sinal}${Math.abs(pct).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
+  const diffTxt = `${diff > 0 ? "+" : diff < 0 ? "−" : ""}${formatarQtd(Math.abs(diff))} ${unidade}`;
+  return (
+    <div
+      style={{
+        borderTop: "1px dashed var(--eq2-border)",
+        marginTop: 8,
+        paddingTop: 8,
+        display: "flex",
+        flexDirection: "column",
+        gap: 3,
+      }}
+    >
+      <p style={{ margin: 0 }}>
+        Cálculo de custo: <strong>estimativa</strong> ({formatarQtd(estimada)} {unidade})
+      </p>
+      <p style={{ margin: 0 }}>
+        Entrada no estoque: <strong>peso real</strong> ({formatarQtd(real)} {unidade})
+      </p>
+      <p style={{ margin: 0 }}>
+        Diferença:{" "}
+        <strong style={{ color: editado ? (zero ? "var(--eq2-danger)" : "#9a6a12") : "var(--eq2-muted)" }}>
+          {editado ? `${pctTxt} · ${diffTxt}` : "0% — você deixou a estimativa"}
+        </strong>
+      </p>
+      {zero && (
+        <div
+          role="alert"
+          style={{
+            marginTop: 8,
+            border: "1px solid var(--eq2-danger)",
+            background: "#fdeeee",
+            borderRadius: 12,
+            padding: 12,
+            fontSize: 13,
+            color: "var(--eq2-danger)",
+            lineHeight: 1.45,
+          }}
+        >
+          <strong>Nada entrou no estoque.</strong> Você confirmou peso final 0 — os insumos baixaram mesmo
+          assim. Se foi engano, estorne a ordem de produção.
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─────────────────────────────── página ─────────────────────────────── */
 
 interface AlvoConfirmacao {
@@ -171,6 +246,10 @@ export function ProducaoV2Page() {
   const [confirmar, setConfirmar] = useState<AlvoConfirmacao | null>(null);
   const [resumo, setResumo] = useState<ResumoResultado | null>(null);
   const [parcial, setParcial] = useState<{ etapa?: string; error: string } | null>(null);
+  /* peso final (o que realmente entrou): texto do input + erro inline + confirmação de "0" */
+  const [pesoFinalTxt, setPesoFinalTxt] = useState("");
+  const [pesoErro, setPesoErro] = useState<string | null>(null);
+  const [zeroConfirmado, setZeroConfirmado] = useState(false);
 
   const lotesDe = (c: ProducaoComposto) => lotes[c.id] ?? 1;
   const definirLotes = (c: ProducaoComposto, v: number) => setLotes((prev) => ({ ...prev, [c.id]: v }));
@@ -185,12 +264,32 @@ export function ProducaoV2Page() {
 
   const abrirConfirmacao = (c: ProducaoComposto) => {
     setParcial(null);
+    setPesoErro(null);
+    setZeroConfirmado(false);
+    // default do "Peso final" = estimativa (lotes × rendimento_lote ?? nº de lotes)
+    setPesoFinalTxt(String(estimativaEntrada(c, lotesDe(c))));
     setConfirmar({ composto: c, lotes: lotesDe(c) });
   };
 
   const confirmarProducao = async () => {
     if (!confirmar) return;
-    const r = await produzir(confirmar.composto, confirmar.lotes);
+    const estimado = estimativaEntrada(confirmar.composto, confirmar.lotes);
+    const lido = lerPeso(pesoFinalTxt);
+    if (lido == null) {
+      setPesoErro("Digite um número válido (ex.: 520) — ou deixe igual à estimativa.");
+      return;
+    }
+    if (lido < 0) {
+      setPesoErro("O peso final não pode ser negativo.");
+      return;
+    }
+    const divergente = arredondar3(lido) !== arredondar3(estimado);
+    if (divergente && lido === 0 && !zeroConfirmado) {
+      setPesoErro("Peso 0? Confirme abaixo que você não produziu nada — a entrada no estoque será 0.");
+      return;
+    }
+    setPesoErro(null);
+    const r = await produzir(confirmar.composto, confirmar.lotes, divergente ? arredondar3(lido) : null);
     if (!r.ok) {
       if (r.parcial) onParcial(r.etapa, r.error);
       else toast.error(r.error ?? "Não foi possível registrar a produção.");
@@ -219,6 +318,13 @@ export function ProducaoV2Page() {
       comAcao: false,
     };
   })();
+
+  /* ---- derivados do sheet: peso final (default = estimativa) ---- */
+  const estimadoConfirmar = confirmar ? estimativaEntrada(confirmar.composto, confirmar.lotes) : 0;
+  const pesoLido = confirmar ? lerPeso(pesoFinalTxt) : null;
+  const pesoDivergente =
+    confirmar != null && pesoLido != null && arredondar3(pesoLido) !== arredondar3(estimadoConfirmar);
+  const entradaConfirmar = pesoDivergente && pesoLido != null ? pesoLido : estimadoConfirmar;
 
   /* ───────────────────────────── render ───────────────────────────── */
 
@@ -431,6 +537,11 @@ export function ProducaoV2Page() {
                           <div className="eq2-card__meta">
                             {formatarData(o.dataProducao)} · {formatarQtd(o.quantidade)} un · custo {brl(o.custoUnit)}/un
                           </div>
+                          {o.observacao && (
+                            <div className="eq2-card__meta" style={{ color: "#9a6a12", overflowWrap: "anywhere" }}>
+                              {o.observacao}
+                            </div>
+                          )}
                         </div>
                         <span className={`eq2-badge ${estornada ? "eq2-badge--low" : "eq2-badge--ok"}`}>
                           {estornada ? "Estornada" : "Ativa"}
@@ -454,8 +565,8 @@ export function ProducaoV2Page() {
             <h2 style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 700 }}>Confirmar produção</h2>
             <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--eq2-muted)" }}>
               {confirmar.composto.nome} · {confirmar.lotes} {confirmar.lotes === 1 ? "receita" : "receitas"} · entra{" "}
-              {formatarQtd(Math.round(confirmar.lotes * (confirmar.composto.rendimentoLote && confirmar.composto.rendimentoLote > 0 ? confirmar.composto.rendimentoLote : 1)))}{" "}
-              {confirmar.composto.unidade}
+              {formatarQtd(entradaConfirmar)} {confirmar.composto.unidade}
+              {pesoDivergente && " (peso real)"}
             </p>
 
             <p className="eq2-section-title" style={{ margin: "12px 0 4px" }}>
@@ -470,9 +581,77 @@ export function ProducaoV2Page() {
                 </MoveLine>
               ))}
               <MoveLine dir="entra">
-                entrou: <strong>{formatarQtd(Math.round(confirmar.lotes * (confirmar.composto.rendimentoLote && confirmar.composto.rendimentoLote > 0 ? confirmar.composto.rendimentoLote : 1)))} {confirmar.composto.unidade}</strong> de {confirmar.composto.nome}
+                entrou: <strong>{formatarQtd(entradaConfirmar)} {confirmar.composto.unidade}</strong> de{" "}
+                {confirmar.composto.nome}{" "}
+                <span style={{ color: "var(--eq2-muted)", fontSize: 12 }}>
+                  — {pesoDivergente ? "peso final real" : "estimativa"}
+                </span>
               </MoveLine>
             </div>
+
+            {/* ---------- peso final real (entrada no estoque) ---------- */}
+            <label className="eq2-label" htmlFor="peso-final-input" style={{ marginTop: 16 }}>
+              Peso final (o que realmente entrou)
+            </label>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <input
+                id="peso-final-input"
+                className="eq2-input"
+                type="text"
+                inputMode="decimal"
+                aria-invalid={pesoErro != null}
+                aria-describedby="peso-final-hint"
+                value={pesoFinalTxt}
+                onChange={(e) => {
+                  setPesoFinalTxt(e.target.value);
+                  setPesoErro(null);
+                }}
+                disabled={produzindo}
+                style={{ width: 120, textAlign: "center" }}
+              />
+              <span style={{ fontSize: 14, color: "var(--eq2-muted)" }}>{confirmar.composto.unidade}</span>
+              {pesoDivergente && (
+                <span className={`eq2-badge ${pesoLido === 0 ? "eq2-badge--low" : "eq2-badge--estimado"}`}>
+                  {pesoLido === 0 ? "nada produzido" : "≠ estimativa"}
+                </span>
+              )}
+            </div>
+            <p id="peso-final-hint" style={{ margin: "6px 2px 0", fontSize: 12, color: "var(--eq2-muted)", lineHeight: 1.45 }}>
+              É a estimativa. Pese depois de pronto e edite aqui — o estoque fica com o real.
+            </p>
+            {pesoDivergente && pesoLido === 0 && (
+              <label
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "flex-start",
+                  marginTop: 8,
+                  fontSize: 13,
+                  lineHeight: 1.45,
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={zeroConfirmado}
+                  onChange={(e) => {
+                    setZeroConfirmado(e.target.checked);
+                    if (e.target.checked) setPesoErro(null);
+                  }}
+                  disabled={produzindo}
+                  style={{ marginTop: 2, flex: "none" }}
+                />
+                <span>
+                  Confirmo que <strong>não produzi nada</strong> — a entrada no estoque será gravada como{" "}
+                  <strong>0 {confirmar.composto.unidade}</strong> (os insumos baixam mesmo assim).
+                </span>
+              </label>
+            )}
+            {pesoErro && (
+              <p role="alert" style={{ margin: "6px 2px 0", fontSize: 12, color: "var(--eq2-danger)", fontWeight: 600 }}>
+                {pesoErro}
+              </p>
+            )}
 
             {parcial && (
               <div
@@ -553,11 +732,14 @@ export function ProducaoV2Page() {
               ))}
               <p style={{ margin: 0 }}>
                 <strong>
-                  + entrou {formatarQtd(resumo.resultado.unidadesProduzidas ?? 0)} {resumo.composto.unidade} de{" "}
-                  {resumo.composto.nome}
+                  + entrou {formatarQtd(resumo.resultado.entradaReal ?? resumo.resultado.unidadesProduzidas ?? 0)}{" "}
+                  {resumo.composto.unidade} de {resumo.composto.nome}
+                  {resumo.resultado.realEditado ? " (peso real)" : ""}
                 </strong>{" "}
-                · custo {brl(resumo.resultado.custoTotal ?? 0)} ({brlSmart(resumo.resultado.custoUnit ?? 0)}/{resumo.composto.unidade})
+                · custo {brl(resumo.resultado.custoTotal ?? 0)} ({brlSmart(resumo.resultado.custoUnit ?? 0)}/
+                {resumo.composto.unidade})
               </p>
+              <ReciboPesoFinal resultado={resumo.resultado} unidade={resumo.composto.unidade} />
             </div>
 
             {(resumo.resultado.consumos ?? []).some((x) => !x.suficiente) && (

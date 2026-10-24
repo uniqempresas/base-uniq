@@ -76,6 +76,10 @@ const RAIL_ITEMS: NavRailItem[] = [
   // tinha removido; o único acesso era "Cadastros ▸ Produtos" e o card em
   // Meus Módulos. Módulo é core: sempre visível. Ver TRACKING_ESTOQUE.md.
   { id: "estoque", label: "Estoque", icon: Package, path: "/estoque/dashboard", moduloCodigo: "estoque" },
+  // Estoque_02 (redesign Compro · Faço · Vendo): rotas espelho em /estoque-v2/*
+  // conectadas ao banco real — comparativo lado a lado com o Estoque atual.
+  // Core em fase de observação: sempre visível para teste do fundador.
+  { id: "estoque-02", label: "Estoque_02", icon: Layers, path: "/estoque-v2", moduloCodigo: "estoque_02" },
   { id: "financeiro", label: "Financeiro", icon: DollarSign, path: "/financeiro", moduloCodigo: "financeiro" },
   // CRM no rail principal (fundador, 16/10/2026): módulo operacional com status
   // "ativo" em modulos.ts — visibilidade segue a mesma lógica dos demais itens
@@ -127,6 +131,19 @@ const SUBNAV_SECTIONS: SubNavSection[] = [
       { id: "e-compras", label: "Compras", path: "/estoque/compras", icon: ShoppingCart },
       { id: "e-mov", label: "Movimentações", path: "/estoque/movimentacoes", icon: ArrowRightLeft },
       { id: "e-categorias", label: "Categorias", path: "/estoque/configuracoes", icon: Settings },
+    ],
+  },
+  {
+    railId: "estoque-02",
+    title: "Estoque_02",
+    subtitle: "Redesign — Compro · Faço · Vendo",
+    items: [
+      { id: "e2-hoje", label: "Hoje", path: "/estoque-v2", icon: LayoutDashboard },
+      { id: "e2-insumos", label: "Insumos", path: "/estoque-v2/insumos", icon: Layers },
+      { id: "e2-compra", label: "Nova compra", path: "/estoque-v2/compras/nova", icon: ShoppingCart },
+      { id: "e2-producao", label: "Produção", path: "/estoque-v2/producao", icon: ArrowRightLeft },
+      { id: "e2-margem", label: "Margem", path: "/estoque-v2/margem", icon: BarChart3 },
+      { id: "e2-estoque", label: "Ir ao Estoque atual", path: "/estoque/dashboard", icon: Package },
     ],
   },
   {
@@ -213,7 +230,7 @@ const SUBNAV_SECTIONS: SubNavSection[] = [
   },
 ];
 
-const CORE_MODULES = new Set(["minha_empresa", "mel", "modulos", "configuracoes", "chatbot", "estoque"]);
+const CORE_MODULES = new Set(["minha_empresa", "mel", "modulos", "configuracoes", "chatbot", "estoque", "estoque_02"]);
 
 export function AppLayout() {
   const navigate = useNavigate();
@@ -245,7 +262,11 @@ export function AppLayout() {
   // insumos, compras, movimentacoes, configuracoes) mantém o rail Estoque aceso.
   const activeRailId = useMemo(() => {
     const RAIL_BY_PREFIX: Array<[string, string]> = [
-      ["/estoque", "estoque"],
+      // ATENÇÃO à ORDEM: "/estoque-v2" precisa vir ANTES de "/estoque", porque
+    // "/estoque-v2".startsWith("/estoque") = true e a subnav do Estoque atual
+    // roubaria o match (comportamento visto no BUGFIX 07/10/2026).
+    ["/estoque-v2", "estoque-02"],
+    ["/estoque", "estoque"],
       ["/financeiro", "financeiro"],
       ["/crm", "crm"],
       ["/chatbot", "chatbot"],
