@@ -3,9 +3,10 @@
  * Wireframe de referência: tracking/Redesign_ComproVendoFaco/insumos-lista.html
  *
  * Estrutura: barra com contagem → busca client-side → chips de categoria
- * (derivadas do embed `me_categoria`) → grid de cards (.eq2-card, 3 col no
- * desktop) → FAB "Novo insumo" abrindo o InsumoNovoModal dedicado (fundador:
- * o ProdutoFormModal v1 é pesado/jargão demais para matéria-prima).
+ * (escopo='insumo' do tenant + embed `me_categoria` dos insumos; chip final
+ * "+ Nova categoria" abre o SheetNovaCategoria) → grid de cards (.eq2-card,
+ * 3 col no desktop) → FAB "Novo insumo" abrindo o InsumoNovoModal dedicado
+ * (fundador: o ProdutoFormModal v1 é pesado/jargão demais para matéria-prima).
  * Estados: skeleton · empty (MelissaCard) · erro com retry · sem resultados.
  */
 import { useMemo, useState } from "react";
@@ -23,6 +24,7 @@ import {
   type InsumoV2,
 } from "../../../hooks/use-insumos-v2";
 import { InsumoNovoModal } from "./InsumoNovoModal";
+import { SheetNovaCategoria } from "./SheetNovaCategoria";
 
 /* Emoji genérico por categoria — o redesign usa ícone leve, não foto. */
 const EMOJI_POR_CATEGORIA: Array<[RegExp, string]> = [
@@ -170,15 +172,29 @@ function SkeletonCard() {
 
 export function InsumosV2Page() {
   const navigate = useNavigate();
-  const { insumos, loading, error, isFallback, recarregar, criarInsumo } = useInsumosV2();
+  const {
+    insumos,
+    loading,
+    error,
+    isFallback,
+    recarregar,
+    criarInsumo,
+    categoriasInsumo,
+    criarCategoriaInsumo,
+  } = useInsumosV2();
 
   const [busca, setBusca] = useState("");
   const [categoriaAtiva, setCategoriaAtiva] = useState<number | "todos">("todos");
   const [showNovo, setShowNovo] = useState(false);
+  const [showCat, setShowCat] = useState(false);
 
-  // Chips derivados do embed me_categoria da própria query (sem fetch extra)
+  // Fila de chips (25/10): categorias escopo='insumo' do tenant — INCLUI as
+  // recém-criadas ainda sem insumo (aparecem na fila direto) — unidas ao embed
+  // `me_categoria` dos próprios insumos (cobre legado: insumo antigo apontando
+  // para categoria de produto também ganha chip).
   const chips = useMemo(() => {
     const mapa = new Map<number, string>();
+    for (const c of categoriasInsumo) if (c.nome) mapa.set(c.id, c.nome);
     for (const i of insumos) {
       const id = i.categoriaId;
       const nome = i.categoriaNome;
@@ -186,7 +202,7 @@ export function InsumosV2Page() {
       if (!mapa.has(id)) mapa.set(id, nome);
     }
     return [...mapa.entries()].sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
-  }, [insumos]);
+  }, [insumos, categoriasInsumo]);
 
   const filtrados = useMemo(() => {
     const q = normalizar(busca.trim());
@@ -259,8 +275,10 @@ export function InsumosV2Page() {
             />
           </div>
 
-          {/* chips de categoria */}
-          {chips.length > 0 && (
+          {/* chips de categoria — a fila existe para filtrar E para criar
+              (chip final "+ Nova categoria" abre o SheetNovaCategoria); empresa
+              nova sem nenhum chip ainda mostra a fila só com Todos + criar */}
+          {(chips.length > 0 || (!loading && !error)) && (
             <div className="eq2-chips" role="group" aria-label="Filtrar por categoria">
               <button
                 type="button"
@@ -281,6 +299,21 @@ export function InsumosV2Page() {
                   {nome}
                 </button>
               ))}
+              <button
+                type="button"
+                className="eq2-chip"
+                onClick={() => setShowCat(true)}
+                style={{
+                  borderStyle: "dashed",
+                  color: "var(--eq2-accent)",
+                  fontWeight: 600,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <Plus size={14} aria-hidden="true" /> Nova categoria
+              </button>
             </div>
           )}
 
@@ -355,12 +388,24 @@ export function InsumosV2Page() {
       {showNovo && (
         <InsumoNovoModal
           criarInsumo={criarInsumo}
+          categoriasInsumo={categoriasInsumo}
+          criarCategoriaInsumo={criarCategoriaInsumo}
           onClose={() => setShowNovo(false)}
           onSuccess={(criado) => {
             setShowNovo(false);
             toast.success(`${criado.nome} entrou no seu estoque! 🎉`);
             recarregar();
           }}
+        />
+      )}
+
+      {/* "+ Nova categoria" da fila de chips — o hook já recarrega
+          categoriasInsumo internamente no INSERT: o chip novo aparece na fila
+          sem fetch extra daqui (e sem auto-filtro — só aparece). */}
+      {showCat && (
+        <SheetNovaCategoria
+          criarCategoria={criarCategoriaInsumo}
+          onFechar={() => setShowCat(false)}
         />
       )}
     </div>

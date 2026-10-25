@@ -11,7 +11,10 @@
  * - natureza='insumo', estoque_minimo=0, exibir_vitrine=false, SKU gerado;
  * - SEM campo de preço: o custo nasce da primeira compra (regra v1 D9);
  * - mesma unidade compra/estoque → unidade_compra null + conversão null
- *   (campo 4 some e o recibo diz "Mesma unidade — sem conversão.").
+ *   (campo 4 some e o recibo diz "Mesma unidade — sem conversão.");
+ * - categoria OPCIONAL (`me_categoria.escopo='insumo'`, migration 25/10): chips
+ *   da prateleira de insumo + "+ Criar nova" (SheetNovaCategoria) que cria e
+ *   pré-seleciona — categorias de produto nunca aparecem aqui.
  *
  * Visual no padrão do redesign: `.eq2-sheet` — bottom sheet no mobile; no
  * desktop (≥900px, mesmo breakpoint do `.eq2-grid--3`) vira sheet
@@ -27,11 +30,16 @@ import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, X } from "lucide-react";
+import { Loader2, Plus, X } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
-import type { CriarInsumoParams } from "../../../hooks/use-insumos-v2";
+import type {
+  CategoriaInsumo,
+  CriarCategoriaInsumoResult,
+  CriarInsumoParams,
+} from "../../../hooks/use-insumos-v2";
 import { MelissaCard } from "../shared/MelissaCard";
 import { UNIDADES_COMPRA } from "../shared/utils";
+import { SheetNovaCategoria } from "./SheetNovaCategoria";
 
 /* ─────────────────────────── schema (zod + RHF) ─────────────────────────── */
 
@@ -47,6 +55,9 @@ const insumoNovoSchema = z
     unidadeCompra: z.string().trim().min(1, "Escolha como o fornecedor entrega — ex.: lata, pacote, caixa"),
     qtdEmbalagem: z.unknown(),
     estoqueInicial: z.unknown(),
+    // categoria é OPCIONAL — string "" = sem categoria; id numérico como string
+    // (chips fazem setValue; a conversão para number acontece no submit)
+    categoriaId: z.string(),
   })
   .superRefine((data, ctx) => {
     const mesma = mesmaUnidade(data.unidade, data.unidadeCompra);
@@ -87,6 +98,7 @@ type InsumoNovoForm = {
   unidadeCompra: string;
   qtdEmbalagem: unknown;
   estoqueInicial: unknown;
+  categoriaId: string;
 };
 
 /** Aceita "0,5" e "0.5"; vazio/lixo → null (padrão parseDecimal do módulo). */
@@ -174,32 +186,53 @@ export interface InsumoNovoModalProps {
     nome: string;
     error?: string;
   }>;
+  /** categorias do tenant com escopo='insumo' (fila de chips do campo categoria) */
+  categoriasInsumo: CategoriaInsumo[];
+  /** criação de categoria no fluxo (+ Criar nova); vem do mesmo hook da lista */
+  criarCategoriaInsumo: (nome: string) => Promise<CriarCategoriaInsumoResult>;
 }
 
-export function InsumoNovoModal({ onClose, onSuccess, criarInsumo }: InsumoNovoModalProps) {
+export function InsumoNovoModal({
+  onClose,
+  onSuccess,
+  criarInsumo,
+  categoriasInsumo,
+  criarCategoriaInsumo,
+}: InsumoNovoModalProps) {
   const { session } = useAuth();
   const demo = session === null;
 
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
+  // mini-sheet "Nova categoria" por cima do modal — ESC fecha primeiro a camada de cima
+  const [showCat, setShowCat] = useState(false);
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
+      if (showCat) return; // SheetNovaCategoria cuida do próprio ESC
       if (e.key === "Escape" && !salvando) onClose();
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [onClose, salvando]);
+  }, [onClose, salvando, showCat]);
 
   const form = useForm<InsumoNovoForm>({
     resolver: zodResolver(insumoNovoSchema),
-    defaultValues: { nome: "", unidade: "g", unidadeCompra: "", qtdEmbalagem: "", estoqueInicial: "" },
+    defaultValues: {
+      nome: "",
+      unidade: "g",
+      unidadeCompra: "",
+      qtdEmbalagem: "",
+      estoqueInicial: "",
+      categoriaId: "",
+    },
     mode: "onTouched",
   });
 
   const unidade = form.watch("unidade") || "g";
   const unidadeCompra = form.watch("unidadeCompra") || "";
   const qtdBruta = form.watch("qtdEmbalagem");
+  const categoriaId = form.watch("categoriaId") || "";
   const mesma = unidadeCompra !== "" && mesmaUnidade(unidade, unidadeCompra);
   const qtd = mesma ? null : parseDecimal(qtdBruta);
 
@@ -213,6 +246,8 @@ export function InsumoNovoModal({ onClose, onSuccess, criarInsumo }: InsumoNovoM
     setSalvando(true);
 
     const mesmaUnidadeFinal = mesmaUnidade(dados.unidade, dados.unidadeCompra);
+    // chip guarda o id como string; "" = sem categoria → null no banco
+    const catNum = Number(dados.categoriaId);
     const resultado = await criarInsumo({
       nome: dados.nome.trim(),
       unidade: dados.unidade,
@@ -221,6 +256,7 @@ export function InsumoNovoModal({ onClose, onSuccess, criarInsumo }: InsumoNovoM
       fatorConversao: mesmaUnidadeFinal ? null : parseDecimal(dados.qtdEmbalagem),
       // "se já tem em casa" — na unidade de estoque; vazio → 0 (padrão v1)
       estoqueInicial: parseDecimal(dados.estoqueInicial) ?? 0,
+      categoriaId: Number.isInteger(catNum) && catNum > 0 ? catNum : null,
     });
     setSalvando(false);
     if (!resultado.success) {
@@ -308,6 +344,57 @@ export function InsumoNovoModal({ onClose, onSuccess, criarInsumo }: InsumoNovoM
             {erroNome && (
               <p role="alert" style={{ margin: "6px 0 0", fontSize: 11, color: "var(--eq2-danger)", fontWeight: 500 }}>
                 {erroNome}
+              </p>
+            )}
+          </div>
+
+          {/* 1.5 — "Categoria do insumo" — OPCIONAL; chips da prateleira
+              escopo='insumo' + "+ Criar nova" abrindo o mini-sheet compartilhado.
+              Clicar o chip ativo desmarca (voltar a "sem categoria"). */}
+          <div>
+            <span className="eq2-label" id="insumo-categoria-label">
+              Categoria do insumo <span style={{ fontWeight: 400 }}>(opcional)</span>
+            </span>
+            <div className="eq2-chips" role="group" aria-labelledby="insumo-categoria-label">
+              {categoriasInsumo.map((c) => {
+                const ativa = categoriaId === String(c.id);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className={`eq2-chip${ativa ? " is-active" : ""}`}
+                    aria-pressed={ativa}
+                    disabled={salvando}
+                    style={{ minHeight: 44, fontWeight: ativa ? 700 : 500 }}
+                    onClick={() =>
+                      form.setValue("categoriaId", ativa ? "" : String(c.id), { shouldDirty: true })
+                    }
+                  >
+                    {c.nome}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                className="eq2-chip"
+                disabled={salvando}
+                onClick={() => setShowCat(true)}
+                style={{
+                  minHeight: 44,
+                  borderStyle: "dashed",
+                  color: "var(--eq2-accent)",
+                  fontWeight: 600,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <Plus size={14} aria-hidden="true" /> Criar nova
+              </button>
+            </div>
+            {categoriasInsumo.length === 0 && (
+              <p style={{ margin: "6px 0 0", fontSize: 11, color: "var(--eq2-muted)" }}>
+                Nenhuma categoria ainda — "Laticínios", "Embalagens", o que fizer sentido pra você.
               </p>
             )}
           </div>
@@ -560,6 +647,21 @@ export function InsumoNovoModal({ onClose, onSuccess, criarInsumo }: InsumoNovoM
           )}
         </div>
       </form>
+
+      {/* mini-sheet "+ Criar nova" — por cima do modal (z 70/71); ao criar,
+          a categoria nova já entra SELECTED no campo (pedido do fundador) */}
+      {showCat && (
+        <SheetNovaCategoria
+          criarCategoria={criarCategoriaInsumo}
+          onFechar={() => setShowCat(false)}
+          onCriada={(criada) => {
+            setShowCat(false);
+            if (criada.id != null) {
+              form.setValue("categoriaId", String(criada.id), { shouldDirty: true });
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

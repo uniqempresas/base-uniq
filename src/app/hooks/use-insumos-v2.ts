@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { precoUnitarioBase } from "../components/estoque-v2/shared/utils";
+import { CORES_TAG } from "./use-tags";
 import type { NaturezaProduto } from "../types/producao";
 
 /* ───────────────────────────── domínio UI ───────────────────────────── */
@@ -117,6 +118,14 @@ const INSUMOS_DEMO: InsumoV2[] = [
   { id: 906, nome: "Limão tahiti", categoriaNome: "Hortifrúti", categoriaId: 903, unidade: "un", unidadeCompra: "kg", fatorConversao: null, preco: null, precoCusto: null, ultimoPrecoCompra: null, ultimaCompraEm: null, estoque: 8, estoqueMinimo: 10 },
 ];
 
+// Categorias da demo — MESMAS ids do embed dos INSUMOS_DEMO (901–903), assim a
+// fila de chips e o seletor do modal mostram uma prateleira realista sem login.
+const CATEGORIAS_INSUMO_DEMO: CategoriaInsumo[] = [
+  { id: 901, nome: "Laticínios", cor: null },
+  { id: 902, nome: "Doces", cor: null },
+  { id: 903, nome: "Hortifrúti", cor: null },
+];
+
 const RECEITAS_DEMO: Record<number, ReceitaUsoV2[]> = {
   901: [
     { paiId: 801, nome: "Recheio de limão", unidade: "g", natureza: "composto", quantidadePorUnidade: 55 },
@@ -216,6 +225,11 @@ export interface CriarInsumoParams {
   fatorConversao: number | null;
   /** "Estoque inicial (se já tem em casa)" na unidade de estoque; 0 por padrão */
   estoqueInicial: number;
+  /**
+   * `me_produto.categoria_id` — categoria de INSUMO (`me_categoria.escopo='insumo'`,
+   * migration 25/10). Opcional: null = "sem categoria" (prateleira ainda solta).
+   */
+  categoriaId?: number | null;
   /** opcional — sem valor, o hook gera um SKU simples (padrão do módulo: `SKU-######`) */
   sku?: string;
 }
@@ -233,6 +247,43 @@ export interface CriarInsumoResult {
   error?: string;
 }
 
+/* ─────────────────── categorias de INSUMO (escopo='insumo') ─────────────────── */
+
+/**
+ * Categoria de insumo — `me_categoria.escopo='insumo'` (migration 25/10).
+ * Categorias de PRODUTO (escopo default 'produto') ficam intocadas: o v1 não
+ * muda e as duas prateleiras nunca se misturam na UI deste módulo.
+ */
+export interface CategoriaInsumo {
+  /** `me_categoria.id_categoria` */
+  id: number;
+  nome: string;
+  cor: string | null;
+}
+
+export interface CriarCategoriaInsumoResult {
+  success: boolean;
+  /** `me_categoria.id_categoria` (null em modo demo) */
+  id: number | null;
+  nome: string;
+  error?: string;
+}
+
+interface DBCategoriaInsumo {
+  id_categoria: number;
+  nome_categoria: string | null;
+  cor: string | null;
+}
+
+/** chave de duplicidade: minúsculas + sem acentos ("Laticínios" == "laticinios") */
+function chaveCategoria(s: string): string {
+  return s
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 /* ───────────────────────────── hook: LISTA ───────────────────────────── */
 
 export interface UseInsumosV2Return {
@@ -243,6 +294,12 @@ export interface UseInsumosV2Return {
   recarregar: () => void;
   /** INSERT de insumo em `me_produto` (natureza='insumo', vitrine off) */
   criarInsumo: (params: CriarInsumoParams) => Promise<CriarInsumoResult>;
+  /** categorias do tenant com `escopo='insumo'` (chips do modal + fila da lista) */
+  categoriasInsumo: CategoriaInsumo[];
+  /** (re)carrega as categorias de insumo; resolve com a lista */
+  listarCategoriasInsumo: () => Promise<CategoriaInsumo[]>;
+  /** INSERT em `me_categoria` com escopo='insumo' + recarga a lista */
+  criarCategoriaInsumo: (nome: string) => Promise<CriarCategoriaInsumoResult>;
 }
 
 export function useInsumosV2(): UseInsumosV2Return {
@@ -256,6 +313,39 @@ export function useInsumosV2(): UseInsumosV2Return {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFallback, setIsFallback] = useState(false);
+  const [categoriasInsumo, setCategoriasInsumo] = useState<CategoriaInsumo[]>([]);
+
+  /**
+   * Categorias do tenant com `escopo='insumo'` — a prateleira do módulo Compro.
+   * Falha aqui NUNCA derruba a lista de insumos (a fila de chips é enfeite; o
+   * embed `me_categoria` dos próprios insumos continua funcionando sozinho).
+   */
+  const listarCategoriasInsumo = useCallback(async (): Promise<CategoriaInsumo[]> => {
+    if (!temSessao || !empresaId) return [];
+    try {
+      const { data, error: catError } = await supabase
+        .from("me_categoria")
+        .select("id_categoria, nome_categoria, cor")
+        .eq("empresa_id", empresaId)
+        .eq("escopo", "insumo")
+        .eq("ativo", true)
+        .order("nome_categoria");
+
+      if (catError) throw catError;
+
+      const lista = ((data as unknown as DBCategoriaInsumo[] | null) || []).map((db) => ({
+        id: Number(db.id_categoria),
+        nome: db.nome_categoria || "",
+        cor: db.cor ?? null,
+      }));
+      setCategoriasInsumo(lista);
+      return lista;
+    } catch (err) {
+      console.error("[useInsumosV2] Erro ao buscar categorias de insumo:", err);
+      setCategoriasInsumo([]);
+      return [];
+    }
+  }, [empresaId, temSessao]);
 
   const carregarDados = useCallback(async () => {
     if (authLoading) return;
@@ -267,6 +357,7 @@ export function useInsumosV2(): UseInsumosV2Return {
     // MODO DEMO (sem login): mock realista — regra mock-first de 07/09/2026
     if (!temSessao) {
       setInsumos(INSUMOS_DEMO);
+      setCategoriasInsumo(CATEGORIAS_INSUMO_DEMO);
       setIsFallback(true);
       setLoading(false);
       return;
@@ -275,6 +366,7 @@ export function useInsumosV2(): UseInsumosV2Return {
     // Logado mas empresa não resolvida: NÃO consultar outro tenant
     if (!empresaId) {
       setInsumos([]);
+      setCategoriasInsumo([]);
       setError("Empresa não identificada para este usuário. Recarregue a página ou faça login novamente.");
       setLoading(false);
       return;
@@ -293,6 +385,8 @@ export function useInsumosV2(): UseInsumosV2Return {
 
       // 0 linhas = empresa nova = empty state real (nunca mock de outra empresa)
       setInsumos(((data as unknown as DBInsumo[] | null) || []).map(mapInsumo));
+      // categorias em paralelo ao paint — erro silencioso (ver listarCategoriasInsumo)
+      void listarCategoriasInsumo();
     } catch (err) {
       console.error("[useInsumosV2] Erro ao buscar insumos:", err);
       setInsumos([]);
@@ -300,7 +394,7 @@ export function useInsumosV2(): UseInsumosV2Return {
     } finally {
       setLoading(false);
     }
-  }, [empresaId, temSessao, authLoading]);
+  }, [empresaId, temSessao, authLoading, listarCategoriasInsumo]);
 
   useEffect(() => {
     carregarDados();
@@ -361,7 +455,8 @@ export function useInsumosV2(): UseInsumosV2Return {
             ativo: true,
             descricao: null,
             foto_url: null,
-            categoria_id: null,
+            // categoria de INSUMO escolhida no modal (escopo='insumo'); null = sem categoria
+            categoria_id: params.categoriaId ?? null,
             codigo_barras: null,
             opcoes_config: [],
           })
@@ -385,7 +480,89 @@ export function useInsumosV2(): UseInsumosV2Return {
     [empresaId, temSessao]
   );
 
-  return { insumos, loading, error, isFallback, recarregar: carregarDados, criarInsumo };
+  /**
+   * Categoria de insumo nova — `me_categoria` com `escopo='insumo'` (migration
+   * 25/10): nunca mistura com a prateleira de produtos (v1 intocado). Duplicidade
+   * checada antes da rede, case/acento-insensitive ("Laticínios" == "laticinios"),
+   * e o unique `ux_me_categoria_empresa_nome` (23505) é a segunda linha de defesa
+   * com a mesma mensagem amigável — padrão use-categorias.
+   */
+  const criarCategoriaInsumo = useCallback(
+    async (nomeBruto: string): Promise<CriarCategoriaInsumoResult> => {
+      const nome = nomeBruto.trim();
+      if (!nome) {
+        return { success: false, id: null, nome, error: "Dê um nome à categoria." };
+      }
+      // MODO DEMO: não grava (a UI já desabilita o botão — guard é 2ª linha)
+      if (!temSessao) {
+        return { success: true, id: null, nome };
+      }
+      if (!empresaId) {
+        return {
+          success: false,
+          id: null,
+          nome,
+          error: "Empresa não identificada para este usuário. Recarregue a página ou faça login novamente.",
+        };
+      }
+
+      try {
+        const existentes = await listarCategoriasInsumo();
+        const chave = chaveCategoria(nome);
+        if (existentes.some((c) => chaveCategoria(c.nome) === chave)) {
+          return { success: false, id: null, nome, error: "Categoria já existe." };
+        }
+
+        // cor: catálogo rotativo do projeto (CORES_TAG, padrão use-categorias) —
+        // o fundador não escolhe cor, a prateleira só ganha vida.
+        const { data, error: insError } = await supabase
+          .from("me_categoria")
+          .insert({
+            empresa_id: empresaId,
+            nome_categoria: nome,
+            escopo: "insumo",
+            cor: CORES_TAG[existentes.length % CORES_TAG.length],
+            ativo: true,
+          })
+          .select("id_categoria")
+          .single();
+
+        if (insError) {
+          // 23505 = unique_violation (ux_me_categoria_empresa_nome)
+          if (insError.code === "23505") {
+            return { success: false, id: null, nome, error: "Categoria já existe." };
+          }
+          throw insError;
+        }
+
+        const id = Number((data as { id_categoria?: number | string } | null)?.id_categoria ?? 0) || null;
+        // refaz a fila na hora: chip novo aparece sem esperar o próximo load
+        await listarCategoriasInsumo();
+        return { success: true, id, nome };
+      } catch (err) {
+        console.error("[useInsumosV2] Erro ao criar categoria de insumo:", err);
+        return {
+          success: false,
+          id: null,
+          nome,
+          error: err instanceof Error ? err.message : "Não foi possível criar a categoria.",
+        };
+      }
+    },
+    [empresaId, temSessao, listarCategoriasInsumo]
+  );
+
+  return {
+    insumos,
+    loading,
+    error,
+    isFallback,
+    recarregar: carregarDados,
+    criarInsumo,
+    categoriasInsumo,
+    listarCategoriasInsumo,
+    criarCategoriaInsumo,
+  };
 }
 
 /* ───────────────────────────── hook: DETALHE ───────────────────────────── */
