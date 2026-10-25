@@ -493,25 +493,6 @@ export function InsumoV2DetalhePage() {
 
   return (
     <div className="eq2">
-      {/* shipped: bottombar limitada no desktop (pill flutuante centrada) —
-          mobile < 900px não é afetado (largura total, rodapé colado) */}
-      <style>{`
-        @media (min-width: 900px) {
-          .eq2-bottombar.eq2-bottombar--detalhe {
-            left: 50%;
-            right: auto;
-            transform: translateX(-50%);
-            width: min(420px, calc(100% - 48px));
-            bottom: 20px;
-            padding: 10px;
-            background: #ffffff;
-            border: 1px solid var(--eq2-border);
-            border-radius: 999px;
-            box-shadow: 0 12px 32px rgba(15, 21, 33, 0.18);
-          }
-          .eq2-bottombar.eq2-bottombar--detalhe::before { content: none; }
-        }
-      `}</style>
       <div className="eq2-shell">
         <header className="eq2-bar">
           <button type="button" className="eq2-back" onClick={() => navigate(-1)} aria-label="Voltar para a lista de insumos">
@@ -534,27 +515,26 @@ export function InsumoV2DetalhePage() {
         </header>
 
         {/* Compro · Faço · Vendo — área atual: Compro */}
-        <main style={{ paddingTop: 14, paddingBottom: insumo ? 92 : 14 }}>
+        <main style={{ paddingTop: 14 }}>
           <SegmentedNav ativo="compro" />
           {renderizarConteudo()}
-        </main>
 
-        {insumo && !loading && (
-          <div className="eq2-bottombar eq2-bottombar--detalhe">
+          {/* Botão em fluxo (padrão do "+ Cadastrar insumo novo" da NovaCompraV2):
+              no FINAL do conteúdo, largura do shell — nada de barra fixa. */}
+          {insumo && !loading && (
             <button
               type="button"
-              className="eq2-btn eq2-btn--primary"
-              style={{ width: "100%" }}
+              className="eq2-btn eq2-btn--primary eq2-btn--block"
+              style={{ marginTop: 16, width: "100%" }}
               // deep-link de recompra (?insumo=): a NovaCompraV2Page pré-preenche
-              // o rascunho com a última compra quando a lista chegar (mesma
-              // trilha do `?insumo=` do NovaCompraPage v1)
+              // o rascunho com a última compra quando a lista chegar
               onClick={() => navigate(`/estoque-v2/compras/nova?insumo=${insumo.id}`)}
             >
               <ShoppingBag size={18} aria-hidden="true" />
               Comprar de novo
             </button>
-          </div>
-        )}
+          )}
+        </main>
       </div>
     </div>
   );
