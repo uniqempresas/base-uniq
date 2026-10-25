@@ -18,7 +18,7 @@
  *
  * Rota (montagem em routes.tsx por outra task): `/estoque-v2/producao`.
  */
-import { useId, useState, type ReactNode } from "react";
+import { useMemo, useId, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 import {
@@ -31,6 +31,7 @@ import {
   ClipboardList,
   Minus,
   Plus,
+  Search,
   ShoppingCart,
 } from "lucide-react";
 import "../shared/estoque-v2.css";
@@ -247,6 +248,21 @@ export function ProducaoV2Page() {
   const [confirmar, setConfirmar] = useState<AlvoConfirmacao | null>(null);
   const [resumo, setResumo] = useState<ResumoResultado | null>(null);
   const [parcial, setParcial] = useState<{ etapa?: string; error: string } | null>(null);
+
+  // Filtro por nome de receita (busca client-side, tolerante a acentos — padrão
+  // das listas do módulo: InsumosV2/ReceitasV2).
+  const [busca, setBusca] = useState("");
+  const compostosFiltrados = useMemo(() => {
+    const termo = busca.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    if (!termo) return compostos;
+    return compostos.filter((c) =>
+      (c.nome ?? "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .includes(termo)
+    );
+  }, [compostos, busca]);
   /* peso final (o que realmente entrou): texto do input + erro inline + confirmação de "0" */
   const [pesoFinalTxt, setPesoFinalTxt] = useState("");
   const [pesoErro, setPesoErro] = useState<string | null>(null);
@@ -400,14 +416,39 @@ export function ProducaoV2Page() {
         )}
 
         {!loading && !error && (
-          <p className="eq2-section-title" style={{ marginTop: 20 }}>
-            O que você pode produzir agora
-          </p>
+          <>
+            {/* Filtro por nome de receita */}
+            {compostos.length > 0 && (
+              <input
+                type="search"
+                className="eq2-input"
+                style={{ marginTop: 16, minHeight: 44 }}
+                placeholder="Buscar receita… (ex.: ganache)"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                aria-label="Buscar receita por nome"
+              />
+            )}
+            <p className="eq2-section-title" style={{ marginTop: 20 }}>
+              O que você pode produzir agora
+            </p>
+            {busca.trim() !== "" && compostos.length > 0 && compostosFiltrados.length === 0 && (
+              <section className="eq2-card eq2-card--static" aria-label="Nenhuma receita encontrada">
+                <div className="eq2-state">
+                  <Search size={30} aria-hidden="true" />
+                  <p className="eq2-state__title">Nada com "{busca.trim()}"</p>
+                  <button type="button" className="eq2-btn eq2-btn--secondary" onClick={() => setBusca("")}>
+                    Limpar busca
+                  </button>
+                </div>
+              </section>
+            )}
+          </>
         )}
 
         {/* ---------- cards de produção ---------- */}
         {!loading &&
-          compostos.map((c) => {
+          compostosFiltrados.map((c) => {
             const nLotes = lotesDe(c);
             const rendimento = c.rendimentoLote && c.rendimentoLote > 0 ? c.rendimentoLote : 1;
             const consumos = calcularConsumos(c, nLotes);
