@@ -110,6 +110,7 @@ export const router = createBrowserRouter([
       { path: "/estoque-v2/compras/nova", lazy: pagina(() => import("./components/estoque-v2/compra/NovaCompraV2Page"), "default") },
       { path: "/estoque-v2/receitas", lazy: pagina(() => import("./components/estoque-v2/receitas/ReceitasV2ListPage"), "ReceitasV2ListPage") },
       { path: "/estoque-v2/producao", lazy: pagina(() => import("./components/estoque-v2/producao/ProducaoV2Page"), "ProducaoV2Page") },
+      { path: "/estoque-v2/produtos", lazy: pagina(() => import("./components/estoque-v2/produtos/ProdutosV2ListPage"), "ProdutosV2ListPage") },
       { path: "/estoque-v2/receita/:id", lazy: pagina(() => import("./components/estoque-v2/receita/ReceitaV2EditorPage"), "ReceitaV2EditorPage") },
       { path: "/estoque-v2/margem", lazy: pagina(() => import("./components/estoque-v2/margem/MargemV2Page"), "MargemV2Page") },
       { path: "/estoque-v2/configuracoes", lazy: pagina(() => import("./components/estoque-v2/configuracoes/ConfiguracoesV2Page"), "ConfiguracoesV2Page") },

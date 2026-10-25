@@ -145,6 +145,7 @@ const SUBNAV_SECTIONS: SubNavSection[] = [
       { id: "e2-compra", label: "Nova compra", path: "/estoque-v2/compras/nova", icon: ShoppingCart },
       { id: "e2-receitas", label: "Receitas", path: "/estoque-v2/receitas", icon: ChefHat },
       { id: "e2-producao", label: "Produção", path: "/estoque-v2/producao", icon: ArrowRightLeft },
+      { id: "e2-produtos", label: "Produtos", path: "/estoque-v2/produtos", icon: Box },
       { id: "e2-margem", label: "Margem", path: "/estoque-v2/margem", icon: BarChart3 },
       { id: "e2-config", label: "Configurações", path: "/estoque-v2/configuracoes", icon: Settings },
       { id: "e2-estoque", label: "Ir ao Estoque atual", path: "/estoque/dashboard", icon: Package },
