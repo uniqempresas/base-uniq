@@ -2,8 +2,9 @@
  * Modelo de margem do redesign Estoque V2 (Compro · Faço · Vendo).
  *
  * Modelo SIMPLES e consistente — nenhuma tabela nova é inventada:
- * - Universo: `me_produto` da empresa, `ativo = true` e
- *   (`exibir_vitrine = true` OU `natureza ≠ 'insumo'`).
+ * - Universo: `me_produto` da empresa, `ativo = true` e `exibir_vitrine = true`
+ *   (feedback do fundador 24/10/2026: margem mostra SÓ o que está marcado como
+ *   "vendo isso" — recheios/insumos deixam de entrar pela natureza ≠ 'insumo').
  * - custo = `preco_custo`; se null e natureza = 'composto', fallback
  *   simplificado: soma de `quantidade_por_unidade × preco_custo` dos
  *   componentes de `est_ficha_tecnica` (embed via FK `componente_id`).
@@ -149,9 +150,9 @@ function itemDoMock(mock: Produto): MargemItem {
   );
 }
 
-/** Universo V2: vitrine ou não-insumo (mock e banco usam a mesma regra). */
-function entraNoUniversoV2(natureza: NaturezaProduto, exibirVitrine: boolean | null | undefined): boolean {
-  return exibirVitrine === true || natureza !== "insumo";
+/** Universo V2: só produtos marcados como "vendo isso" (mock e banco usam a mesma regra). */
+function entraNoUniversoV2(exibirVitrine: boolean | null | undefined): boolean {
+  return exibirVitrine === true;
 }
 
 /**
@@ -194,9 +195,10 @@ export interface UseMargemV2Return {
   isFallback: boolean;
   /**
    * Mapa componente_id → produto_pai_id[] da ficha técnica da empresa.
-   * Causa-raiz Bug MargemBranca: compras registram INSUMOS, mas a universo
-   * da margem são compostos/vitrine — quem filtra por "comprado no período"
-   * precisa expandir os ids comprados pelos pais (BOM) para cruzar os conjuntos.
+   * Causa-raiz Bug MargemBranca: compras registram INSUMOS, mas o universo
+   * da margem é só o que está à venda (exibir_vitrine) — quem filtra por
+   * "comprado no período" precisa expandir os ids comprados pelos pais (BOM)
+   * para cruzar os conjuntos.
    */
   paisDeComponente: Map<number, number[]>;
   recarregar: () => void;
@@ -223,9 +225,7 @@ export function useMargemV2(): UseMargemV2Return {
 
     // MODO DEMO (sem login): mock local com o MESMO modelo (mock-first 07/09/2026)
     if (!temSessao) {
-      const mocks = PRODUTOS.filter((p) =>
-        entraNoUniversoV2(p.natureza ?? "simples", p.exibirVitrine)
-      ).map(itemDoMock);
+      const mocks = PRODUTOS.filter((p) => entraNoUniversoV2(p.exibirVitrine)).map(itemDoMock);
       setItens(mocks);
       setPaisDeComponente(new Map());
       setIsFallback(true);
@@ -252,7 +252,7 @@ export function useMargemV2(): UseMargemV2Return {
       if (prodError) throw prodError;
 
       const linhas = ((data as DBMargemProduto[] | null) || []).filter((db) =>
-        entraNoUniversoV2(normalizarNatureza(db.natureza), db.exibir_vitrine)
+        entraNoUniversoV2(db.exibir_vitrine)
       );
 
       // Fallback de custo: só compostos sem preco_custo disparam a leitura da BOM

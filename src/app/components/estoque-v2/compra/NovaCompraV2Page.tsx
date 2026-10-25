@@ -31,6 +31,12 @@
  *    salva; recebimento falhou — finalize em Compras" com link.
  *
  * Regras de dados (SPEC do redesign):
+ * - RECOMPRA (deep-link `?insumo=<id>` do detalhe do insumo, mesma trilha do
+ *   v1): quando a lista do hook chega, o insumo entra no rascunho com qtd da
+ *   última compra (chips, senão 1) + `ultimo_preco_compra` e a tela abre no
+ *   passo 2 posicionado nele. Item já no rascunho = NÃO sobrescreve, só
+ *   posiciona. Insumo fora da lista (removido/enxoff) → hint curto, passo 1
+ *   normal. Após salvar o param é limpo (`replace`) para não re-preencher.
  * - Salvar só com sessão real; sem sessão, os dois botões desabilitados com
  *   hint "modo demo".
  * - Sem "receber agora" a compra nasce PENDENTE: o fluxo de Receber fecha o
@@ -42,7 +48,7 @@
  * - 360px: nada rola na horizontal; inputs 16px com inputMode decimal.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -298,6 +304,9 @@ const PASSOS = ["Insumos", "Quantidades", "Conferir"];
 
 export default function NovaCompraV2Page() {
   const navigate = useNavigate();
+  // recompra: `?insumo=<id>` vindo do detalhe do insumo (estado de tela —
+  // nenhum param vai ao backend; padrão useSearchParams do v1)
+  const [searchParams, setSearchParams] = useSearchParams();
   const {
     insumos,
     ultimasCompras,
@@ -334,6 +343,11 @@ export default function NovaCompraV2Page() {
   const [modalAberto, setModalAberto] = useState(false);
   const [nomeInicial, setNomeInicial] = useState("");
   const headingRef = useRef<HTMLHeadingElement>(null);
+  /** recompra (`?insumo=`): null = não veio de recompra; `encontrado:false` = insumo fora da lista */
+  const [recompra, setRecompra] = useState<{ nome: string; encontrado: boolean } | null>(null);
+  const [bannerDismiss, setBannerDismiss] = useState(false);
+  /** o prefill roda UMA vez por montagem (a lista chega async) */
+  const prefillRecompraFeito = useRef(false);
 
   // rascunho: toda mudança vai para sessionStorage (try/catch dentro do helper)
   useEffect(() => {
@@ -345,6 +359,52 @@ export default function NovaCompraV2Page() {
   useEffect(() => {
     if (!salvo && step > 1 && itens.length === 0) setStep(1);
   }, [step, itens.length, salvo]);
+
+  /* ── recompra (?insumo=<id>): pré-preenche o rascunho quando a lista chegar ──
+   * O hook carrega insumos/chips async, então o prefill só roda com
+   * loading=false (lista E chips já aplicados — o hook setStates no mesmo
+   * tick). Guarda de ref: uma vez por montagem. Item já presente no rascunho
+   * NÃO é sobrescrito — só posiciona (sincroniza o target). Fora da lista
+   * (removido/enxoff): hint curto, segue no passo 1 normal sem bloquear. */
+  useEffect(() => {
+    if (prefillRecompraFeito.current || salvo) return;
+    const raw = searchParams.get("insumo");
+    if (!raw) return;
+    if (loading) return;
+    prefillRecompraFeito.current = true;
+
+    const alvoId = Number(raw);
+    const alvo = Number.isFinite(alvoId) ? insumos.find((p) => p.id === alvoId) : undefined;
+    if (!alvo) {
+      setRecompra({ nome: "", encontrado: false });
+      return;
+    }
+
+    setRecompra({ nome: alvo.nome, encontrado: true });
+
+    const idxExistente = itens.findIndex((i) => i.produtoId === alvo.id);
+    if (idxExistente < 0) {
+      // itemDeInsumo já traz o último preço pago como unitário/total (qtd 1);
+      // quantidade vem do chip da última compra quando existir (senão 1) —
+      // com qtd ≠ 1 o total é re-ancorado no unitário (precoEditado "unit")
+      const chip = ultimasCompras.find((c) => c.produtoId === alvo.id);
+      const qtdUltima = chip && chip.quantidade > 0 ? fmtQtd(chip.quantidade) : "1";
+      const item = itemDeInsumo(alvo);
+      const unit = parseNum(item.valorUnitario);
+      const qtdN = parseNum(qtdUltima);
+      const itemAlvo: ItemRascunho = {
+        ...item,
+        qtd: qtdUltima,
+        precoTotal: unit > 0 && qtdN > 0 ? fmtTotal(unit * qtdN) : item.precoTotal,
+      };
+      setItens((prev) => (prev.some((i) => i.produtoId === alvo.id) ? prev : [...prev, itemAlvo]));
+      setIdx(itens.length);
+    } else {
+      setIdx(idxExistente);
+    }
+    setErro1(false);
+    setStep(2);
+  }, [loading, searchParams, insumos, ultimasCompras, itens, salvo]);
 
   /* ── derivados ── */
   const q = normalizar(busca.trim());
@@ -584,6 +644,9 @@ export default function NovaCompraV2Page() {
     }
     setSalvo(true);
     limparRascunho();
+    // recompra: limpa o ?insumo (replace — sem entry novo no histórico) para
+    // uma segunda compra não re-preencher o rascunho com o mesmo insumo
+    setSearchParams({}, { replace: true });
     if (r.recebido) {
       setRecebido(true);
       toast.success(
@@ -611,6 +674,8 @@ export default function NovaCompraV2Page() {
     setErroReceber(null);
     setSalvandoReceber(false);
     setErro1(false);
+    setRecompra(null);
+    setBannerDismiss(false);
     removerFornecedor();
     limparRascunho();
     irPara(1);
@@ -1589,6 +1654,46 @@ export default function NovaCompraV2Page() {
             );
           })}
         </div>
+
+        {/* recompra: banner curto dismissível (?insumo=) acima do wizard */}
+        {recompra && !bannerDismiss && (
+          <div
+            role="status"
+            className="eq2-card eq2-card--static"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              marginTop: 12,
+              padding: "10px 12px",
+              borderColor: recompra.encontrado ? "var(--eq2-accent)" : "var(--eq2-warn)",
+            }}
+          >
+            <ShoppingBag
+              size={16}
+              aria-hidden="true"
+              style={{ flex: "none", color: recompra.encontrado ? "var(--eq2-accent)" : "var(--eq2-warn)" }}
+            />
+            <span style={{ flex: 1, minWidth: 0, fontSize: 13 }}>
+              {recompra.encontrado ? (
+                <>
+                  Recomprando: <strong>{recompra.nome}</strong> — ajuste quantidade e preço.
+                </>
+              ) : (
+                "Insumo removido ou sem conversão — escolha na lista abaixo."
+              )}
+            </span>
+            <button
+              type="button"
+              className="eq2-back"
+              aria-label="Fechar aviso de recompra"
+              onClick={() => setBannerDismiss(true)}
+              style={{ flex: "none", width: 32, height: 32 }}
+            >
+              <X size={14} aria-hidden="true" />
+            </button>
+          </div>
+        )}
 
         {/* corpo: 1 coluna (mobile/wizard) ou 2 colunas com resumo sticky (≥900px) */}
         <div

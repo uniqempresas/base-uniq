@@ -41,6 +41,7 @@ export const PRODUTOS: Produto[] = [
     estoqueMaximo: 100,
     status: "ativo",
     estoqueStatus: "ok",
+    exibirVitrine: true,
     possuiVariacoes: true,
     variacoes: [
       { id: "v1", nome: "P - Branco", sku: "CAM-001-PB", estoque: 12, ativo: true },
@@ -73,6 +74,7 @@ export const PRODUTOS: Produto[] = [
     estoqueMaximo: 50,
     status: "ativo",
     estoqueStatus: "baixo",
+    exibirVitrine: true,
     possuiVariacoes: true,
     variacoes: [
       { id: "v6", nome: "37 - Azul", sku: "TEN-045-37A", estoque: 2, ativo: true },

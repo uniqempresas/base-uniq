@@ -55,6 +55,8 @@ export interface InsumoV2 {
 export interface ChipUltimaCompraV2 {
   produtoId: number;
   nome: string;
+  /** quantidade do item na última compra (unidade de COMPRA) — pré-preenche a recompra */
+  quantidade: number;
 }
 
 /** Fornecedor como a tela enxerga (mesma forma de `use-fornecedores`, cópia
@@ -97,6 +99,7 @@ interface DBUltimaCompra {
   id: string;
   est_compra_item: Array<{
     produto_id: number;
+    quantidade: string | number | null;
     me_produto: { nome_produto: string | null } | null;
   }> | null;
 }
@@ -247,9 +250,36 @@ export function useNovaCompraV2(): UseNovaCompraV2Return {
       console.error("[useNovaCompraV2] Erro ao carregar insumos:", err);
       setInsumos([]);
       setError(err instanceof Error ? err.message : "Erro ao carregar insumos");
-    } finally {
-      setLoading(false);
     }
+
+    // Chips de "últimas compras": falha aqui é enfeite quebrado, não bloqueia
+    // a tela — degrada para lista sem chips, sem estado de erro. Roda ANTES do
+    // setLoading(false) de propósito: a recompra (?insumo=) lê `quantidade`
+    // daqui para pré-preencher o rascunho, e a tela só reage com a lista E os
+    // chips prontos juntos (setStates no mesmo tick → batched).
+    try {
+      const { data: ultima } = await supabase
+        .from("est_compra")
+        .select("id, est_compra_item(produto_id, quantidade, me_produto(nome_produto))")
+        .eq("empresa_id", empresaId)
+        .order("data_compra", { ascending: false })
+        .limit(1);
+
+      const linha = ((ultima as unknown as DBUltimaCompra[] | null) || [])[0];
+      const chips = (linha?.est_compra_item || [])
+        .map((i) => ({
+          produtoId: i.produto_id,
+          nome: i.me_produto?.nome_produto || "",
+          quantidade: num(i.quantidade),
+        }))
+        .filter((c) => c.nome && c.produtoId);
+      setUltimasCompras(chips);
+    } catch (err) {
+      console.error("[useNovaCompraV2] Erro ao ler última compra (chips):", err);
+      setUltimasCompras([]);
+    }
+
+    setLoading(false);
 
     // Fornecedores do seletor "Quem você comprou?" (mesma query de
     // `use-fornecedores`). Falha aqui não quebra a tela: o campo é opcional
@@ -277,29 +307,6 @@ export function useNovaCompraV2(): UseNovaCompraV2Return {
       setFornecedoresError(err instanceof Error ? err.message : "Erro ao carregar fornecedores");
     } finally {
       setFornecedoresLoading(false);
-    }
-
-    // Chips de "últimas compras": falha aqui é enfeite quebrado, não bloqueia
-    // a tela — degrada para lista sem chips, sem estado de erro.
-    try {
-      const { data: ultima } = await supabase
-        .from("est_compra")
-        .select("id, est_compra_item(produto_id, me_produto(nome_produto))")
-        .eq("empresa_id", empresaId)
-        .order("data_compra", { ascending: false })
-        .limit(1);
-
-      const linha = ((ultima as unknown as DBUltimaCompra[] | null) || [])[0];
-      const chips = (linha?.est_compra_item || [])
-        .map((i) => ({
-          produtoId: i.produto_id,
-          nome: i.me_produto?.nome_produto || "",
-        }))
-        .filter((c) => c.nome && c.produtoId);
-      setUltimasCompras(chips);
-    } catch (err) {
-      console.error("[useNovaCompraV2] Erro ao ler última compra (chips):", err);
-      setUltimasCompras([]);
     }
   }, [empresaId, temSessao, authLoading]);
 

@@ -331,6 +331,26 @@ export function ProducaoV2Page() {
 
   return (
     <div className="eq2">
+      {/* Painel no desktop (≥900px): os bottom sheets desta página (confirmação e
+          resultado) não ocupam a tela inteira — ficam limitados a ~520px, centralizados
+          no container, ancorados embaixo (bottom 16px), com os 4 cantos arredondados
+          e sombra. Mobile inalterado (largura total, cantos só no topo, bottom 0 —
+          CSS base `.eq2-sheet`). Media query não funciona em style inline do React,
+          por isso o bloco `<style>`; a classe `eq2-sheet--producao` só existe nesta
+          página, então o override não vaza para sheets de outras telas. */}
+      <style>{`
+        @media (min-width: 900px) {
+          .eq2-sheet.eq2-sheet--producao {
+            left: 0;
+            right: 0;
+            width: min(520px, calc(100% - 48px));
+            margin: 0 auto;
+            bottom: 16px;
+            border-radius: 20px;
+            box-shadow: 0 16px 40px rgba(15, 21, 33, 0.28);
+          }
+        }
+      `}</style>
       <div className="eq2-shell" style={{ paddingBottom: "calc(48px + env(safe-area-inset-bottom, 0px))" }}>
         <header className="eq2-bar">
           <button type="button" className="eq2-back" aria-label="Voltar" onClick={() => navigate(-1)}>
@@ -564,7 +584,7 @@ export function ProducaoV2Page() {
       {confirmar && (
         <>
           <div className="eq2-sheet__overlay" onClick={produzindo ? undefined : () => setConfirmar(null)} aria-hidden="true" />
-          <div className="eq2-sheet" role="dialog" aria-modal="true" aria-label="Confirmar produção">
+          <div className="eq2-sheet eq2-sheet--producao" role="dialog" aria-modal="true" aria-label="Confirmar produção">
             <div className="eq2-sheet__grabber" aria-hidden="true" />
             <h2 style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 700 }}>Confirmar produção</h2>
             <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--eq2-muted)" }}>
@@ -702,7 +722,7 @@ export function ProducaoV2Page() {
       {resumo && (
         <>
           <div className="eq2-sheet__overlay" onClick={() => setResumo(null)} aria-hidden="true" />
-          <div className="eq2-sheet" role="dialog" aria-modal="true" aria-label="Resultado da produção">
+          <div className="eq2-sheet eq2-sheet--producao" role="dialog" aria-modal="true" aria-label="Resultado da produção">
             <div className="eq2-sheet__grabber" aria-hidden="true" />
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 8, padding: "8px 0" }}>
               <span

@@ -140,6 +140,7 @@ const SUBNAV_SECTIONS: SubNavSection[] = [
     subtitle: "Redesign — Compro · Faço · Vendo",
     items: [
       { id: "e2-hoje", label: "Hoje", path: "/estoque-v2", icon: LayoutDashboard },
+      { id: "e2-dashboard", label: "Dashboard (novo)", path: "/estoque-v2/dashboard", icon: BarChart3 },
       { id: "e2-insumos", label: "Insumos", path: "/estoque-v2/insumos", icon: Layers },
       { id: "e2-compra", label: "Nova compra", path: "/estoque-v2/compras/nova", icon: ShoppingCart },
       { id: "e2-receitas", label: "Receitas", path: "/estoque-v2/receitas", icon: ChefHat },

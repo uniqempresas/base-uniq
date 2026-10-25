@@ -526,7 +526,10 @@ export function InsumoV2DetalhePage() {
               type="button"
               className="eq2-btn eq2-btn--primary"
               style={{ width: "100%" }}
-              onClick={() => navigate("/estoque-v2/compras/nova")}
+              // deep-link de recompra (?insumo=): a NovaCompraV2Page pré-preenche
+              // o rascunho com a última compra quando a lista chegar (mesma
+              // trilha do `?insumo=` do NovaCompraPage v1)
+              onClick={() => navigate(`/estoque-v2/compras/nova?insumo=${insumo.id}`)}
             >
               <ShoppingBag size={18} aria-hidden="true" />
               Comprar de novo

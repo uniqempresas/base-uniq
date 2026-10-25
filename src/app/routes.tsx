@@ -104,6 +104,7 @@ export const router = createBrowserRouter([
       // Estoque V2 (redesign Compro · Faço · Vendo) — telas espelho em paralelo,
       // conectadas ao banco real; não substituem o /estoque atual (comparativo).
       { path: "/estoque-v2", lazy: pagina(() => import("./components/estoque-v2/hoje/HojeV2Page"), "HojeV2Page") },
+      { path: "/estoque-v2/dashboard", lazy: pagina(() => import("./components/estoque-v2/dashboard/DashboardV2Page"), "DashboardV2Page") },
       { path: "/estoque-v2/insumos", lazy: pagina(() => import("./components/estoque-v2/insumos/InsumosV2Page"), "InsumosV2Page") },
       { path: "/estoque-v2/insumos/:id", lazy: pagina(() => import("./components/estoque-v2/insumos/InsumoV2DetalhePage"), "InsumoV2DetalhePage") },
       { path: "/estoque-v2/compras/nova", lazy: pagina(() => import("./components/estoque-v2/compra/NovaCompraV2Page"), "default") },

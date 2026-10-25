@@ -144,8 +144,9 @@ export function MargemV2Page() {
   // "Se indisponível, mostre tudo": só filtra quando há compras no período.
   const itensSeguros = Array.isArray(itens) ? itens : [];
   // Causa-raiz Bug MargemBranca (patch @oracle): compras registram INSUMOS e o
-  // universo da margem são compostos/vitrine — sem expandir a BOM, a interseção
-  // era vazia por construção e a tela caía num dead-end ("toda em branco").
+  // universo da margem é só o que está à venda (exibir_vitrine) — sem expandir a
+  // BOM, a interseção era vazia por construção e a tela caía num dead-end
+  // ("toda em branco"). O patch abaixo permanece necessário com o novo universo.
   const idsCruzados = new Set<string>(idsCompradosNoPeriodo);
   if (paisDeComponente instanceof Map) {
     for (const id of idsCompradosNoPeriodo) {
@@ -239,8 +240,11 @@ export function MargemV2Page() {
           ) : itens.length === 0 ? (
             <div className="eq2-state">
               <span className="eq2-state__emoji" aria-hidden="true">📈</span>
-              <p className="eq2-state__title">Nada para mostrar ainda</p>
-              <p>Assim que você cadastrar produtos com preço e custo, a sobra de cada venda aparece aqui.</p>
+              <p className="eq2-state__title">Nenhum produto marcado como "à venda"</p>
+              <p>
+                Toque em Receitas → "Vendo isso" nos produtos para a margem aparecer aqui. Só o que
+                está à venda entra na conta — recheios e insumos ficam de fora.
+              </p>
             </div>
           ) : itensDoFiltro === 0 ? (
             <div className="eq2-state">
