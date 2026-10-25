@@ -21,7 +21,10 @@
  * - simples: `preco_custo` direto (me_produto).
  *
  * `recarregar()` devolve a lista carregada (Promise) — a tela usa para
- * detectar a receita recém-criada no ProdutoFormModal (banda "próximo: ficha").
+ * detectar a receita recém-criada (banda "próximo: ficha"). `criarReceita`
+ * devolve `{id, nome}` direto do INSERT: com id, a tela dispensa a detecção
+ * heurística; sem id (linha antiga/coluna ausente), cai na heurística do
+ * maior id. Em modo demo `criarReceita` não grava — só ecoa o nome (id null).
  */
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
@@ -220,6 +223,37 @@ function mapFichaLinha(db: DBFichaLinha): ReceitaV2Ingrediente {
   };
 }
 
+/* ───────────────────────────── criação ───────────────────────────── */
+
+/** Parâmetros do form "Nova receita" (ReceitaNovaModal) → INSERT em `me_produto`. */
+export interface CriarReceitaParams {
+  /** `me_produto.nome_produto` */
+  nome: string;
+  /** unidade de ESTOQUE do select do modal (g / ml / un — default g) */
+  unidade: string;
+  /** "Quanto ela rende?" → `me_produto.rendimento_lote` (null = lote a definir) */
+  rendimentoLote: number | null;
+  /** toggle "Também ficará à venda?" → `me_produto.exibir_vitrine` */
+  aVenda: boolean;
+  /** preço de venda digitado com o toggle ligado → `me_produto.preco_varejo` (null = definir depois) */
+  precoVenda: number | null;
+  /** opcional — sem valor, o hook gera um SKU simples (padrão do form v1: `SKU-######`) */
+  sku?: string;
+}
+
+/**
+ * Resultado da criação. Em modo demo (sem sessão) `success` continua true mas
+ * `id` é null — nada foi gravado; a UI usa o devolvido para a banda "próximo:
+ * montar a ficha técnica".
+ */
+export interface CriarReceitaResult {
+  success: boolean;
+  /** `me_produto.id` do novo composto (null em modo demo / coluna ausente) */
+  id: number | null;
+  nome: string;
+  error?: string;
+}
+
 /* ───────────────────────────── hook ───────────────────────────── */
 
 export interface UseReceitasListaV2Return {
@@ -229,6 +263,8 @@ export interface UseReceitasListaV2Return {
   isFallback: boolean;
   /** resolve com a lista recém-carregada (banda "próxima ficha" pós-criação) */
   recarregar: () => Promise<ReceitaListaV2[]>;
+  /** INSERT de receita (composto) em `me_produto`; devolve `{id, nome}` p/ a banda pós-criação */
+  criarReceita: (params: CriarReceitaParams) => Promise<CriarReceitaResult>;
 }
 
 export function useReceitasListaV2(): UseReceitasListaV2Return {
@@ -371,7 +407,82 @@ export function useReceitasListaV2(): UseReceitasListaV2Return {
     carregarDados();
   }, [carregarDados]);
 
-  return { receitas, loading, error, isFallback, recarregar: carregarDados };
+  /* ───────────────────────────── criação ───────────────────────────── */
+
+  const criarReceita = useCallback(
+    async (params: CriarReceitaParams): Promise<CriarReceitaResult> => {
+      const nome = params.nome.trim();
+
+      // MODO DEMO (regra mock-first 07/09/2026): sem sessão NÃO grava — a tela
+      // já bloqueia o botão, este guard é a segunda linha de defesa.
+      if (!temSessao) {
+        return { success: true, id: null, nome };
+      }
+      // Sem empresa resolvida: NÃO gravar em outro tenant (padrão use-criar-produto)
+      if (!empresaId) {
+        return {
+          success: false,
+          id: null,
+          nome,
+          error: "Empresa não identificada para este usuário. Recarregue a página ou faça login novamente.",
+        };
+      }
+      if (!nome) {
+        return { success: false, id: null, nome, error: "Dê um nome para a receita." };
+      }
+
+      try {
+        const { data, error: insError } = await supabase
+          .from("me_produto")
+          .insert({
+            empresa_id: empresaId,
+            nome_produto: nome,
+            // receita = composto por definição (mesmo contrato da criação v1);
+            // `tipo` é legado de variações — "Outros" como no use-criar-produto
+            natureza: "composto",
+            tipo: "Outros",
+            unidade: params.unidade,
+            rendimento_lote: params.rendimentoLote,
+            // estoque nasce zerado: quantidade e custo vêm da ficha + produção
+            estoque_atual: 0,
+            estoque_minimo: 0,
+            // toggle "Também ficará à venda?" → vitrine; sem preço definido o
+            // card mostra "sem preço" (resolverVenda trata 0/null como ausente)
+            exibir_vitrine: params.aVenda,
+            preco_varejo: params.aVenda ? params.precoVenda : null,
+            preco: params.aVenda && params.precoVenda != null ? params.precoVenda : 0,
+            preco_custo: 0,
+            sku: params.sku?.trim() || `SKU-${Date.now().toString().slice(-6)}`,
+            ativo: true,
+            descricao: null,
+            foto_url: null,
+            categoria_id: null,
+            codigo_barras: null,
+            opcoes_config: [],
+            unidade_compra: null,
+            fator_conversao: null,
+          })
+          .select("id")
+          .single();
+
+        if (insError) throw insError;
+
+        const novoId = Number((data as { id?: number | string } | null)?.id ?? 0) || null;
+        return { success: true, id: novoId, nome };
+      } catch (err) {
+        console.error("[useReceitasListaV2] Erro ao criar a receita:", err);
+        return {
+          success: false,
+          id: null,
+          nome,
+          error: err instanceof Error ? err.message : "Não foi possível criar a receita.",
+        };
+      }
+    },
+    [empresaId, temSessao]
+  );
+
+  return { receitas, loading, error, isFallback, recarregar: carregarDados, criarReceita };
 }
 
 /** me_produto → base do card (campos crus; derivação em `completarReceita`). */

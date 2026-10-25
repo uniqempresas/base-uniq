@@ -7,8 +7,9 @@
  * Estrutura espelha `InsumosV2Page`: barra com contagem → busca client-side →
  * chips de filtro (Todas / Com isto vendável / Sem preço / No vermelho) →
  * grid de cards (.eq2-grid--3 no desktop, coluna única no mobile) → FAB
- * "+ Nova receita" reutilizando o `ProdutoFormModal` compartilhado
- * (naturezaInicial="composto", mesmo contrato do ProdutosPage/InsumosV2Page).
+ * "+ Nova receita" abrindo o `ReceitaNovaModal` (fundador 24/10: criar receita
+ * sem jargão — nome + rendimento + venda opcional; o ProdutoFormModal de
+ * 3 steps ficou só para edição/duplicação em outras visões).
  *
  * Card: custo/unidade (Σ ficha técnica p/ composto; preco_custo p/ simples —
  * conta do editor via `custoLinhaReceita`), valor de venda (preco_varejo ??
@@ -33,8 +34,7 @@ import {
   type ReceitaListaV2,
 } from "../../../hooks/use-receitas-lista-v2";
 import { NATUREZA_LABELS } from "../../../types/producao";
-import { useCategorias } from "../../../hooks/use-categorias";
-import { ProdutoFormModal } from "../../produto/ProdutoFormModal";
+import { ReceitaNovaModal } from "./ReceitaNovaModal";
 
 /* ─────────────────────────── filtros ─────────────────────────── */
 
@@ -194,9 +194,7 @@ function SkeletonCard() {
 
 export function ReceitasV2ListPage() {
   const navigate = useNavigate();
-  const { receitas, loading, error, isFallback, recarregar } = useReceitasListaV2();
-  // Catálogo real de categorias — exigido pelo ProdutoFormModal (padrão InsumosV2Page)
-  const { categorias: categoriasConfig } = useCategorias();
+  const { receitas, loading, error, isFallback, recarregar, criarReceita } = useReceitasListaV2();
 
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState<FiltroReceita>("todas");
@@ -204,9 +202,10 @@ export function ReceitasV2ListPage() {
   /** receita recém-criada aguardando a ficha (banda Melissa no topo) */
   const [bandaNova, setBandaNova] = useState<{ id: number; nome: string } | null>(null);
 
-  // maior id já visto — pós-criação, o ProdutoFormModal não devolve o id do
-  // composto (contrato atual do modal), então a "nova receita" é o maior id
-  // que apareceu na recarga.
+  // maior id já visto — fallback de detecção da receita recém-criada: o
+  // ReceitaNovaModal devolve {id, nome}, mas se o INSERT não trouxer id
+  // (coluna ausente/linha antiga) a banda ainda encontra a nova pelo maior
+  // id que apareceu na recarga.
   const maiorIdRef = useRef(0);
   useEffect(() => {
     for (const r of receitas) {
@@ -233,11 +232,15 @@ export function ReceitasV2ListPage() {
 
   const abrirEditor = (id: number) => navigate(`/estoque-v2/receita/${id}`);
 
-  const handleSucesso = async () => {
+  const handleSucesso = async (criada: { id: number | null; nome: string }) => {
     setShowNovo(false);
     toast.success("Receita criada! 🎉");
     const antes = maiorIdRef.current;
     const lista = await recarregar();
+    if (criada.id != null) {
+      setBandaNova({ id: criada.id, nome: criada.nome });
+      return;
+    }
     if (antes > 0) {
       const nova = lista
         .filter((r) => r.id > antes)
@@ -405,9 +408,8 @@ export function ReceitasV2ListPage() {
       {/* Modal FORA do gate de loading (padrão HOTFIX ProdutosPage):
           refetch em fundo não pode desmontar o form no meio da digitação. */}
       {showNovo && (
-        <ProdutoFormModal
-          categorias={categoriasConfig}
-          naturezaInicial="composto"
+        <ReceitaNovaModal
+          criarReceita={criarReceita}
           onClose={() => setShowNovo(false)}
           onSuccess={handleSucesso}
         />

@@ -3,9 +3,11 @@
  *
  * Porte do wireframe `tracking/Redesign_ComproVendoFaco/receita-editor.html`
  * em React: a CONTA VISÍVEL é o coração da tela — cada linha de ingrediente
- * mostra o recibo da conversão (`1 lata = 395 g · 395 g × R$ 0,0139/g = R$ 5,49`),
- * o custo recalcula ao vivo e o rodapé fixo dá custo/unidade, custo do lote e
- * margem (quando existe `preco_varejo`).
+ * mostra o recibo da conversão (`1 lata = 395 g · 395 g × R$ 0,0139/g = R$ 5,49`)
+ * e o custo recalcula ao vivo. O resumo (custo/unidade, custo do lote e margem,
+ * quando existe `preco_varejo`) mora no card da Melissa, fluindo com o scroll —
+ * sem barra fixa no rodapé (feedback do fundador, 24/10/2026: barras fixas não
+ * são praticadas no projeto; modais/sheets sim).
  *
  * Seções: o banco NÃO tem coluna de seção na ficha técnica — tudo aparece
  * agrupado como "Ingredientes" (regra do SPEC: não inventar coluna).
@@ -144,8 +146,27 @@ function Eq2Sheet({
   if (!aberto) return null;
   return (
     <>
+      {/* Painel no desktop (≥900px): em vez de largura total da viewport, acompanha
+          a coluna de conteúdo (~520px, largura do bloco da Melissa) e fica centralizado
+          no container, ancorado embaixo, com os 4 cantos arredondados. Mobile inalterado
+          (largura total, cantos só no topo — CSS base `.eq2-sheet`). A classe
+          `eq2-sheet--editor` só existe nesta página, então o override não vaza para
+          os sheets de outras telas. */}
+      <style>{`
+        @media (min-width: 900px) {
+          .eq2-sheet.eq2-sheet--editor {
+            left: 0;
+            right: 0;
+            width: min(520px, calc(100% - 48px));
+            margin: 0 auto;
+            bottom: 16px;
+            border-radius: 20px;
+            box-shadow: 0 16px 40px rgba(15, 21, 33, 0.28);
+          }
+        }
+      `}</style>
       <div className="eq2-sheet__overlay" onClick={onFechar} aria-hidden="true" />
-      <div className="eq2-sheet" role="dialog" aria-modal="true" aria-label={titulo}>
+      <div className="eq2-sheet eq2-sheet--editor" role="dialog" aria-modal="true" aria-label={titulo}>
         <div className="eq2-sheet__grabber" aria-hidden="true" />
         <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
           <h2 style={{ flex: 1, margin: 0, fontSize: 17, fontWeight: 700 }}>{titulo}</h2>
@@ -246,11 +267,26 @@ export function ReceitaV2EditorPage() {
 
   const custoLinhas: (number | null)[] = useMemo(() => itens.map((i) => custoLinhaReceita(i)), [itens]);
 
+  /* Com "Vendo isso" ativo e margem saudável, a frase da margem entra no balloon
+     da Melissa — e o mini-recibo abaixo do card NÃO repete a métrica. */
+  const margemNoBalao = !!(
+    produto?.exibirVitrine &&
+    precoVenda != null &&
+    custoUnidade != null &&
+    margemAbs != null &&
+    margemAbs > 0 &&
+    margemPct != null &&
+    margemPct >= 30
+  );
+
   const msgMelissa = (() => {
     if (loading || !produto) return null;
     if (itens.length === 0) return "Adicione os ingredientes. Eu calculo o custo de cada um.";
     if (margemAbs != null && margemPct != null && margemPct < 30) {
       return "Este produto está com margem apertada. Reveja as quantidades ou o preço de venda.";
+    }
+    if (margemNoBalao && precoVenda != null && margemAbs != null && margemPct != null) {
+      return `Você vende a ${brl(precoVenda)}, sobra ${brl(margemAbs)} por ${produto.unidade} — ${margemPct}%.`;
     }
     return "Sua receita usa as medidas do mercado — lata, caixa, unidade. Mostro a conta de cada linha.";
   })();
@@ -417,10 +453,7 @@ export function ReceitaV2EditorPage() {
 
   return (
     <div className="eq2">
-      <div
-        className="eq2-shell"
-        style={{ paddingBottom: "calc(190px + env(safe-area-inset-bottom, 0px))" }}
-      >
+      <div className="eq2-shell">
         {/* app bar */}
         <header className="eq2-bar">
           <button
@@ -669,6 +702,47 @@ export function ReceitaV2EditorPage() {
                   actionLabel={itens.length > 0 ? (contaAberta ? "Esconder a conta" : "Mostrar a conta") : undefined}
                   onAction={itens.length > 0 ? () => setContaAberta((v) => !v) : undefined}
                 />
+                {/* resumo de custo — antes na barra fixa do rodapé; agora flui com
+                    o scroll, colado abaixo do card escuro da Melissa */}
+                <div
+                  className="eq2-receipt"
+                  role="region"
+                  aria-label="Custos da receita"
+                  aria-live="polite"
+                  style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+                    <span>Custo por {produto.unidade}</span>
+                    <strong style={{ fontSize: 13, fontVariantNumeric: "tabular-nums" }}>
+                      {custoUnidade != null ? brlSmart(custoUnidade) : "custo pendente"}
+                    </strong>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+                    <span>
+                      Custo do lote (rende {formatarQtd(rendimento)} {produto.unidade})
+                    </span>
+                    <strong style={{ fontSize: 13, fontVariantNumeric: "tabular-nums" }}>
+                      {custoLote != null ? brl(custoLote) : "—"}
+                    </strong>
+                  </div>
+                  {!margemNoBalao && precoVenda != null && margemAbs != null && (
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "baseline",
+                        gap: 8,
+                        color: margemAbs > 0 ? "#2e7d43" : "var(--eq2-danger)",
+                        fontWeight: 600,
+                      }}
+                    >
+                      <span>Margem por venda</span>
+                      <strong style={{ fontSize: 13, fontVariantNumeric: "tabular-nums", color: "inherit" }}>
+                        {margemAbs > 0 ? `${brl(margemAbs)} · ${margemPct}%` : "ainda não sobra"}
+                      </strong>
+                    </div>
+                  )}
+                </div>
                 {contaAberta && itens.length > 0 && (
                   <div className="eq2-receipt" style={{ marginTop: 8 }} aria-live="polite">
                     <p style={{ margin: 0, fontWeight: 700, color: "var(--eq2-ink)" }}>a conta por trás das medidas</p>
@@ -685,64 +759,6 @@ export function ReceitaV2EditorPage() {
           </>
         )}
       </div>
-
-      {/* ---------- rodapé fixo: a conta total ---------- */}
-      {produto && !loading && (
-        <div className="eq2-bottombar" role="region" aria-label="Custos da receita">
-          <div className="eq2-bottombar__inner" style={{ flexDirection: "column", alignItems: "stretch", gap: 2 }}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "baseline",
-                gap: 8,
-                fontSize: 13,
-                color: "var(--eq2-muted)",
-              }}
-            >
-              <span>Custo por {produto.unidade}</span>
-              <strong style={{ fontSize: 15, color: "var(--eq2-ink)", fontVariantNumeric: "tabular-nums" }}>
-                {custoUnidade != null ? brlSmart(custoUnidade) : "custo pendente"}
-              </strong>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "baseline",
-                gap: 8,
-                fontSize: 13,
-                color: "var(--eq2-muted)",
-              }}
-            >
-              <span>
-                Custo do lote (rende {formatarQtd(rendimento)} {produto.unidade})
-              </span>
-              <strong style={{ fontSize: 15, color: "var(--eq2-ink)", fontVariantNumeric: "tabular-nums" }}>
-                {custoLote != null ? brl(custoLote) : "—"}
-              </strong>
-            </div>
-            {precoVenda != null && margemAbs != null && (
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "baseline",
-                  gap: 8,
-                  fontSize: 13,
-                  color: margemAbs > 0 ? "#2e7d43" : "var(--eq2-danger)",
-                  fontWeight: 600,
-                }}
-              >
-                <span>Margem por venda</span>
-                <strong style={{ fontVariantNumeric: "tabular-nums" }}>
-                  {margemAbs > 0 ? `${brl(margemAbs)} · ${margemPct}%` : "ainda não sobra"}
-                </strong>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* ---------- sheet: editar ingrediente ---------- */}
       <Eq2Sheet aberto={!!editando} onFechar={fecharEdicao} titulo={editando?.nome ?? "Ingrediente"}>
