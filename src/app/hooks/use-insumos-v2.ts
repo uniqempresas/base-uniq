@@ -192,6 +192,47 @@ function mapInsumo(db: DBInsumo): InsumoV2 {
   };
 }
 
+/* ───────────────────────────── criação ───────────────────────────── */
+
+/**
+ * Parâmetros do form "Novo insumo" (InsumoNovoModal) → INSERT em `me_produto`.
+ * Mesma filosofia do `criarReceita` de use-receitas-lista-v2: o modal pergunta
+ * em português ("1 lata tem 395 g"), o banco recebe a decisão técnica.
+ */
+export interface CriarInsumoParams {
+  /** `me_produto.nome_produto` */
+  nome: string;
+  /** unidade de ESTOQUE escolhida nos chips (g / ml / un) — a base das receitas */
+  unidade: string;
+  /**
+   * `me_produto.unidade_compra` — embalagem do fornecedor (lata, pacote…).
+   * null = compra direto na unidade do estoque (padrão v1: campo some da UI).
+   */
+  unidadeCompra: string | null;
+  /**
+   * `me_produto.fator_conversao` — quantas unidades de estoque cabem em 1 de
+   * compra (o "395" de 1 lata = 395 g). null quando as unidades são iguais.
+   */
+  fatorConversao: number | null;
+  /** "Estoque inicial (se já tem em casa)" na unidade de estoque; 0 por padrão */
+  estoqueInicial: number;
+  /** opcional — sem valor, o hook gera um SKU simples (padrão do módulo: `SKU-######`) */
+  sku?: string;
+}
+
+/**
+ * Resultado da criação. Em modo demo (sem sessão) `success` é true mas `id`
+ * é null — nada foi gravado (a UI já bloqueia o botão; este guard é a 2ª linha
+ * de defesa, padrão criarReceita).
+ */
+export interface CriarInsumoResult {
+  success: boolean;
+  /** `me_produto.id` do novo insumo (null em modo demo / coluna ausente) */
+  id: number | null;
+  nome: string;
+  error?: string;
+}
+
 /* ───────────────────────────── hook: LISTA ───────────────────────────── */
 
 export interface UseInsumosV2Return {
@@ -200,6 +241,8 @@ export interface UseInsumosV2Return {
   error: string | null;
   isFallback: boolean;
   recarregar: () => void;
+  /** INSERT de insumo em `me_produto` (natureza='insumo', vitrine off) */
+  criarInsumo: (params: CriarInsumoParams) => Promise<CriarInsumoResult>;
 }
 
 export function useInsumosV2(): UseInsumosV2Return {
@@ -263,7 +306,86 @@ export function useInsumosV2(): UseInsumosV2Return {
     carregarDados();
   }, [carregarDados]);
 
-  return { insumos, loading, error, isFallback, recarregar: carregarDados };
+  /* ───────────────────────────── criação ───────────────────────────── */
+
+  const criarInsumo = useCallback(
+    async (params: CriarInsumoParams): Promise<CriarInsumoResult> => {
+      const nome = params.nome.trim();
+
+      // MODO DEMO (regra mock-first 07/09/2026): sem sessão NÃO grava — a tela
+      // já bloqueia o botão, este guard é a segunda linha de defesa.
+      if (!temSessao) {
+        return { success: true, id: null, nome };
+      }
+      // Sem empresa resolvida: NÃO gravar em outro tenant (padrão use-criar-produto)
+      if (!empresaId) {
+        return {
+          success: false,
+          id: null,
+          nome,
+          error: "Empresa não identificada para este usuário. Recarregue a página ou faça login novamente.",
+        };
+      }
+      if (!nome) {
+        return { success: false, id: null, nome, error: "Dê um nome ao insumo." };
+      }
+
+      // Decisão de banco espelha a UI: sem unidade de compra ≠ unidade de
+      // estoque, fator é null (1:1). A validação do modal já garantiu o resto.
+      const unidadeCompra = params.unidadeCompra?.trim() || null;
+      const fator = unidadeCompra ? params.fatorConversao : null;
+
+      try {
+        const { data, error: insError } = await supabase
+          .from("me_produto")
+          .insert({
+            empresa_id: empresaId,
+            nome_produto: nome,
+            // insumo = matéria-prima (eixo de produção F1); `tipo` é legado de
+            // variações — "Outros" como no use-criar-produto
+            natureza: "insumo",
+            tipo: "Outros",
+            unidade: params.unidade,
+            unidade_compra: unidadeCompra,
+            fator_conversao: fator,
+            // estoque: só o "se já tem em casa" (default 0); o resto chega na 1ª compra
+            estoque_atual: params.estoqueInicial || 0,
+            estoque_minimo: 0,
+            // D9 v1: o custo NASCE da primeira compra — nada de preço no cadastro.
+            // Insumo é matéria-prima: nunca vitrine (SPEC §6.3 — força off).
+            preco: 0,
+            preco_custo: 0,
+            preco_varejo: null,
+            exibir_vitrine: false,
+            sku: params.sku?.trim() || `SKU-${Date.now().toString().slice(-6)}`,
+            ativo: true,
+            descricao: null,
+            foto_url: null,
+            categoria_id: null,
+            codigo_barras: null,
+            opcoes_config: [],
+          })
+          .select("id")
+          .single();
+
+        if (insError) throw insError;
+
+        const novoId = Number((data as { id?: number | string } | null)?.id ?? 0) || null;
+        return { success: true, id: novoId, nome };
+      } catch (err) {
+        console.error("[useInsumosV2] Erro ao cadastrar o insumo:", err);
+        return {
+          success: false,
+          id: null,
+          nome,
+          error: err instanceof Error ? err.message : "Não foi possível cadastrar o insumo.",
+        };
+      }
+    },
+    [empresaId, temSessao]
+  );
+
+  return { insumos, loading, error, isFallback, recarregar: carregarDados, criarInsumo };
 }
 
 /* ───────────────────────────── hook: DETALHE ───────────────────────────── */

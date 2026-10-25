@@ -4,8 +4,8 @@
  *
  * Estrutura: barra com contagem → busca client-side → chips de categoria
  * (derivadas do embed `me_categoria`) → grid de cards (.eq2-card, 3 col no
- * desktop) → FAB "Novo insumo" reutilizando o ProdutoFormModal compartilhado
- * (natureza pré-marcada "insumo", padrão M1 do ProdutosPage).
+ * desktop) → FAB "Novo insumo" abrindo o InsumoNovoModal dedicado (fundador:
+ * o ProdutoFormModal v1 é pesado/jargão demais para matéria-prima).
  * Estados: skeleton · empty (MelissaCard) · erro com retry · sem resultados.
  */
 import { useMemo, useState } from "react";
@@ -22,8 +22,7 @@ import {
   useInsumosV2,
   type InsumoV2,
 } from "../../../hooks/use-insumos-v2";
-import { useCategorias } from "../../../hooks/use-categorias";
-import { ProdutoFormModal } from "../../produto/ProdutoFormModal";
+import { InsumoNovoModal } from "./InsumoNovoModal";
 
 /* Emoji genérico por categoria — o redesign usa ícone leve, não foto. */
 const EMOJI_POR_CATEGORIA: Array<[RegExp, string]> = [
@@ -171,9 +170,7 @@ function SkeletonCard() {
 
 export function InsumosV2Page() {
   const navigate = useNavigate();
-  const { insumos, loading, error, isFallback, recarregar } = useInsumosV2();
-  // Catálogo real de categorias — exigido pelo ProdutoFormModal (padrão ProdutosPage)
-  const { categorias: categoriasConfig } = useCategorias();
+  const { insumos, loading, error, isFallback, recarregar, criarInsumo } = useInsumosV2();
 
   const [busca, setBusca] = useState("");
   const [categoriaAtiva, setCategoriaAtiva] = useState<number | "todos">("todos");
@@ -356,13 +353,12 @@ export function InsumosV2Page() {
       {/* Modal FORA do gate de loading (padrão HOTFIX ProdutosPage):
           refetch em fundo não pode desmontar o form no meio da digitação. */}
       {showNovo && (
-        <ProdutoFormModal
-          categorias={categoriasConfig}
-          naturezaInicial="insumo"
+        <InsumoNovoModal
+          criarInsumo={criarInsumo}
           onClose={() => setShowNovo(false)}
-          onSuccess={() => {
+          onSuccess={(criado) => {
             setShowNovo(false);
-            toast.success("Insumo cadastrado com sucesso! 🎉");
+            toast.success(`${criado.nome} entrou no seu estoque! 🎉`);
             recarregar();
           }}
         />
