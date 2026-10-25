@@ -493,6 +493,25 @@ export function InsumoV2DetalhePage() {
 
   return (
     <div className="eq2">
+      {/* shipped: bottombar limitada no desktop (pill flutuante centrada) —
+          mobile < 900px não é afetado (largura total, rodapé colado) */}
+      <style>{`
+        @media (min-width: 900px) {
+          .eq2-bottombar.eq2-bottombar--detalhe {
+            left: 50%;
+            right: auto;
+            transform: translateX(-50%);
+            width: min(420px, calc(100% - 48px));
+            bottom: 20px;
+            padding: 10px;
+            background: #ffffff;
+            border: 1px solid var(--eq2-border);
+            border-radius: 999px;
+            box-shadow: 0 12px 32px rgba(15, 21, 33, 0.18);
+          }
+          .eq2-bottombar.eq2-bottombar--detalhe::before { content: none; }
+        }
+      `}</style>
       <div className="eq2-shell">
         <header className="eq2-bar">
           <button type="button" className="eq2-back" onClick={() => navigate(-1)} aria-label="Voltar para a lista de insumos">
@@ -521,7 +540,7 @@ export function InsumoV2DetalhePage() {
         </main>
 
         {insumo && !loading && (
-          <div className="eq2-bottombar">
+          <div className="eq2-bottombar eq2-bottombar--detalhe">
             <button
               type="button"
               className="eq2-btn eq2-btn--primary"
