@@ -343,11 +343,25 @@ export function ProdutoNovoModal({ onClose, onSuccess, criarSimples, criarCompos
         role="dialog"
         aria-modal="true"
         aria-label="Novo produto"
-        style={
-          desktop
-            ? { top: 0, right: 0, left: "auto", bottom: 0, width: 440, maxWidth: "92vw", maxHeight: "none", borderRadius: 0 }
-            : undefined
-        }
+        style={{
+          // Glassline: sem a linha abaixo o painel herda `pointer-events: none`
+          // do wrapper (jusante ao fundador: clicava nada dentro dele).
+          pointerEvents: "auto",
+          ...(desktop
+            ? {
+                // Escolha do fundador: modal centralizado (não painel lateral).
+                left: "50%",
+                top: "50%",
+                right: "auto",
+                bottom: "auto",
+                transform: "translate(-50%, -50%)",
+                width: 480,
+                maxWidth: "92vw",
+                maxHeight: "86vh",
+                borderRadius: 16,
+              }
+            : undefined),
+        }}
       >
         {!desktop && <div className="eq2-sheet__grabber" aria-hidden="true" />}
 
