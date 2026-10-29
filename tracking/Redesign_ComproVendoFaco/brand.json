@@ -1,0 +1,112 @@
+{
+  "name": "UNIQ Consultoria — Design System (DESIGN.md)",
+  "tagline": "> Formato Stitch — para agentes de IA gerarem UI consistente na Base UNIQ.",
+  "description": "### Mood\n**Tecnologia capaz, conversa humana.** A Base UNIQ deve parecer um cockpit profissional que qualquer empreendedor de Suzano consegue usar sem medo. O visual é sóbrio e corporativo, mas a presença da Melissa traz calor humano.\n\n### Sensação\n- **Profissional, não frio.** A sidebar escura e os cards limpos transmitem seriedade de ERP. O verde menta e o avatar da Melissa impedem que pareça um banco ou sistema burocrático.\n- **Confiante, não arrogante.** As superfícies são organizadas, os espaçamentos generosos, as sombras suaves. Não há ruído visual, brilhos desnecessários ou elementos \"tech for tech's sake\".\n- **Local, não genérico.** A paleta de verde petróleo + menta foge do azul corporativo padrão. A experiência parece feita para o dono da loja de Suzano, não para um escritório de São Paulo.\n\n### Densidade\n- **Média-baixa.** O conteúdo é organizado em cards respiráveis. A sidebar é densa (navegação completa), mas a área de conteúdo é arejada.\n- Telas de métricas e dashboard priorizam clareza sobre quantidade de informação.\n- Telas de chat com a Melissa são espaçadas, simulando uma conversa real.\n\n### Filosofia de design\n> \"A Base UNIQ não parece um SaaS genérico. Ela parece uma central de operações que cabe no bolso do empreendedor.\"\n\nCada elemento visual existe para reduzir atrito e aumentar confiança. Nada é decorativo sem função.",
+  "sourceUrl": "designmd://uniq-consultoria-design-system-design-md",
+  "logo": {
+    "primary": "logos/Logo.png",
+    "alternates": [],
+    "notes": "No logo supplied in pasted DESIGN.md."
+  },
+  "colors": [
+    {
+      "role": "background",
+      "hex": "#efefef",
+      "oklch": "",
+      "name": "Cinza claro",
+      "usage": "page canvas"
+    },
+    {
+      "role": "foreground",
+      "hex": "#1f2937",
+      "oklch": "",
+      "name": "Grafite escuro",
+      "usage": "body text and headings"
+    },
+    {
+      "role": "accent",
+      "hex": "#86cb92",
+      "oklch": "",
+      "name": "Verde menta",
+      "usage": "primary actions and emphasis"
+    },
+    {
+      "role": "surface",
+      "hex": "#ffffff",
+      "oklch": "",
+      "name": "Branco",
+      "usage": "cards and panels"
+    },
+    {
+      "role": "muted",
+      "hex": "#627271",
+      "oklch": "",
+      "name": "Cinza esverdeado",
+      "usage": "secondary text and metadata"
+    },
+    {
+      "role": "border",
+      "hex": "#efefef",
+      "oklch": "",
+      "name": "Cinza claro",
+      "usage": "rules and dividers"
+    }
+  ],
+  "typography": {
+    "display": {
+      "family": "Poppins",
+      "fallbacks": [
+        "system-ui",
+        "-apple-system",
+        "Segoe UI",
+        "Helvetica Neue",
+        "Arial",
+        "sans-serif"
+      ],
+      "weights": [
+        400,
+        700
+      ]
+    },
+    "body": {
+      "family": "Poppins",
+      "fallbacks": [
+        "system-ui",
+        "-apple-system",
+        "Segoe UI",
+        "Helvetica Neue",
+        "Arial",
+        "sans-serif"
+      ],
+      "weights": [
+        400,
+        700
+      ]
+    }
+  },
+  "voice": {
+    "adjectives": [],
+    "tone": "### Mood\n**Tecnologia capaz, conversa humana.** A Base UNIQ deve parecer um cockpit profissional que qualquer empreendedor de Suzano consegue usar sem medo.",
+    "messagingPillars": [
+      "### Mood\n**Tecnologia capaz, conversa humana.** A Base UNIQ deve parecer um cockpit profissional que qualquer empreendedor de Suzano consegue usar sem medo. O visual é sóbrio e corporativo, mas a presença da Melissa traz calor humano.\n\n### Sensação\n- **Profissional, não frio.** A sidebar escura e os cards limpos transmitem seriedade de ERP. O verde menta e o avatar da Melissa impedem que pareça um banco ou sistema burocrático.\n- **Confiante, não arrogante.** As superfícies são organizadas, os espaçamentos generosos, as sombras suaves. Não há ruído visual, brilhos desnecessários ou elementos \"tech for tech's sake\".\n- **Local, não genérico.** A paleta de verde petróleo + menta foge do azul corporativo padrão. A experiência parece feita para o dono da loja de Suzano, não para um escritório de São Paulo.\n\n### Densidade\n- **Média-baixa.** O conteúdo é organizado em cards respiráveis. A sidebar é densa (navegação completa), mas a área de conteúdo é arejada.\n- Telas de métricas e dashboard priorizam clareza sobre quantidade de informação.\n- Telas de chat com a Melissa são espaçadas, simulando uma conversa real.\n\n### Filosofia de design\n> \"A Base UNIQ não parece um SaaS genérico. Ela parece uma central de operações que cabe no bolso do empreendedor.\"\n\nCada elemento visual existe para reduzir atrito e aumentar confiança. Nada é decorativo sem função.",
+      "> Formato Stitch — para agentes de IA gerarem UI consistente na Base UNIQ. > Última atualização: 22/08/2026"
+    ],
+    "vocabulary": {
+      "use": [],
+      "avoid": []
+    }
+  },
+  "imagery": {
+    "style": "",
+    "subjects": [],
+    "treatment": "",
+    "avoid": [],
+    "samples": []
+  },
+  "layout": {
+    "radius": "8px",
+    "borderWeight": "1px",
+    "spacing": "8px baseline grid",
+    "postureRules": []
+  }
+}

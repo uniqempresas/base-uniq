@@ -230,4 +230,11 @@ O fundador testou "Produzir lote" da Trufa Limão e o custo veio **R$ 39,56/un**
 
 ---
 
+## 🏭 ESTOQUE V2 (21–25/10/2026)
+
+> **Ler `TRACKING.md` → seção "ESTOQUE V2 — Compro/Faço/Vendo" (reconciliada em 29/10).**
+> Resumo: Fase 4a estorno de OP (`11ed6f3`) · redesenho via OpenDesign (`PROMPT_OPENDESIGN_FLUXO_ESTOQUE_PRODUCAO.md` + `Redesign_ComproVendoFaco/`) · 14 commits de implementação (rotas espelho `/estoque-v2/*` ligadas ao banco real, **sem substituir** `/estoque`) · ⚠️ **drift de migrations**: `me_categoria.escopo` e `fornecedor_id` nullable aplicadas no banco mas **não versionadas** no repo (verificar schema real antes do catch-up) · validação do fundador pendente.
+
+---
+
 *Documento gerado do recon de 06/10/2026. Referências: `TRACKING.md` (B1, B11, F3, item 3 do lote), `TRACKING_MODULOS.md:198` (A12 — dependência vitrine↔estoque), `BACKLOG_SEGURANCA.md:68,:76,:99` (drenagem de estoque via `anon` — P5).*

@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "margem.html",
+  "entry": "margem.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-10-24T18:34:54.745Z",
+  "updatedAt": "2026-10-24T18:34:54.745Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}

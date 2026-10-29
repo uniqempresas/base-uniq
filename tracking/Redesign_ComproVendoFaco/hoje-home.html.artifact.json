@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "hoje-home.html",
+  "entry": "hoje-home.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-10-24T18:37:26.992Z",
+  "updatedAt": "2026-10-24T18:37:26.992Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}

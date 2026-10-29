@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Recheio de limão — ficha da receita · UNIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/tokens.css" />
+<link rel="stylesheet" href="assets/shared.css" />
+<style>
+  /* ---- ajustes locais desta tela (sem cor nova: só tokens e color-mix) ---- */
+  .page { padding: var(--uniq-space-4); display: flex; flex-direction: column; gap: var(--uniq-space-4); }
+
+  /* app-bar com badge do título na 2ª linha (evita estourar os 360px) */
+  .app-bar--ficha { flex-wrap: wrap; row-gap: var(--uniq-space-1); }
+  .app-bar--ficha .badge { order: 10; flex-basis: 100%; margin-left: 52px; align-self: flex-start; }
+
+  .ficha-yield { font-size: var(--uniq-text-2xl); font-weight: var(--uniq-weight-bold); letter-spacing: -0.02em; }
+  .ficha-yield__sub { font-size: var(--uniq-text-base); color: var(--uniq-ink-muted); margin-top: 2px; }
+
+  .ing-row { align-items: center; }
+  .ing-cost { font-size: var(--uniq-text-md); font-weight: var(--uniq-weight-bold); letter-spacing: -0.01em; }
+  .ing-row .icon--chev { width: 16px; height: 16px; color: color-mix(in oklab, var(--uniq-muted) 70%, var(--uniq-surface)); }
+
+  /* seções colapsáveis (details/summary nativos, acessíveis) */
+  .sec { background: var(--uniq-surface); border: var(--uniq-border-w) solid var(--uniq-border-on-white); border-radius: var(--uniq-radius-card); box-shadow: var(--uniq-shadow-sm); overflow: hidden; }
+  .sec > summary { display: flex; align-items: center; gap: var(--uniq-space-2); min-height: 52px; padding: var(--uniq-space-2) var(--uniq-space-3); cursor: pointer; list-style: none; font-weight: var(--uniq-weight-semibold); }
+  .sec > summary::-webkit-details-marker { display: none; }
+  .sec > summary:hover { background: var(--uniq-surface-hover); }
+  .sec > summary h2 { font-size: var(--uniq-text-md); font-weight: var(--uniq-weight-semibold); }
+  .sec > summary .chev { transition: rotate 160ms ease; margin-left: auto; }
+  .sec[open] > summary .chev { rotate: 180deg; }
+  .sec__count { font-size: var(--uniq-text-xs); font-weight: var(--uniq-weight-semibold); color: var(--uniq-ink-muted); background: var(--uniq-surface-sunken); border: var(--uniq-border-w) solid var(--uniq-border-on-white); border-radius: var(--uniq-radius-pill); padding: 2px 8px; }
+  .sec__body { padding: 0 var(--uniq-space-3) var(--uniq-space-3); }
+
+  /* linhas não-clicáveis do exemplo colapsado */
+  .list-card--static, .list-card--static:hover, .list-card--static:active { cursor: default; background: var(--uniq-surface); box-shadow: none; }
+
+  /* switch “vendo isso” */
+  .switch-row { display: flex; align-items: center; gap: var(--uniq-space-3); }
+  .switch-row__text { flex: 1; min-width: 0; }
+  .switch-row__label { font-size: var(--uniq-text-md); font-weight: var(--uniq-weight-semibold); }
+  .switch-row__help { font-size: var(--uniq-text-xs); color: var(--uniq-ink-muted); line-height: 1.4; }
+  .switch { position: relative; width: 56px; height: 32px; flex-shrink: 0; min-width: 56px; border: 0; border-radius: var(--uniq-radius-pill); background: color-mix(in oklab, var(--uniq-muted) 34%, var(--uniq-surface)); cursor: pointer; transition: background 160ms ease; }
+  .switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%; background: var(--uniq-surface); box-shadow: var(--uniq-shadow-sm); transition: translate 160ms ease; }
+  .switch[aria-checked='true'] { background: var(--uniq-accent); }
+  .switch[aria-checked='true']::after { translate: 24px 0; }
+
+  .venda-fields { display: flex; flex-direction: column; gap: var(--uniq-space-2); }
+  .venda-fields__grid { display: flex; gap: var(--uniq-space-2); align-items: stretch; }
+  .venda-fields__grid .input-group { flex: 1; min-width: 0; }
+  .venda-fields__grid .select { width: 150px; flex-shrink: 0; }
+  .margem-line { display: flex; align-items: flex-start; gap: var(--uniq-space-2); font-size: var(--uniq-text-base); color: var(--uniq-ink); background: var(--uniq-accent-faint); border: var(--uniq-border-w) solid color-mix(in oklab, var(--uniq-accent) 38%, var(--uniq-surface)); border-radius: var(--uniq-radius-control); padding: var(--uniq-space-2) var(--uniq-space-3); line-height: 1.4; }
+  .margem-line .icon { margin-top: 2px; }
+  .margem-line--none { background: var(--uniq-surface-sunken); border-color: var(--uniq-border-on-white); color: var(--uniq-ink-muted); }
+
+  /* barra inferior alta (duas linhas de custo + CTA no polegar) */
+  .app-shell--ficha { padding-bottom: calc(178px + var(--uniq-safe-bottom)); }
+  .cost-line { display: flex; align-items: baseline; justify-content: space-between; gap: var(--uniq-space-2); font-size: var(--uniq-text-sm); color: var(--uniq-ink-muted); }
+  .cost-line strong { font-size: var(--uniq-text-md); font-weight: var(--uniq-weight-bold); color: var(--uniq-ink); letter-spacing: -0.01em; white-space: nowrap; }
+
+  /* cartão Melissa com avatar real (borda 2px menta vem do componente) */
+  .melissa-card__avatar { padding: 0; overflow: hidden; }
+  .melissa-card__avatar img { width: 100%; height: 100%; display: block; }
+  .receipt--dark { background: color-mix(in oklab, var(--uniq-fg) 40%, var(--uniq-surface)); border: var(--uniq-border-w) solid var(--uniq-dark-hairline); }
+
+  /* sheets */
+  .sheet-grid { display: flex; gap: var(--uniq-space-2); align-items: flex-start; }
+  .sheet-grid .field { flex: 1; min-width: 0; }
+  .sheet-grid .field--unit { flex: 0 0 132px; }
+  .sheet-actions { display: flex; gap: var(--uniq-space-2); margin-top: var(--uniq-space-4); }
+  .sheet-actions .btn { flex: 1; }
+  .linha-custo-live { display: flex; align-items: baseline; justify-content: space-between; gap: var(--uniq-space-2); margin-top: var(--uniq-space-3); padding: var(--uniq-space-2) var(--uniq-space-3); border-radius: var(--uniq-radius-control); background: var(--uniq-surface-sunken); border: var(--uniq-border-w) solid var(--uniq-border-on-white); font-size: var(--uniq-text-base); color: var(--uniq-ink-muted); }
+  .linha-custo-live strong { font-family: var(--uniq-font-mono); font-size: var(--uniq-text-lg); color: var(--uniq-ink); }
+  .add-row { border-bottom: var(--uniq-border-w) solid var(--uniq-border); }
+  .add-row:last-child { border-bottom: 0; }
+
+  .passo { display: flex; gap: var(--uniq-space-3); align-items: flex-start; padding: var(--uniq-space-2) 0; font-size: var(--uniq-text-base); }
+  .passo__num { width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%; background: var(--uniq-surface-sunken); border: var(--uniq-border-w) solid var(--uniq-border-on-white); font-size: var(--uniq-text-xs); font-weight: var(--uniq-weight-semibold); display: flex; align-items: center; justify-content: center; }
+
+  .demo-note { font-size: var(--uniq-text-xs); color: var(--uniq-ink-muted); line-height: 1.4; }
+  @media (prefers-reduced-motion: reduce) { .switch::after, .sec > summary .chev { transition: none; } }
+</style>
+</head>
+<body>
+<div class="app-shell app-shell--ficha" data-od-id="tela-receita-editor">
+
+  <!-- ================================ APP BAR ================================ -->
+  <header class="app-bar app-bar--ficha" data-od-id="appbar-ficha">
+    <a class="icon-btn" href="hoje-home.html" aria-label="Voltar para a tela de hoje" data-od-id="btn-voltar">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+    </a>
+    <h1 class="app-bar__title" data-od-id="titulo-receita">Recheio de limão</h1>
+    <div class="app-bar__actions">
+      <span class="pill pill--success hide" id="pill-salvo" role="status" data-od-id="pill-salvo">
+        <svg class="icon icon--16" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+        salvo
+      </span>
+      <button class="icon-btn" id="btn-salvar-topo" aria-label="Salvar receita" data-od-id="btn-salvar-topo">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+      </button>
+    </div>
+    <span class="badge badge--recipes" data-od-id="badge-usada-em-2">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 10 5-10 5L2 7z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>
+      usada em 2 receitas
+    </span>
+  </header>
+
+  <main class="page">
+
+    <!-- ============ CABEÇALHO: RENDIMENTO + TOGGLE “VENDO ISSO” ============ -->
+    <section class="panel stack" data-od-id="painel-rendimento-venda">
+      <div>
+        <h2 class="section-title" data-od-id="titulo-rendimento">Rendimento</h2>
+        <p class="ficha-yield" data-od-id="valor-rendimento">rende ~595 g</p>
+        <p class="ficha-yield__sub">(≈ 1 receita) · quantidade que sobra pronta depois de bater e gelar</p>
+      </div>
+
+      <div>
+        <div class="switch-row" data-od-id="linha-toggle-vendo">
+          <div class="switch-row__text">
+            <p class="switch-row__label" id="label-vendo-isso">Vendo isso</p>
+            <p class="switch-row__help">Ative para transformar a receita em produto: ela entra na lista do “Vendo” com o preço que você definir. Este recheio está desligado — ele é usado dentro de outras receitas.</p>
+          </div>
+          <button class="switch" id="toggle-vendo-isso" role="switch" aria-checked="false" aria-labelledby="label-vendo-isso" data-od-id="toggle-vendo-isso"></button>
+        </div>
+
+        <div class="venda-fields hide" id="venda-fields">
+          <div class="field">
+            <span class="field__label" id="label-preco">Preço de venda</span>
+            <div class="venda-fields__grid">
+              <div class="input-group">
+                <span class="input-group__affix">R$</span>
+                <input class="input" id="input-preco" type="text" inputmode="decimal" placeholder="0,00" autocomplete="off" aria-labelledby="label-preco" data-od-id="campo-preco-venda" />
+              </div>
+              <select class="select" id="select-base-preco" aria-label="Preço cobrado por quê" data-od-id="select-base-preco">
+                <option value="100g" selected>por 100 g</option>
+                <option value="g">por grama</option>
+                <option value="receita">por receita</option>
+              </select>
+            </div>
+          </div>
+          <div class="margem-line margem-line--none" id="linha-margem" aria-live="polite" data-od-id="linha-margem">
+            <svg class="icon icon--18" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+            <span id="margem-texto">Digite um preço para eu mostrar quanto sobra de cada venda.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================= INGREDIENTES ============================= -->
+    <details class="sec" open data-od-id="secao-ingredientes">
+      <summary>
+        <svg class="icon icon--18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.5c-4.97 0-9-3.13-9-7 0-2.5 1.35-4.1 3-5.5"/><path d="M12 21.5c4.97 0 9-3.13 9-7 0-2.5-1.35-4.1-3-5.5"/><path d="M12 6.5c-1.5-1.3-2-2.6-1.5-4.5 2 .8 3 2 3 4.5z"/></svg>
+        <h2 data-od-id="titulo-secao-ingredientes">Ingredientes</h2>
+        <span class="sec__count" id="count-ingredientes">3</span>
+        <svg class="icon icon--18 chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <div class="sec__body stack--tight">
+        <div class="stack--tight" id="lista-ingredientes" data-od-id="lista-ingredientes">
+
+          <button class="list-card ing-row" data-ing="leite" aria-label="Editar quantidade de leite condensado: 1 lata, R$ 5,49" data-od-id="ing-row-leite-condensado">
+            <span class="list-card__icon" aria-hidden="true">
+              <svg class="icon icon--20" viewBox="0 0 24 24"><rect x="7" y="8" width="10" height="12" rx="2"/><path d="m8.5 8 1.2-4h4.6L15.5 8"/><path d="M9 12h6"/></svg>
+            </span>
+            <span class="list-card__body">
+              <span class="list-card__title">Leite condensado</span>
+              <span class="list-card__meta" data-qty>1 lata (395 g)</span>
+            </span>
+            <span class="list-card__side">
+              <span class="ing-cost text-num" data-cost>R$ 5,49</span>
+              <svg class="icon icon--chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+            </span>
+          </button>
+
+          <button class="list-card ing-row" data-ing="creme" aria-label="Editar quantidade de creme de leite: 1 caixa, R$ 2,89" data-od-id="ing-row-creme-de-leite">
+            <span class="list-card__icon" aria-hidden="true">
+              <svg class="icon icon--20" viewBox="0 0 24 24"><path d="M8 3h8l2 5v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V8z"/><path d="M6 8h12"/></svg>
+            </span>
+            <span class="list-card__body">
+              <span class="list-card__title">Creme de leite</span>
+              <span class="list-card__meta" data-qty>1 caixa (200 g)</span>
+            </span>
+            <span class="list-card__side">
+              <span class="ing-cost text-num" data-cost>R$ 2,89</span>
+              <svg class="icon icon--chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+            </span>
+          </button>
+
+          <button class="list-card ing-row" data-ing="limao" aria-label="Editar quantidade de limão: 2 unidades, R$ 1,60, preço estimado" data-od-id="ing-row-limao">
+            <span class="list-card__icon" aria-hidden="true">
+              <svg class="icon icon--20" viewBox="0 0 24 24"><circle cx="12" cy="14" r="7"/><path d="M12 7c.4-1.8 1.6-2.9 3.6-3.2.2 2-.8 3.3-2.6 3.9"/><path d="M12 11v6M9.2 12.6l5.6 2.8M14.8 12.6l-5.6 2.8"/></svg>
+            </span>
+            <span class="list-card__body">
+              <span class="list-card__title">Limão</span>
+              <span class="list-card__meta" data-qty>2 unidades</span>
+              <span>
+                <span class="badge badge--estimate">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                  estimado
+                </span>
+              </span>
+            </span>
+            <span class="list-card__side">
+              <span class="ing-cost text-num" data-cost>R$ 1,60</span>
+              <svg class="icon icon--chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+            </span>
+          </button>
+
+        </div>
+
+        <button class="btn btn--link" id="btn-adicionar-ingrediente" data-od-id="btn-adicionar-ingrediente">
+          <svg class="icon icon--18" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+          Adicionar ingrediente
+        </button>
+        <p class="demo-note">Toque em um ingrediente para trocar a quantidade na unidade que você usa (lata, caixa, unidade). O custo recalcula na hora.</p>
+      </div>
+    </details>
+
+    <!-- ============================ MODO DE PREPARO ============================ -->
+    <details class="sec" data-od-id="secao-preparo">
+      <summary>
+        <svg class="icon icon--18" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4.5 19.5 10l-9 9H5v-5.5z"/><path d="m16.5 7.5 3 3"/></svg>
+        <h2 data-od-id="titulo-secao-preparo">Modo de preparo</h2>
+        <span class="sec__count">3 passos</span>
+        <svg class="icon icon--18 chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <div class="sec__body">
+        <div class="passo"><span class="passo__num">1</span><p>Bata o leite condensado com o creme de leite até engrossar.</p></div>
+        <div class="passo"><span class="passo__num">2</span><p>Junte o suco e as raspas dos 2 limões.</p></div>
+        <div class="passo"><span class="passo__num">3</span><p>Deixe na geladeira por 4 horas antes de usar.</p></div>
+      </div>
+    </details>
+
+    <!-- ==================== EXEMPLO: RECEITA DENTRO DE RECEITA ==================== -->
+    <details class="sec sec--example" data-od-id="secao-exemplo-cone">
+      <summary>
+        <svg class="icon icon--18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3.8 19.4a1 1 0 0 0 .9 1.4h14.6a1 1 0 0 0 .9-1.4z"/></svg>
+        <h2 data-od-id="titulo-secao-exemplo">Exemplo: Cone de limão</h2>
+        <svg class="icon icon--18 chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </summary>
+      <div class="sec__body stack">
+        <p class="demo-note">Assim uma receita vira ingrediente de outra: o <strong>Recheio de limão</strong> mora dentro do cone — é por isso que ele tem a etiqueta “usada em 2 receitas”. As quantidades do cone seguem “por unidade vendida”.</p>
+        <div class="stack--tight">
+
+          <div class="list-card list-card--static" data-od-id="ex-row-chocolate">
+            <span class="list-card__icon" aria-hidden="true">
+              <svg class="icon icon--20" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="14" rx="2"/><path d="M4 13h16M12 6v14"/></svg>
+            </span>
+            <span class="list-card__body">
+              <span class="list-card__title">Chocolate ao leite</span>
+              <span class="list-card__meta">40 g por cone · última compra: R$ 48,90/kg</span>
+            </span>
+            <span class="list-card__side"><span class="ing-cost text-num">R$ 1,96</span></span>
+          </div>
+
+          <div class="list-card list-card--static" data-od-id="ex-row-casquinha">
+            <span class="list-card__icon" aria-hidden="true">
+              <svg class="icon icon--20" viewBox="0 0 24 24"><path d="M12 2 3.8 19.4a1 1 0 0 0 .9 1.4h14.6a1 1 0 0 0 .9-1.4z"/><path d="m8 9 4 12M16 9l-4 12"/></svg>
+            </span>
+            <span class="list-card__body">
+              <span class="list-card__title">Casquinha</span>
+              <span class="list-card__meta">1 unidade por cone · R$ 0,35/un</span>
+            </span>
+            <span class="list-card__side"><span class="ing-cost text-num">R$ 0,35</span></span>
+          </div>
+
+          <div class="list-card list-card--static" data-od-id="ex-row-recheio-dentro-cone">
+            <span class="list-card__icon" aria-hidden="true">
+              <svg class="icon icon--20" viewBox="0 0 24 24"><path d="m12 2 10 5-10 5L2 7z"/><path d="m2 12 10 5 10-5"/></svg>
+            </span>
+            <span class="list-card__body">
+              <span class="list-card__title">Recheio de limão</span>
+              <span class="list-card__meta">55 g por cone</span>
+              <span>
+                <span class="badge badge--recipes">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 10 5-10 5L2 7z"/><path d="m2 12 10 5 10-5"/></svg>
+                  usada em 2 receitas
+                </span>
+              </span>
+            </span>
+            <span class="list-card__side"><span class="ing-cost text-num">R$ 0,78</span></span>
+          </div>
+
+        </div>
+
+        <div class="margem-line" data-od-id="ex-margem-cone">
+          <svg class="icon icon--18" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+          <span><strong>Cone de limão</strong> tem o “Vendo isso” ligado a R$ 8,50: cada cone custa <strong>R$ 3,09</strong> e sobram <strong>R$ 5,41 (64%)</strong> de margem.</span>
+        </div>
+      </div>
+    </details>
+
+    <!-- ================================= MELISSA ================================= -->
+    <aside class="melissa-card" data-od-id="melissa-conversao">
+      <div class="melissa-card__glow" aria-hidden="true"></div>
+      <header class="melissa-card__head">
+        <span class="melissa-card__avatar" aria-hidden="true"><img src="assets/avatar-MELISSA.png" alt="" width="34" height="34" style="border-radius:50%;object-fit:cover"></span>
+        <div>
+          <p class="melissa-card__name">Melissa</p>
+          <p class="melissa-card__role">IA Proativa</p>
+        </div>
+      </header>
+      <div class="melissa-card__bubble">
+        <p data-od-id="melissa-fala-conversao">Sua receita usa <strong>gramas</strong>. Pode deixar que eu converto.</p>
+      </div>
+      <div class="receipt receipt--dark hide" id="melissa-conta" aria-live="polite" data-od-id="melissa-conta-recibo">
+        <p class="receipt__label">a conta por trás do “1 lata”</p>
+        <p class="receipt__line">1 lata de leite condensado = 395 g</p>
+        <p class="receipt__line">1 caixa de creme de leite = 200 g</p>
+        <p class="receipt__line">2 limões ≈ suco + raspas</p>
+        <p class="receipt__detail">você escreve “1 lata” e eu calculo em gramas sozinha</p>
+      </div>
+      <footer class="melissa-card__actions">
+        <button class="melissa-card__action" id="btn-melissa-conta" aria-expanded="false" aria-controls="melissa-conta" data-od-id="btn-melissa-mostrar-conta">
+          <svg class="icon icon--16" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
+          Mostrar a conta
+        </button>
+      </footer>
+    </aside>
+
+    <div class="divider" role="separator">Estados da tela</div>
+
+    <!-- ------------------------------ SKELETON ------------------------------ -->
+    <section data-od-id="estado-skeleton" aria-label="Carregando a ficha da receita">
+      <p class="section-title">Carregando ficha técnica</p>
+      <div class="panel stack" aria-hidden="true">
+        <div class="skeleton skeleton--title"></div>
+        <div class="skeleton skeleton--line" style="width: 40%"></div>
+        <div class="skeleton skeleton--card"></div>
+        <div class="skeleton skeleton--card"></div>
+        <div class="skeleton skeleton--card"></div>
+        <div class="skeleton skeleton--pill"></div>
+      </div>
+    </section>
+
+    <!-- ------------------------------- EMPTY -------------------------------- -->
+    <section data-od-id="estado-vazio" aria-label="Ficha sem ingredientes">
+      <p class="section-title">Ficha ainda em branco</p>
+      <div class="panel">
+        <div class="state-block">
+          <svg class="icon icon--48 state-block__illo" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 13.9A6 6 0 0 0 18 14"/><path d="M4 14h16"/><path d="M8.5 9.5 7 6"/><path d="M12 9V4.5"/><path d="M15.5 9.5 17 6"/></svg>
+          <p class="state-block__title">Nenhum ingrediente ainda</p>
+          <p class="state-block__text">Anote o que vai na receita, na medida que você usa: “1 lata”, “2 limões”…</p>
+        </div>
+        <aside class="melissa-card" data-od-id="melissa-estado-vazio">
+          <div class="melissa-card__glow" aria-hidden="true"></div>
+          <header class="melissa-card__head">
+            <span class="melissa-card__avatar" aria-hidden="true"><img src="assets/avatar-MELISSA.png" alt="" width="34" height="34" style="border-radius:50%;object-fit:cover"></span>
+            <div>
+              <p class="melissa-card__name">Melissa</p>
+              <p class="melissa-card__role">IA Proativa</p>
+            </div>
+          </header>
+          <div class="melissa-card__bubble">
+            <p data-od-id="melissa-fala-estado-vazio">Adicione os ingredientes. Eu calculo o custo de cada um.</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ------------------------------- ERROR -------------------------------- -->
+    <section data-od-id="estado-erro" aria-label="Erro ao salvar">
+      <p class="section-title">Se a salvação falhar</p>
+      <div class="panel">
+        <div class="state-block">
+          <svg class="icon icon--48 state-block__illo" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--uniq-error-ink)"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+          <p class="state-block__title">Não deu para salvar a receita</p>
+          <p class="state-block__text">Pode ser internet instável. Nada foi perdido: a ficha continua aqui no aparelho.</p>
+          <button class="btn btn--secondary" type="button" data-od-id="btn-tentar-de-novo-ficha">
+            <svg class="icon icon--18" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
+            Tentar de novo
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- =========================== RODAPÉ STICKY (CUSTOS) =========================== -->
+  <div class="bottom-bar" data-od-id="barra-custos">
+    <div class="cost-line" data-od-id="linha-custo-total">
+      <span>Custo total · custo médio</span>
+      <strong id="total-custo" class="text-num">R$ 9,98</strong>
+    </div>
+    <div class="cost-line" data-od-id="linha-custo-por-g">
+      <span>Custo por grama de recheio</span>
+      <strong id="total-por-g" class="text-num">R$ 0,0142/g</strong>
+    </div>
+    <div class="cost-line hide" data-od-id="linha-margem-barra" id="barra-margem-row">
+      <span>Margem por venda</span>
+      <strong id="barra-margem" class="text-num">—</strong>
+    </div>
+    <button class="btn btn--primary btn--block btn--lg" id="btn-salvar-receita" data-od-id="btn-salvar-receita">
+      <svg class="icon icon--20" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+      Salvar receita
+    </button>
+  </div>
+
+  <!-- ===================== SHEET: EDITAR INGREDIENTE ===================== -->
+  <div class="sheet" id="sheet-editar" hidden data-od-id="sheet-editar-ingrediente">
+    <div class="sheet__overlay" data-close="sheet-editar"></div>
+    <div class="sheet__panel" role="dialog" aria-modal="true" aria-labelledby="sheet-editar-titulo">
+      <span class="sheet__handle" aria-hidden="true"></span>
+      <div style="display:flex; align-items:flex-start; gap: var(--uniq-space-2);">
+        <h2 class="sheet__title" id="sheet-editar-titulo" style="flex:1;" data-od-id="titulo-sheet-editar">Ingrediente</h2>
+        <button class="icon-btn" data-close="sheet-editar" aria-label="Fechar" data-od-id="btn-fechar-sheet-editar">
+          <svg class="icon icon--18" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <div class="sheet-grid">
+        <label class="field">
+          <span class="field__label" id="label-sheet-qty">Quantidade</span>
+          <div class="input-group">
+            <input class="input" id="sheet-qty" type="text" inputmode="decimal" autocomplete="off" aria-labelledby="label-sheet-qty" data-od-id="campo-sheet-quantidade" />
+          </div>
+        </label>
+        <label class="field field--unit">
+          <span class="field__label" id="label-sheet-unit">Medida</span>
+          <select class="select" id="sheet-unit" aria-labelledby="label-sheet-unit" data-od-id="select-sheet-unidade"></select>
+        </label>
+      </div>
+      <p class="field__help" id="sheet-help">1 lata = 395 g · última compra: R$ 5,49</p>
+      <div class="linha-custo-live" aria-live="polite" data-od-id="sheet-custo-live">
+        <span>Custo desta linha na receita</span>
+        <strong id="sheet-custo" class="text-num">R$ 5,49</strong>
+      </div>
+      <footer class="sheet-actions">
+        <button class="btn btn--ghost" data-close="sheet-editar" data-od-id="btn-cancelar-edicao">Cancelar</button>
+        <button class="btn btn--primary" id="btn-sheet-aplicar" data-od-id="btn-aplicar-edicao">Usar essa quantidade</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- ===================== SHEET: ADICIONAR INGREDIENTE ===================== -->
+  <div class="sheet" id="sheet-adicionar" hidden data-od-id="sheet-adicionar-ingrediente">
+    <div class="sheet__overlay" data-close="sheet-adicionar"></div>
+    <div class="sheet__panel" role="dialog" aria-modal="true" aria-labelledby="sheet-adicionar-titulo">
+      <span class="sheet__handle" aria-hidden="true"></span>
+      <div style="display:flex; align-items:flex-start; gap: var(--uniq-space-2);">
+        <h2 class="sheet__title" id="sheet-adicionar-titulo" style="flex:1;" data-od-id="titulo-sheet-adicionar">Que ingrediente falta?</h2>
+        <button class="icon-btn" data-close="sheet-adicionar" aria-label="Fechar" data-od-id="btn-fechar-sheet-adicionar">
+          <svg class="icon icon--18" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <div class="search">
+        <svg class="icon icon--20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input class="input" id="busca-insumo" type="text" inputmode="search" placeholder="Buscar insumo: chocolate, farinha…" aria-label="Buscar insumo" data-od-id="campo-busca-insumo" />
+      </div>
+      <div class="stack--tight" id="lista-adicionar" style="margin-top: var(--uniq-space-3);" data-od-id="lista-insumos-adicionar"></div>
+      <p class="demo-note" style="margin-top: var(--uniq-space-3);">Os custos mostram o preço da última compra.</p>
+    </div>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ------------------------------ dados ------------------------------ */
+  var INGREDIENTES = {
+    leite: {
+      nome: 'Leite condensado',
+      qty: 1, unit: 'lata',
+      units: {
+        lata: { label: 'lata', custo: 5.49, gramas: 395, custoG: 0.0139 },
+        g:    { label: 'grama', custo: 0.0139, gramas: 1 }
+      },
+      icon: '<svg class="icon icon--20" viewBox="0 0 24 24"><rect x="7" y="8" width="10" height="12" rx="2"/><path d="m8.5 8 1.2-4h4.6L15.5 8"/><path d="M9 12h6"/></svg>'
+    },
+    creme: {
+      nome: 'Creme de leite',
+      qty: 1, unit: 'caixa',
+      units: {
+        caixa: { label: 'caixa', custo: 2.89, gramas: 200, custoG: 0.0145 },
+        g:     { label: 'grama', custo: 0.0145, gramas: 1 }
+      },
+      icon: '<svg class="icon icon--20" viewBox="0 0 24 24"><path d="M8 3h8l2 5v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V8z"/><path d="M6 8h12"/></svg>'
+    },
+    limao: {
+      nome: 'Limão',
+      qty: 2, unit: 'unidade', estimado: true,
+      units: {
+        unidade: { label: 'unidade', custo: 0.80, gramas: null }
+      },
+      icon: '<svg class="icon icon--20" viewBox="0 0 24 24"><circle cx="12" cy="14" r="7"/><path d="M12 7c.4-1.8 1.6-2.9 3.6-3.2.2 2-.8 3.3-2.6 3.9"/><path d="M12 11v6M9.2 12.6l5.6 2.8M14.8 12.6l-5.6 2.8"/></svg>'
+    }
+  };
+
+  var CANDIDATOS = {
+    chocolate: {
+      nome: 'Chocolate ao leite', qty: 100, unit: 'g',
+      units: { g: { label: 'grama', custo: 0.0489, gramas: 1 }, kg: { label: 'quilo', custo: 48.90, gramas: 1000 } },
+      icon: '<svg class="icon icon--20" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="14" rx="2"/><path d="M4 13h16M12 6v14"/></svg>',
+      meta: 'última compra: R$ 48,90/kg'
+    },
+    farinha: {
+      nome: 'Farinha de trigo', qty: 100, unit: 'g',
+      units: { g: { label: 'grama', custo: 0.00479, gramas: 1 }, kg: { label: 'quilo', custo: 4.79, gramas: 1000 } },
+      icon: '<svg class="icon icon--20" viewBox="0 0 24 24"><path d="M9 3h6l2.5 4H6.5z"/><path d="M6.5 7 5 20a1.4 1.4 0 0 0 1.4 1.5h11.2A1.4 1.4 0 0 0 19 20L17.5 7z"/><path d="M9.5 13h5"/></svg>',
+      meta: 'última compra: R$ 4,79/kg'
+    },
+    ovos: {
+      nome: 'Ovos', qty: 1, unit: 'unidade',
+      units: { unidade: { label: 'unidade', custo: 1.00, gramas: null } },
+      icon: '<svg class="icon icon--20" viewBox="0 0 24 24"><ellipse cx="12" cy="13" rx="6" ry="8"/></svg>',
+      meta: 'unidade: R$ 1,00'
+    },
+    casquinha: {
+      nome: 'Casquinha', qty: 1, unit: 'unidade',
+      units: { unidade: { label: 'unidade', custo: 0.35, gramas: null } },
+      icon: '<svg class="icon icon--20" viewBox="0 0 24 24"><path d="M12 2 3.8 19.4a1 1 0 0 0 .9 1.4h14.6a1 1 0 0 0 .9-1.4z"/><path d="m8 9 4 12M16 9l-4 12"/></svg>',
+      meta: 'unidade: R$ 0,35'
+    }
+  };
+
+  /* base interna p/ custo por grama coerente com a ficha: 9,98 → 0,0142/g */
+  var BASE_POR_G = 702;
+  var ORDEM = ['leite', 'creme', 'limao'];
+
+  function brl(v) {
+    var s = v.toFixed(2).replace('.', ',');
+    return 'R$ ' + s;
+  }
+  function brlSmart(v) {
+    return v > 0 && v < 0.1 ? 'R$ ' + v.toFixed(4).replace('.', ',') : brl(v);
+  }
+  function brl4(v) {
+    return 'R$ ' + v.toFixed(4).replace('.', ',') + '/g';
+  }
+  function fmtQty(n) {
+    return (Math.round(n * 1000) / 1000).toString().replace('.', ',');
+  }
+  function plural(qty, label) {
+    if (label === 'unidade') return qty === 1 ? 'unidade' : 'unidades';
+    if (label === 'grama') return 'g';
+    if (label === 'quilo') return 'kg';
+    return qty === 1 ? label : label + 's';
+  }
+  function qtyLabel(ing) {
+    var u = ing.units[ing.unit];
+    var base = fmtQty(ing.qty) + ' ' + plural(ing.qty, u.label);
+    if (u.gramas && u.label !== 'grama') {
+      base += ' (' + fmtQty(ing.qty * u.gramas) + ' g)';
+    } else if (u.label === 'grama') {
+      base += ' de ' + ing.nome.toLowerCase();
+    } else if (u.label === 'quilo') {
+      base += ' de ' + ing.nome.toLowerCase();
+    }
+    return base;
+  }
+  function rowCost(ing) {
+    return Math.round(ing.qty * ing.units[ing.unit].custo * 100) / 100;
+  }
+  function totalCusto() {
+    var t = 0;
+    for (var i = 0; i < ORDEM.length; i++) t += rowCost(INGREDIENTES[ORDEM[i]]);
+    return Math.round(t * 100) / 100;
+  }
+
+  /* ------------------------------ render ------------------------------ */
+  var listaEl = document.getElementById('lista-ingredientes');
+  var totalEl = document.getElementById('total-custo');
+  var porGEl = document.getElementById('total-por-g');
+  var countEl = document.getElementById('count-ingredientes');
+
+  function metaSelo(ing) {
+    return ing.estimado ? '<span><span class="badge badge--estimate"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>estimado</span></span>' : '';
+  }
+  function renderLista() {
+    var html = '';
+    for (var i = 0; i < ORDEM.length; i++) {
+      var id = ORDEM[i], ing = INGREDIENTES[id], c = rowCost(ing);
+      html += '<button class="list-card ing-row" data-ing="' + id + '" aria-label="Editar quantidade de ' + ing.nome + ': ' + qtyLabel(ing) + ', ' + brl(c) + '">' +
+        '<span class="list-card__icon" aria-hidden="true">' + ing.icon + '</span>' +
+        '<span class="list-card__body"><span class="list-card__title">' + ing.nome + '</span>' +
+        '<span class="list-card__meta" data-qty>' + qtyLabel(ing) + '</span>' + metaSelo(ing) + '</span>' +
+        '<span class="list-card__side"><span class="ing-cost text-num" data-cost>' + brl(c) + '</span>' +
+        '<svg class="icon icon--chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></span></button>';
+    }
+    listaEl.innerHTML = html;
+    var t = totalCusto();
+    totalEl.textContent = brl(t);
+    porGEl.textContent = brl4(t / BASE_POR_G);
+    countEl.textContent = String(ORDEM.length);
+    renderMargem();
+  }
+
+  /* ------------------------------ sheets ------------------------------ */
+  var editandoId = null;
+
+  function openSheet(sheet) {
+    sheet.hidden = false;
+    requestAnimationFrame(function () { sheet.classList.add('sheet--open'); });
+  }
+  function closeSheet(sheet) {
+    sheet.classList.remove('sheet--open');
+    setTimeout(function () { sheet.hidden = true; }, 240);
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (el) {
+    el.addEventListener('click', function () { closeSheet(document.getElementById(el.getAttribute('data-close'))); });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      Array.prototype.forEach.call(document.querySelectorAll('.sheet:not([hidden])'), closeSheet);
+    }
+  });
+
+  var sheetEditar = document.getElementById('sheet-editar');
+  var sheetTitulo = document.getElementById('sheet-editar-titulo');
+  var sheetQty = document.getElementById('sheet-qty');
+  var sheetUnit = document.getElementById('sheet-unit');
+  var sheetHelp = document.getElementById('sheet-help');
+  var sheetCusto = document.getElementById('sheet-custo');
+
+  function fillSheetEditar() {
+    var ing = INGREDIENTES[editandoId];
+    sheetTitulo.textContent = ing.nome;
+    sheetQty.value = fmtQty(ing.qty);
+    var opts = '';
+    for (var k in ing.units) {
+      var u = ing.units[k];
+      opts += '<option value="' + k + '"' + (k === ing.unit ? ' selected' : '') + '>' + u.label + '</option>';
+    }
+    sheetUnit.innerHTML = opts;
+    updateSheetCusto();
+  }
+  function updateSheetCusto() {
+    var ing = INGREDIENTES[editandoId];
+    var u = ing.units[sheetUnit.value];
+    var q = parseFloat(String(sheetQty.value).replace(',', '.')) || 0;
+    sheetCusto.textContent = brlSmart(Math.round(q * u.custo * 10000) / 10000);
+    var partes = [];
+    if (u.gramas && u.label !== 'grama' && u.label !== 'quilo') {
+      partes.push('1 ' + u.label + ' = ' + fmtQty(u.gramas) + ' g');
+    }
+    partes.push((ing.estimado ? 'preço estimado: ' : 'última compra: ') + brlSmart(u.custo) + ' por ' + u.label);
+    sheetHelp.textContent = partes.join(' · ');
+  }
+  sheetQty.addEventListener('input', updateSheetCusto);
+  sheetUnit.addEventListener('change', updateSheetCusto);
+
+  document.getElementById('btn-sheet-aplicar').addEventListener('click', function () {
+    var ing = INGREDIENTES[editandoId];
+    var q = parseFloat(String(sheetQty.value).replace(',', '.'));
+    if (q > 0) { ing.qty = q; ing.unit = sheetUnit.value; }
+    closeSheet(sheetEditar);
+    renderLista();
+  });
+
+  listaEl.addEventListener('click', function (e) {
+    var row = e.target.closest ? e.target.closest('.ing-row') : null;
+    if (!row) return;
+    editandoId = row.getAttribute('data-ing');
+    fillSheetEditar();
+    openSheet(sheetEditar);
+    sheetQty.focus();
+    sheetQty.select();
+  });
+
+  /* ------------------------- sheet adicionar ------------------------- */
+  var sheetAdd = document.getElementById('sheet-adicionar');
+  var listaAdd = document.getElementById('lista-adicionar');
+  var busca = document.getElementById('busca-insumo');
+
+  function renderAdd(filtro) {
+    var html = '';
+    for (var id in CANDIDATOS) {
+      var c = CANDIDATOS[id];
+      if (ORDEM.indexOf(id) !== -1) continue;
+      if (filtro && c.nome.toLowerCase().indexOf(filtro) === -1) continue;
+      html += '<button class="list-card add-row" data-add="' + id + '" aria-label="Adicionar ' + c.nome + ' à receita">' +
+        '<span class="list-card__icon" aria-hidden="true">' + c.icon + '</span>' +
+        '<span class="list-card__body"><span class="list-card__title">' + c.nome + '</span>' +
+        '<span class="list-card__meta">' + c.meta + '</span></span>' +
+        '<span class="list-card__side"><svg class="icon icon--18" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span></button>';
+    }
+    listaAdd.innerHTML = html || '<p class="demo-note" style="padding: var(--uniq-space-2);">Nada encontrado com esse nome.</p>';
+  }
+  busca.addEventListener('input', function () { renderAdd(busca.value.trim().toLowerCase()); });
+  document.getElementById('btn-adicionar-ingrediente').addEventListener('click', function () {
+    renderAdd('');
+    openSheet(sheetAdd);
+    busca.value = '';
+    setTimeout(function () { busca.focus(); }, 260);
+  });
+  listaAdd.addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('[data-add]') : null;
+    if (!btn) return;
+    var id = btn.getAttribute('data-add');
+    var src = CANDIDATOS[id];
+    var clone = { nome: src.nome, qty: src.qty, unit: src.unit, units: src.units, icon: src.icon };
+    INGREDIENTES[id] = clone;
+    ORDEM.push(id);
+    closeSheet(sheetAdd);
+    renderLista();
+  });
+
+  /* ---------------------- toggle “vendo isso” + margem ---------------------- */
+  var toggle = document.getElementById('toggle-vendo-isso');
+  var vendaFields = document.getElementById('venda-fields');
+  var inputPreco = document.getElementById('input-preco');
+  var selectBase = document.getElementById('select-base-preco');
+  var linhaMargem = document.getElementById('linha-margem');
+  var margemTexto = document.getElementById('margem-texto');
+  var barraMargemRow = document.getElementById('barra-margem-row');
+  var barraMargem = document.getElementById('barra-margem');
+
+  function custoBase() {
+    var t = totalCusto();
+    var porG = t / BASE_POR_G;
+    var modo = selectBase.value;
+    if (modo === 'g') return { porGrama: true, valor: porG, nome: 'grama' };
+    if (modo === 'receita') return { porGrama: false, valor: t, nome: 'receita inteira (~595 g)' };
+    return { porGrama: false, valor: porG * 100, nome: '100 g' };
+  }
+  function renderMargem() {
+    if (toggle.getAttribute('aria-checked') !== 'true') { barraMargemRow.classList.add('hide'); return; }
+    var preco = parseFloat(String(inputPreco.value).replace(',', '.'));
+    var base = custoBase();
+    if (!(preco > 0)) {
+      linhaMargem.classList.add('margem-line--none');
+      margemTexto.textContent = 'Digite um preço para eu mostrar quanto sobra de cada venda.';
+      barraMargemRow.classList.add('hide');
+      return;
+    }
+    linhaMargem.classList.remove('margem-line--none');
+    var sobra = preco - base.valor;
+    var fmt = base.porGrama ? 'R$ ' + preco.toFixed(4).replace('.', ',') : brl(preco);
+    var fmtCusto = base.porGrama ? 'R$ ' + base.valor.toFixed(4).replace('.', ',') : brl(base.valor);
+    if (sobra <= 0) {
+      margemTexto.innerHTML = 'Vendendo a <strong>' + fmt + '</strong> por ' + base.nome + ' você não cobre nem o custo (<strong>' + fmtCusto + '</strong>). Pense em um preço um pouco maior.';
+      barraMargem.textContent = 'ainda não sobra';
+    } else {
+      var pct = Math.round((sobra / preco) * 100);
+      var fmtSobra = base.porGrama ? 'R$ ' + sobra.toFixed(4).replace('.', ',') : brl(Math.round(sobra * 100) / 100);
+      margemTexto.innerHTML = 'Cada ' + base.nome + ' te custa <strong>' + fmtCusto + '</strong>. Vendendo a <strong>' + fmt + '</strong>, sobram <strong>' + fmtSobra + '</strong> (margem de ' + pct + '%).';
+      barraMargem.textContent = brl(Math.round(sobra * 100) / 100) + ' · ' + pct + '%';
+    }
+    barraMargemRow.classList.remove('hide');
+  }
+  toggle.addEventListener('click', function () {
+    var on = toggle.getAttribute('aria-checked') === 'true';
+    toggle.setAttribute('aria-checked', on ? 'false' : 'true');
+    vendaFields.classList.toggle('hide', on);
+    renderMargem();
+  });
+  inputPreco.addEventListener('input', renderMargem);
+  selectBase.addEventListener('change', renderMargem);
+
+  /* --------------------------- melissa: a conta --------------------------- */
+  var btnMel = document.getElementById('btn-melissa-conta');
+  var melConta = document.getElementById('melissa-conta');
+  btnMel.addEventListener('click', function () {
+    var aberto = melConta.classList.toggle('hide') === false;
+    btnMel.setAttribute('aria-expanded', aberto ? 'true' : 'false');
+    btnMel.lastChild.textContent = aberto ? ' Esconder a conta' : ' Mostrar a conta';
+  });
+
+  /* ------------------------------- salvar ------------------------------- */
+  var pill = document.getElementById('pill-salvo');
+  var pillTimer = null;
+  function flashSalvo() {
+    pill.classList.remove('hide');
+    if (pillTimer) clearTimeout(pillTimer);
+    pillTimer = setTimeout(function () { pill.classList.add('hide'); }, 2400);
+  }
+  document.getElementById('btn-salvar-topo').addEventListener('click', flashSalvo);
+  document.getElementById('btn-salvar-receita').addEventListener('click', flashSalvo);
+
+  renderLista();
+})();
+</script>
+</body>
+</html>

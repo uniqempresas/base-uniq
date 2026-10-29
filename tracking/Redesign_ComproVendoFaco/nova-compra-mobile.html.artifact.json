@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "nova-compra-mobile.html",
+  "entry": "nova-compra-mobile.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-10-24T18:41:39.940Z",
+  "updatedAt": "2026-10-24T18:41:39.940Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}

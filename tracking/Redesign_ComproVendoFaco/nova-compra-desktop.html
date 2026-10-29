@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nova compra — UNIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/tokens.css" />
+<link rel="stylesheet" href="assets/shared.css" />
+<style>
+  /* ----- ajustes locais desta tela (tudo derivado dos tokens, zero hex novo) ----- */
+  /* garante que [hidden] vença os display: flex/grid das classes de componente */
+  [hidden] { display: none !important; }
+
+  .page-head {
+    position: sticky; top: 0; z-index: var(--uniq-z-bar);
+    background: var(--uniq-surface);
+    border-bottom: var(--uniq-border-w) solid var(--uniq-border-on-white);
+  }
+  .page-head__row {
+    max-width: 1144px; margin: 0 auto;
+    display: flex; align-items: center; gap: var(--uniq-space-3);
+    padding: var(--uniq-space-2) var(--uniq-space-5);
+  }
+  .page-head__title {
+    flex: 1; min-width: 0;
+    font-size: var(--uniq-text-xl); font-weight: var(--uniq-weight-semibold);
+    letter-spacing: -0.01em;
+  }
+  .wizard-progress {
+    max-width: 1144px; margin: 0 auto;
+    padding: var(--uniq-space-1) var(--uniq-space-5) var(--uniq-space-2);
+  }
+
+  .wrap {
+    max-width: 1144px; margin: 0 auto;
+    padding: var(--uniq-space-5);
+    display: grid;
+    grid-template-columns: minmax(0, 680px) 340px;
+    gap: var(--uniq-space-5);
+    align-items: start;
+  }
+  .steps { display: grid; gap: var(--uniq-space-5); min-width: 0; }
+
+  .step { scroll-margin-top: 156px; }
+  .step__tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: var(--uniq-text-xs); font-weight: var(--uniq-weight-semibold);
+    letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--uniq-ink-muted); margin-bottom: var(--uniq-space-2);
+  }
+  .step__title {
+    font-size: var(--uniq-text-lg); font-weight: var(--uniq-weight-semibold);
+    margin-bottom: var(--uniq-space-3);
+  }
+  .step__body { display: grid; gap: var(--uniq-space-4); }
+
+  .item {
+    border: var(--uniq-border-w) solid var(--uniq-border-on-white);
+    border-radius: var(--uniq-radius-card);
+    background: var(--uniq-surface-sunken);
+    padding: var(--uniq-space-4);
+    display: grid; gap: var(--uniq-space-4);
+  }
+  .item__head { display: flex; align-items: center; gap: var(--uniq-space-3); }
+  .item__icon {
+    display: flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; flex-shrink: 0;
+    border-radius: var(--uniq-radius-control);
+    background: var(--uniq-accent-faint); color: var(--uniq-success-ink);
+  }
+  .item__name { font-size: var(--uniq-text-md); font-weight: var(--uniq-weight-semibold); }
+  .item__meta { font-size: var(--uniq-text-sm); color: var(--uniq-ink-muted); }
+  .item__grid {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 150px);
+    gap: var(--uniq-space-3);
+  }
+  .item--placeholder {
+    font-size: var(--uniq-text-base); color: var(--uniq-ink-muted);
+    text-align: center; padding: var(--uniq-space-5);
+  }
+
+  .summary {
+    position: sticky; top: 148px;
+    display: grid; gap: var(--uniq-space-4);
+    min-width: 0;
+  }
+  .summary__total-big {
+    font-size: var(--uniq-text-2xl); font-weight: var(--uniq-weight-bold);
+    letter-spacing: -0.02em; margin-top: 2px;
+  }
+  .sumrow {
+    display: flex; align-items: baseline; justify-content: space-between; gap: var(--uniq-space-3);
+    font-size: var(--uniq-text-sm); color: var(--uniq-ink-muted);
+    min-width: 0;
+  }
+  .sumrow span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sumrow strong { color: var(--uniq-ink); font-weight: var(--uniq-weight-medium); white-space: nowrap; }
+  .sumrow__sep { border-top: var(--uniq-border-w) solid var(--uniq-border-strong); }
+  .sumrow--total { color: var(--uniq-ink); font-weight: var(--uniq-weight-semibold); font-size: var(--uniq-text-base); }
+
+  .review-row { display: flex; align-items: center; gap: var(--uniq-space-3); min-width: 0; }
+  .review-row__body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .review-row__title { font-weight: var(--uniq-weight-semibold); }
+  .review-row__meta { font-size: var(--uniq-text-sm); color: var(--uniq-ink-muted); }
+  .review-row__price { font-weight: var(--uniq-weight-bold); white-space: nowrap; }
+
+  .estados { max-width: 1144px; margin: 0 auto; padding: 0 var(--uniq-space-5) var(--uniq-space-7); }
+  .estados__grid {
+    display: grid; gap: var(--uniq-space-4);
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    align-items: start;
+  }
+  .estados__cap {
+    font-size: var(--uniq-text-xs); font-weight: var(--uniq-weight-semibold);
+    letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--uniq-ink-muted); margin-bottom: var(--uniq-space-3);
+  }
+  .state-block--inline { padding: var(--uniq-space-5) var(--uniq-space-4); }
+
+  /* marca de concluido nos dots do progresso */
+  .wizard-progress__dot .done-mark { display: none; }
+  .wizard-progress__step.is-done .dot-num { display: none; }
+  .wizard-progress__step.is-done .done-mark { display: block; width: 14px; height: 14px; }
+
+  .avatar-ring { overflow: hidden; }
+  .avatar-ring img { width: 100%; height: 100%; }
+
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+
+  /* ----- responsivo: abaixo de 900px as colunas empilham (resumo antes do rodape) ----- */
+  @media (max-width: 1099px) {
+    .wrap { grid-template-columns: minmax(0, 1fr) 320px; }
+  }
+  @media (max-width: 899px) {
+    .wrap { grid-template-columns: minmax(0, 1fr); }
+    .summary { position: static; }
+    .page-head { position: static; }
+    .item__grid { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>
+</head>
+<body>
+<header class="page-head" data-od-id="cabecalho-pagina">
+  <div class="page-head__row">
+    <a class="icon-btn" href="insumos-lista.html" aria-label="Voltar para a lista de insumos" data-od-id="btn-voltar">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+    </a>
+    <h1 class="page-head__title" data-od-id="titulo-pagina">Nova compra</h1>
+    <span class="pill pill--success" id="pill-status" data-od-id="pill-rascunho">
+      <svg class="icon icon--16" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-4-4"/></svg>
+      <span id="pill-status-text">Rascunho salvo</span>
+    </span>
+  </div>
+
+  <ol class="wizard-progress" id="wizard-progresso" data-od-id="wizard-progresso" aria-label="Progresso da compra">
+    <li class="wizard-progress__step is-current" data-idx="0" aria-current="step">
+      <span class="wizard-progress__dot"><span class="dot-num">1</span><svg class="icon done-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-4-4"/></svg></span>
+      <span class="wizard-progress__label">O que você comprou</span>
+    </li>
+    <li class="wizard-progress__step" data-idx="1">
+      <span class="wizard-progress__dot"><span class="dot-num">2</span><svg class="icon done-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-4-4"/></svg></span>
+      <span class="wizard-progress__label">Quanto e por quanto</span>
+    </li>
+    <li class="wizard-progress__step" data-idx="2">
+      <span class="wizard-progress__dot"><span class="dot-num">3</span><svg class="icon done-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-4-4"/></svg></span>
+      <span class="wizard-progress__label">Confira</span>
+    </li>
+  </ol>
+</header>
+
+<main class="wrap">
+  <!-- ================================ coluna esquerda =============================== -->
+  <div class="steps">
+
+    <!-- ------------------------------- PASSO 1 ------------------------------------- -->
+    <section class="panel step" id="passo-1" data-od-id="passo-1" aria-labelledby="titulo-passo-1">
+      <p class="step__tag">
+        <svg class="icon icon--16" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        Passo 1
+      </p>
+      <h2 class="step__title" id="titulo-passo-1" data-od-id="titulo-passo-1">O que você comprou?</h2>
+      <div class="step__body">
+
+        <div class="search">
+          <label class="sr-only" for="busca-compra">Buscar insumo</label>
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input class="input" id="busca-compra" type="search" placeholder="Buscar insumo" autocomplete="off" data-od-id="controle-busca-passo1" />
+        </div>
+
+        <div>
+          <p class="section-title">Últimas compras</p>
+          <div class="chip-row" data-od-id="chips-ultimas-compras">
+            <button type="button" class="chip chip--suggest" data-pick="leite" data-od-id="chip-sugestao-leite">Leite condensado</button>
+            <button type="button" class="chip chip--suggest" data-pick="ovos" data-od-id="chip-sugestao-ovos">Ovos</button>
+            <button type="button" class="chip chip--suggest" data-pick="creme" data-od-id="chip-sugestao-creme">Creme de leite</button>
+          </div>
+        </div>
+
+        <div class="stack stack--tight" id="lista-escolha" data-od-id="lista-escolha">
+          <button type="button" class="list-card is-selected" aria-pressed="true" data-card="leite" data-name="leite condensado" data-od-id="card-escolha-leite">
+            <span class="list-card__icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><rect x="7" y="4" width="10" height="16" rx="2"/><path d="M7 8h10"/><path d="M7 16h10"/></svg></span>
+            <span class="list-card__body">
+              <span class="list-card__title">Leite condensado</span>
+              <span class="list-card__meta">lata 395 g · última compra R$ 5,49</span>
+            </span>
+            <span class="list-card__side">
+              <span class="list-card__price text-num">R$ 5,49</span>
+              <svg class="icon icon--20 list-card__check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-4-4"/></svg>
+            </span>
+          </button>
+
+          <button type="button" class="list-card is-selected" aria-pressed="true" data-card="ovos" data-name="ovos" data-od-id="card-escolha-ovos">
+            <span class="list-card__icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><ellipse cx="9.5" cy="14" rx="4.5" ry="5.5"/><ellipse cx="15.5" cy="12.5" rx="4.5" ry="5.5"/></svg></span>
+            <span class="list-card__body">
+              <span class="list-card__title">Ovos</span>
+              <span class="list-card__meta">dúzia · última compra R$ 12,00</span>
+            </span>
+            <span class="list-card__side">
+              <span class="list-card__price text-num">R$ 12,00</span>
+              <svg class="icon icon--20 list-card__check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-4-4"/></svg>
+            </span>
+          </button>
+
+          <button type="button" class="list-card" aria-pressed="false" data-card="creme" data-name="creme de leite" data-od-id="card-escolha-creme">
+            <span class="list-card__icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><path d="M9 3h6l2 5H7Z"/><path d="M7 8h10v13H7Z"/><path d="M7 14h10"/></svg></span>
+            <span class="list-card__body">
+              <span class="list-card__title">Creme de leite</span>
+              <span class="list-card__meta">caixa 200 g · última compra R$ 2,89</span>
+            </span>
+            <span class="list-card__side">
+              <span class="list-card__price text-num">R$ 2,89</span>
+              <svg class="icon icon--20 list-card__check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-4-4"/></svg>
+            </span>
+          </button>
+
+          <button type="button" class="list-card" aria-pressed="false" data-card="chocolate" data-name="chocolate ao leite" data-od-id="card-escolha-chocolate">
+            <span class="list-card__icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="14" rx="2"/><path d="M12 6v14"/><path d="M4 13h16"/></svg></span>
+            <span class="list-card__body">
+              <span class="list-card__title">Chocolate ao leite</span>
+              <span class="list-card__meta">kg · última compra R$ 48,90</span>
+            </span>
+            <span class="list-card__side">
+              <span class="list-card__price text-num">R$ 48,90</span>
+              <svg class="icon icon--20 list-card__check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-4-4"/></svg>
+            </span>
+          </button>
+
+          <button type="button" class="list-card" aria-pressed="false" data-card="casquinha" data-name="casquinha de sorvete" data-od-id="card-escolha-casquinha">
+            <span class="list-card__icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><path d="M8 9h8l-4 12Z"/><path d="M8 9a4 4 0 0 1 8 0"/><path d="M7 9h10"/></svg></span>
+            <span class="list-card__body">
+              <span class="list-card__title">Casquinha de sorvete</span>
+              <span class="list-card__meta">unidade · última compra R$ 0,35</span>
+            </span>
+            <span class="list-card__side">
+              <span class="list-card__price text-num">R$ 0,35</span>
+              <svg class="icon icon--20 list-card__check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-4-4"/></svg>
+            </span>
+          </button>
+
+          <div class="state-block state-block--inline" id="sem-resultado" hidden data-od-id="estado-busca-sem-resultados">
+            <svg class="icon icon--32 state-block__illo" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="m9.5 9.5 5 5"/><path d="m14.5 9.5-5 5"/></svg>
+            <p class="state-block__title">Nenhum insumo com esse nome</p>
+            <p class="state-block__text">Tente outro nome ou cadastre o insumo novo aqui embaixo.</p>
+          </div>
+        </div>
+
+        <button type="button" class="btn btn--secondary" id="btn-cadastrar" data-od-id="btn-cadastrar-insumo">
+          <svg class="icon icon--20" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+          Cadastrar insumo novo
+        </button>
+      </div>
+    </section>
+
+    <!-- ------------------------------- PASSO 2 ------------------------------------- -->
+    <section class="panel step" id="passo-2" data-od-id="passo-2" aria-labelledby="titulo-passo-2">
+      <p class="step__tag">
+        <svg class="icon icon--16" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6"/><path d="M8 6h.01"/></svg>
+        Passo 2
+      </p>
+      <h2 class="step__title" id="titulo-passo-2" data-od-id="titulo-passo-2">Quanto e por quanto?</h2>
+      <div class="step__body">
+
+        <article class="item" data-item="leite" id="item-leite" data-od-id="item-leite">
+          <header class="item__head">
+            <span class="item__icon" aria-hidden="true"><svg class="icon icon--20" viewBox="0 0 24 24"><rect x="7" y="4" width="10" height="16" rx="2"/><path d="M7 8h10"/><path d="M7 16h10"/></svg></span>
+            <div>
+              <h3 class="item__name">Leite condensado</h3>
+              <p class="item__meta">você tem 2,4 kg agora</p>
+            </div>
+          </header>
+          <div class="item__grid">
+            <div class="field">
+              <span class="field__label" id="lbl-qtde-leite">Quantidade</span>
+              <div class="stepper" role="group" aria-labelledby="lbl-qtde-leite" data-od-id="stepper-qtde-leite">
+                <button type="button" class="stepper__btn" data-step="-1" data-target="qtde-leite" aria-label="Diminuir quantidade de leite condensado">
+                  <svg class="icon icon--20" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>
+                </button>
+                <input class="input text-num" id="qtde-leite" value="6" inputmode="numeric" aria-labelledby="lbl-qtde-leite" />
+                <button type="button" class="stepper__btn" data-step="1" data-target="qtde-leite" aria-label="Aumentar quantidade de leite condensado">
+                  <svg class="icon icon--20" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="field">
+              <label class="field__label" for="unid-leite">Unidade</label>
+              <select class="select select--unit" id="unid-leite" data-od-id="unidade-leite">
+                <option value="lata" selected>lata</option>
+                <option value="caixa">caixa</option>
+                <option value="pacote">pacote</option>
+                <option value="kg">kg</option>
+              </select>
+            </div>
+          </div>
+          <div class="field" id="porcampo-leite">
+            <span class="field__label" id="lbl-por-leite">Quanto tem em cada uma?</span>
+            <div class="chip-row">
+              <button type="button" class="chip chip--suggest chip--selected" data-per="395" data-target="por-leite" data-od-id="chip-395-leite">395 g</button>
+              <button type="button" class="chip chip--suggest" data-per="1000" data-target="por-leite" data-od-id="chip-1kg-leite">1 kg</button>
+            </div>
+            <div class="input-group">
+              <input class="input text-num" id="por-leite" value="395" inputmode="numeric" aria-labelledby="lbl-por-leite" data-od-id="campo-gramas-leite" />
+              <span class="input-group__affix">g</span>
+            </div>
+            <p class="field__help">É assim que a lata vira grama no seu estoque — você só registra a embalagem.</p>
+          </div>
+          <div class="field">
+            <label class="field__label" for="preco-leite">Quanto você pagou no total?</label>
+            <div class="input-group">
+              <span class="input-group__affix">R$</span>
+              <input class="input text-num" id="preco-leite" value="31,50" inputmode="decimal" data-od-id="campo-preco-leite" />
+            </div>
+          </div>
+          <div class="receipt" id="recibo-leite" aria-live="polite" data-od-id="recibo-leite">
+            <p class="receipt__label">Recibo</p>
+            <p class="receipt__line" data-line="conv">6 latas × 395 g = 2.370 g no estoque</p>
+            <p class="receipt__line" data-line="conta">R$ 31,50 ÷ 2.370 g</p>
+            <p class="receipt__result" data-line="rate">= R$ 0,0133/g</p>
+          </div>
+        </article>
+
+        <article class="item" data-item="ovos" id="item-ovos" data-od-id="item-ovos">
+          <header class="item__head">
+            <span class="item__icon" aria-hidden="true"><svg class="icon icon--20" viewBox="0 0 24 24"><ellipse cx="9.5" cy="14" rx="4.5" ry="5.5"/><ellipse cx="15.5" cy="12.5" rx="4.5" ry="5.5"/></svg></span>
+            <div>
+              <h3 class="item__name">Ovos</h3>
+              <p class="item__meta">você tem 5 dúzias agora</p>
+            </div>
+          </header>
+          <div class="item__grid">
+            <div class="field">
+              <span class="field__label" id="lbl-qtde-ovos">Quantidade</span>
+              <div class="stepper" role="group" aria-labelledby="lbl-qtde-ovos" data-od-id="stepper-qtde-ovos">
+                <button type="button" class="stepper__btn" data-step="-1" data-target="qtde-ovos" aria-label="Diminuir quantidade de ovos">
+                  <svg class="icon icon--20" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>
+                </button>
+                <input class="input text-num" id="qtde-ovos" value="2" inputmode="numeric" aria-labelledby="lbl-qtde-ovos" />
+                <button type="button" class="stepper__btn" data-step="1" data-target="qtde-ovos" aria-label="Aumentar quantidade de ovos">
+                  <svg class="icon icon--20" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="field">
+              <label class="field__label" for="unid-ovos">Unidade</label>
+              <select class="select select--unit" id="unid-ovos" data-od-id="unidade-ovos">
+                <option value="duzia" selected>dúzia</option>
+                <option value="unidade">unidade</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label class="field__label" for="preco-ovos">Quanto você pagou no total?</label>
+            <div class="input-group">
+              <span class="input-group__affix">R$</span>
+              <input class="input text-num" id="preco-ovos" value="24,00" inputmode="decimal" data-od-id="campo-preco-ovos" />
+            </div>
+          </div>
+          <div class="receipt" id="recibo-ovos" aria-live="polite" data-od-id="recibo-ovos">
+            <p class="receipt__label">Recibo</p>
+            <p class="receipt__line" data-line="conv">2 dúzias × 12 un = 24 un no estoque</p>
+            <p class="receipt__line" data-line="conta">R$ 24,00 ÷ 24 un</p>
+            <p class="receipt__result" data-line="rate">= R$ 1,00/un</p>
+          </div>
+        </article>
+
+        <p class="item item--placeholder" id="item-vazio" hidden data-od-id="item-nenhum-selecionado">
+          Nenhum insumo selecionado ainda — volte ao passo 1 e escolha o que você comprou.
+        </p>
+
+        <div style="display:flex; gap: var(--uniq-space-3); justify-content:flex-end;">
+          <a class="btn btn--ghost" href="#passo-1" data-od-id="btn-voltar-passo1">Voltar</a>
+          <a class="btn btn--secondary" href="#passo-3" data-od-id="btn-ir-confira">Conferir compra</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ------------------------------- PASSO 3 ------------------------------------- -->
+    <section class="panel step" id="passo-3" data-od-id="passo-3" aria-labelledby="titulo-passo-3">
+      <p class="step__tag">
+        <svg class="icon icon--16" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-4-4"/></svg>
+        Passo 3
+      </p>
+      <h2 class="step__title" id="titulo-passo-3" data-od-id="titulo-passo-3">Confira</h2>
+      <div class="step__body" id="confira-corpo">
+
+        <div class="stack stack--tight" data-od-id="lista-itens-confirma">
+          <div class="review-row" data-row="leite" data-od-id="linha-revisao-leite">
+            <span class="item__icon" aria-hidden="true"><svg class="icon icon--20" viewBox="0 0 24 24"><rect x="7" y="4" width="10" height="16" rx="2"/><path d="M7 8h10"/><path d="M7 16h10"/></svg></span>
+            <span class="review-row__body">
+              <span class="review-row__title">Leite condensado</span>
+              <span class="review-row__meta" data-stock>+ 2.370 g no estoque</span>
+            </span>
+            <span class="review-row__price text-num" data-price="leite">R$ 31,50</span>
+          </div>
+          <div class="review-row" data-row="ovos" data-od-id="linha-revisao-ovos">
+            <span class="item__icon" aria-hidden="true"><svg class="icon icon--20" viewBox="0 0 24 24"><ellipse cx="9.5" cy="14" rx="4.5" ry="5.5"/><ellipse cx="15.5" cy="12.5" rx="4.5" ry="5.5"/></svg></span>
+            <span class="review-row__body">
+              <span class="review-row__title">Ovos</span>
+              <span class="review-row__meta" data-stock>+ 24 un no estoque</span>
+            </span>
+            <span class="review-row__price text-num" data-price="ovos">R$ 24,00</span>
+          </div>
+        </div>
+
+        <div class="sumrow sumrow--total sumrow__sep" style="padding-top: var(--uniq-space-3);">
+          <span>Total da compra</span>
+          <span class="text-num" id="confira-total" style="font-size: var(--uniq-text-2xl); font-weight: var(--uniq-weight-bold);">R$ 55,50</span>
+        </div>
+
+        <button type="button" class="btn btn--primary btn--block btn--lg" id="btn-salvar" data-od-id="btn-salvar-compra">
+          <svg class="icon icon--20" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-4-4"/></svg>
+          Salvar compra
+        </button>
+      </div>
+
+      <div class="state-block" id="bloco-salvo" hidden data-od-id="estado-compra-salva">
+        <svg class="icon icon--48 state-block__illo" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--uniq-success-ink);"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+        <h3 class="state-block__title">Compra salva — estoque atualizado</h3>
+        <p class="state-block__text">Os custos novos já aparecem nas suas receitas a partir de agora.</p>
+        <a class="btn btn--secondary" href="insumos-lista.html" data-od-id="btn-ver-insumos">Ver insumos</a>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ============================ coluna direita (sticky) ============================ -->
+  <aside class="summary" aria-label="Resumo da compra" data-od-id="coluna-resumo">
+
+    <section class="panel" data-od-id="painel-total">
+      <p class="section-title" data-od-id="heading-total">Total da compra</p>
+      <p class="summary__total-big text-num" id="resumo-total" aria-live="polite">R$ 55,50</p>
+      <div class="stack stack--tight" style="margin-top: var(--uniq-space-3);">
+        <p class="sumrow" data-sumrow="leite" data-od-id="linha-resumo-leite"><span>Leite condensado</span><strong class="text-num" data-price="leite">R$ 31,50</strong></p>
+        <p class="sumrow" data-sumrow="ovos" data-od-id="linha-resumo-ovos"><span>Ovos</span><strong class="text-num" data-price="ovos">R$ 24,00</strong></p>
+      </div>
+    </section>
+
+    <section class="panel" data-od-id="painel-impacto">
+      <p class="section-title" data-od-id="heading-impacto">Impacto no custo médio</p>
+      <div class="stack stack--tight" id="impacto-corpo">
+        <p class="sumrow" id="impacto-leite">
+          <span>Leite condensado</span>
+          <strong class="text-num"><span id="impacto-atual">R$ 0,0139</span><span class="arrow"> → </span><span id="impacto-novo">R$ 0,0136</span>/g</strong>
+        </p>
+        <p class="sumrow" id="impacto-direcao">
+          <span id="impacto-texto">Cai um pouco com o preço novo</span>
+          <svg class="icon icon--16" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--uniq-success-ink);"><path d="m6 9 6 6 6-6"/></svg>
+        </p>
+      </div>
+      <p class="section-title" style="margin-top: var(--uniq-space-4);" data-od-id="heading-receitas-afetadas">3 receitas afetadas</p>
+      <div class="chip-row">
+        <span class="chip chip--suggest" data-od-id="receita-afetada-recheio">Recheio de limão</span>
+        <span class="chip chip--suggest" data-od-id="receita-afetada-brigadeiro">Brigadeiro</span>
+        <span class="chip chip--suggest" data-od-id="receita-afetada-torta">Torta de limão</span>
+      </div>
+    </section>
+
+    <aside class="melissa-card" id="melissa-compra" data-od-id="melissa-card-impacto">
+      <div class="melissa-card__glow" aria-hidden="true"></div>
+      <header class="melissa-card__head">
+        <span class="melissa-card__avatar avatar-ring" aria-hidden="true"><img src="assets/avatar-MELISSA.png" alt="" width="34" height="34" style="border-radius:50%;object-fit:cover" /></span>
+        <div>
+          <p class="melissa-card__name">Melissa</p>
+          <p class="melissa-card__role">IA Proativa</p>
+        </div>
+      </header>
+      <div class="melissa-card__bubble">
+        <p>Nesta compra você pagou <strong>R$ 0,0133 por grama</strong> de leite condensado — abaixo da sua média. Recheio de limão, brigadeiro e torta ficam um pouco mais baratos. Quer conferir?</p>
+      </div>
+      <footer class="melissa-card__actions">
+        <a class="melissa-card__action" href="#passo-3" data-od-id="melissa-acao-ver-impacto">Ver impacto</a>
+        <button type="button" class="melissa-card__action melissa-card__action--ghost" id="melissa-depois" data-od-id="melissa-acao-depois">Agora não</button>
+      </footer>
+    </aside>
+  </aside>
+
+</main>
+
+<!-- ================================ estados da tela ================================== -->
+<section class="estados" data-od-id="secao-estados">
+  <h2 class="divider" data-od-id="divider-estados">Estados da tela</h2>
+  <div class="estados__grid">
+
+    <div class="panel" data-od-id="estado-skeleton">
+      <p class="estados__cap">Carregando</p>
+      <div class="stack">
+        <div class="skeleton" style="height:48px; width:100%; border-radius: var(--uniq-radius-control);"></div>
+        <div class="skeleton skeleton--card"></div>
+        <div class="skeleton skeleton--card"></div>
+        <div class="skeleton skeleton--card"></div>
+        <div class="skeleton skeleton--line" style="width:40%;"></div>
+      </div>
+    </div>
+
+    <div class="panel" data-od-id="estado-vazio">
+      <p class="estados__cap">Lista vazia</p>
+      <div class="state-block">
+        <svg class="icon icon--32 state-block__illo" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/></svg>
+        <p class="state-block__title">Nenhum insumo na tela ainda</p>
+        <p class="state-block__text">Cadastre o primeiro para a Melissa cuidar das contas de grama e preço por unidade.</p>
+        <button type="button" class="btn btn--secondary btn--sm" data-od-id="btn-estado-cadastrar">Cadastrar insumo</button>
+      </div>
+    </div>
+
+    <div class="panel" data-od-id="estado-erro">
+      <p class="estados__cap">Erro</p>
+      <div class="state-block">
+        <svg class="icon icon--32 state-block__illo" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--uniq-error-ink);"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+        <p class="state-block__title">O rascunho não foi salvo</p>
+        <p class="state-block__text">A conexão caiu no meio do caminho. Nada se perdeu — tente de novo.</p>
+        <button type="button" class="btn btn--secondary btn--sm" data-od-id="btn-estado-retry">
+          <svg class="icon icon--16" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          Tentar de novo
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =================================== sheet ========================================= -->
+<div class="sheet" id="sheet-cadastro" hidden data-od-id="sheet-cadastro-insumo">
+  <div class="sheet__overlay" data-close></div>
+  <div class="sheet__panel" role="dialog" aria-modal="true" aria-labelledby="sheet-titulo">
+    <span class="sheet__handle" aria-hidden="true"></span>
+    <div style="display:flex; align-items:center; justify-content:space-between; gap: var(--uniq-space-2);">
+      <h3 class="sheet__title" id="sheet-titulo">Cadastrar insumo novo</h3>
+      <button type="button" class="icon-btn" data-close aria-label="Fechar cadastro" data-od-id="btn-fechar-sheet">
+        <svg class="icon icon--20" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+    <div class="stack" style="margin-top: var(--uniq-space-2);">
+      <label class="field">
+        <span class="field__label">Nome do insumo</span>
+        <input class="input" id="cad-nome" placeholder="ex.: Essência de baunilha" data-od-id="campo-cadastro-nome" />
+      </label>
+      <label class="field">
+        <span class="field__label">Como você compra?</span>
+        <input class="input" id="cad-forma" placeholder="ex.: vidro de 25 ml" data-od-id="campo-cadastro-forma" />
+      </label>
+      <div class="field">
+        <label class="field__label" for="cad-preco">Quanto pagou?</label>
+        <div class="input-group">
+          <span class="input-group__affix">R$</span>
+          <input class="input text-num" id="cad-preco" placeholder="0,00" inputmode="decimal" data-od-id="campo-cadastro-preco" />
+        </div>
+        <span class="field__help">Sem preço ele entra como "estimado" e você corrige na próxima compra.</span>
+      </div>
+      <button type="button" class="btn btn--primary btn--block" id="cad-salvar" data-od-id="btn-confirmar-cadastro">Cadastrar insumo</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var nfBRL = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  var nfInt = new Intl.NumberFormat('pt-BR');
+  var nf4 = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+  function money(n) { return 'R$ ' + nfBRL.format(n); }
+  function num(n) { return nfInt.format(Math.round(n)); }
+  function rate(n) { return 'R$ ' + nf4.format(n); }
+  function valOf(id) {
+    var el = document.getElementById(id);
+    if (!el) return 0;
+    var n = parseFloat(String(el.value).replace(',', '.'));
+    return (!isNaN(n) && n >= 0) ? n : 0;
+  }
+  function pluralUnit(label, qty) {
+    if (label === 'kg' || label.indexOf(' ') >= 0) return label;
+    if (qty > 1) return label === 'duzia' || label === 'dúzia' ? 'dúzias' : label + 's';
+    return label;
+  }
+
+  var OLD_AVG = 0.0139, OLD_STOCK_G = 2400;
+
+  var CONF = {
+    leite: { name: 'Leite condensado', denom: 'g', built: true },
+    ovos: { name: 'Ovos', denom: 'un', built: true },
+    creme: { name: 'Creme de leite', denom: 'g', unitFixed: 'caixa', perFixed: 200 },
+    chocolate: { name: 'Chocolate ao leite', denom: 'g', unitFixed: 'kg', perFixed: 1000 },
+    casquinha: { name: 'Casquinha de sorvete', denom: 'un', unitFixed: 'unidade', perFixed: 1 }
+  };
+  var selection = { leite: true, ovos: true, creme: false, chocolate: false, casquinha: false };
+  var dynDefaults = { creme: { qty: 2, price: 5.78 }, chocolate: { qty: 1, price: 48.9 }, casquinha: { qty: 50, price: 17.5 } };
+
+  function compute(key) {
+    var c = CONF[key], qty, per, price, unit;
+    if (key === 'leite') {
+      unit = document.getElementById('unid-leite').value;
+      per = unit === 'kg' ? 1000 : valOf('por-leite');
+      qty = valOf('qtde-leite'); price = valOf('preco-leite');
+    } else if (key === 'ovos') {
+      unit = document.getElementById('unid-ovos').value === 'duzia' ? 'dúzia' : 'unidade';
+      per = unit === 'dúzia' ? 12 : 1;
+      qty = valOf('qtde-ovos'); price = valOf('preco-ovos');
+    } else {
+      var idq = 'qty-dyn-' + key, idp = 'price-dyn-' + key;
+      if (document.getElementById(idq)) {
+        dynState(key, valOf(idq), valOf(idp));
+      } else if (!dynState(key)) {
+        var d = dynDefaults[key] || { qty: 1, price: 0 };
+        dynState(key, d.qty, d.price);
+      }
+      var st = dynState(key);
+      qty = st.qty; price = st.price; per = c.perFixed || 1; unit = c.unitFixed || 'unidade';
+    }
+    return { key: key, qty: qty, per: per, price: price, total: qty * per, unit: unit, denom: c.denom };
+  }
+
+  var dynStore = {};
+  function dynState(key, q, p) {
+    if (q === undefined) return dynStore[key];
+    dynStore[key] = { qty: q, price: p };
+    return dynStore[key];
+  }
+
+  function receiptLines(k) {
+    var unitTxt = pluralUnit(k.unit, k.qty), l1, l2, l3;
+    if (k.denom === 'g') {
+      l1 = k.unit === 'kg'
+        ? k.qty + ' kg = ' + num(k.total) + ' g no estoque'
+        : k.qty + ' ' + unitTxt + ' × ' + num(k.per) + ' g = ' + num(k.total) + ' g no estoque';
+      l2 = money(k.price) + ' ÷ ' + num(k.total) + ' g';
+      l3 = '= ' + (k.total > 0 ? rate(k.price / k.total) : rate(0)) + '/g';
+    } else if (k.denom === 'un') {
+      l1 = k.qty + ' ' + unitTxt + ' × ' + num(k.per) + ' un = ' + num(k.total) + ' un no estoque';
+      l2 = money(k.price) + ' ÷ ' + num(k.total) + ' un';
+      l3 = '= ' + (k.total > 0 ? money(k.price / k.total) : money(0)) + '/un';
+    } else {
+      l1 = k.qty + ' ' + unitTxt + ' no estoque';
+      l2 = money(k.price) + ' pago no total';
+      l3 = k.price > 0 && k.qty > 0
+        ? '= ' + money(k.price / k.qty) + ' por ' + k.unit
+        : '= registre o preço para a Melissa calcular';
+    }
+    return [l1, l2, l3];
+  }
+
+  function stockLabel(k) {
+    if (k.denom === 'g') return '+ ' + num(k.total) + ' g no estoque';
+    if (k.denom === 'un') return '+ ' + num(k.total) + ' un no estoque';
+    return '+ ' + k.qty + ' ' + pluralUnit(k.unit, k.qty) + ' no estoque';
+  }
+
+  var ICON_FALLBACK = '<svg class="icon icon--20" viewBox="0 0 24 24" aria-hidden="true"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></svg>';
+
+  function iconFor(key) {
+    var card = document.querySelector('.list-card[data-card="' + key + '"] .list-card__icon');
+    if (card && card.innerHTML.trim()) return '<svg class="icon icon--20" viewBox="0 0 24 24" aria-hidden="true">' + card.innerHTML.replace(/<svg[^>]*>/i, '').replace(/<\/svg>/i, '') + '</svg>';
+    return ICON_FALLBACK;
+  }
+
+  /* ---------------- blocos dinamicos do passo 2 ---------------- */
+  function ensureItemBlock(key) {
+    if (CONF[key].built) return document.getElementById('item-' + key);
+    var el = document.getElementById('item-dyn-' + key);
+    if (el) return el;
+    el = document.createElement('article');
+    el.className = 'item';
+    el.id = 'item-dyn-' + key;
+    el.setAttribute('data-item', key);
+    el.setAttribute('data-od-id', 'item-' + key);
+    var st = dynState(key) || { qty: 1, price: 0 };
+    el.innerHTML =
+      '<header class="item__head"><span class="item__icon" aria-hidden="true">' + iconFor(key) + '</span>' +
+      '<div><h3 class="item__name">' + CONF[key].name + '</h3><p class="item__meta">comprado em ' + (CONF[key].unitFixed || 'unidade') + '</p></div></header>' +
+      '<div class="item__grid">' +
+      '<div class="field"><span class="field__label" id="lbl-qty-dyn-' + key + '">Quantidade</span>' +
+      '<div class="stepper" role="group" aria-labelledby="lbl-qty-dyn-' + key + '">' +
+      '<button type="button" class="stepper__btn" data-step="-1" data-target="qty-dyn-' + key + '" aria-label="Diminuir quantidade"><svg class="icon icon--20" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>' +
+      '<input class="input text-num" id="qty-dyn-' + key + '" value="' + st.qty + '" inputmode="numeric" />' +
+      '<button type="button" class="stepper__btn" data-step="1" data-target="qty-dyn-' + key + '" aria-label="Aumentar quantidade"><svg class="icon icon--20" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg></button>' +
+      '</div></div>' +
+      '<div class="field"><span class="field__label">Unidade</span><div class="input-group"><span class="input-group__affix">' + (CONF[key].unitFixed || 'unidade') + '</span></div></div>' +
+      '</div>' +
+      '<div class="field"><label class="field__label" for="price-dyn-' + key + '">Quanto você pagou no total?</label>' +
+      '<div class="input-group"><span class="input-group__affix">R$</span>' +
+      '<input class="input text-num" id="price-dyn-' + key + '" value="' + (st.price ? nfBRL.format(st.price) : '') + '" placeholder="0,00" inputmode="decimal" /></div></div>' +
+      '<div class="receipt" aria-live="polite" data-od-id="recibo-' + key + '">' +
+      '<p class="receipt__label">Recibo</p>' +
+      '<p class="receipt__line" data-line="conv"></p><p class="receipt__line" data-line="conta"></p>' +
+      '<p class="receipt__result" data-line="rate"></p></div>';
+    document.getElementById('item-vazio').before(el);
+    return el;
+  }
+
+  function removeItemBlock(key) {
+    var el = document.getElementById('item-dyn-' + key);
+    if (el) el.remove();
+  }
+
+  /* ---------------- linhas de resumo / revisao ---------------- */
+  function ensureRow(container, selAttr, key, name, inner) {
+    var row = container.querySelector('[' + selAttr + '="' + key + '"]');
+    if (!row) {
+      row = document.createElement(inner.tag);
+      row.className = inner.cls;
+      row.setAttribute(selAttr, key);
+      row.setAttribute('data-od-id', inner.odid);
+      row.innerHTML = inner.html;
+      container.appendChild(row);
+    }
+    return row;
+  }
+
+  var sumStack = document.querySelector('[data-od-id="painel-total"] .stack--tight');
+  var reviewStack = document.querySelector('[data-od-id="lista-itens-confirma"]');
+
+  /* ---------------- update geral ---------------- */
+  function update() {
+    var keys = Object.keys(selection).filter(function (k) { return selection[k]; });
+    document.getElementById('item-leite').hidden = !selection.leite;
+    document.getElementById('item-ovos').hidden = !selection.ovos;
+    Object.keys(selection).forEach(function (k) {
+      if (CONF[k].built) return;
+      if (selection[k]) ensureItemBlock(k); else removeItemBlock(k);
+    });
+    document.getElementById('item-vazio').hidden = keys.length > 0;
+
+    var total = 0, leite = null;
+    keys.forEach(function (k) {
+      var res = compute(k);
+      total += res.price;
+      if (k === 'leite') leite = res;
+
+      var rec = k === 'leite' ? document.getElementById('recibo-leite')
+        : k === 'ovos' ? document.getElementById('recibo-ovos')
+        : document.querySelector('#item-dyn-' + k + ' .receipt');
+      if (rec) {
+        var lines = receiptLines(res);
+        rec.querySelector('[data-line="conv"]').textContent = lines[0];
+        rec.querySelector('[data-line="conta"]').textContent = lines[1];
+        rec.querySelector('[data-line="rate"]').textContent = lines[2];
+      }
+
+      var srow = ensureRow(sumStack, 'data-sumrow', k, CONF[k].name, {
+        tag: 'p', cls: 'sumrow', odid: 'linha-resumo-' + k,
+        html: '<span>' + CONF[k].name + '</span><strong class="text-num">' + money(res.price) + '</strong>'
+      });
+      srow.hidden = false;
+      srow.querySelector('strong').textContent = money(res.price);
+
+      var rrow = ensureRow(reviewStack, 'data-row', k, CONF[k].name, {
+        tag: 'div', cls: 'review-row', odid: 'linha-revisao-' + k,
+        html: '<span class="item__icon" aria-hidden="true">' + iconFor(k) + '</span>' +
+          '<span class="review-row__body"><span class="review-row__title">' + CONF[k].name + '</span>' +
+          '<span class="review-row__meta" data-stock>' + stockLabel(res) + '</span></span>' +
+          '<span class="review-row__price text-num">' + money(res.price) + '</span>'
+      });
+      rrow.querySelector('[data-stock]').textContent = stockLabel(res);
+      rrow.querySelector('.review-row__price').textContent = money(res.price);
+      rrow.hidden = false;
+    });
+
+    document.querySelectorAll('[data-sumrow]').forEach(function (r) {
+      if (keys.indexOf(r.getAttribute('data-sumrow')) === -1) r.hidden = true;
+    });
+    document.querySelectorAll('[data-row]').forEach(function (r) {
+      if (keys.indexOf(r.getAttribute('data-row')) === -1) r.hidden = true;
+    });
+
+    document.getElementById('resumo-total').textContent = money(total);
+    document.getElementById('confira-total').textContent = money(total);
+    document.getElementById('btn-salvar').disabled = total <= 0;
+
+    var imp = document.getElementById('impacto-corpo');
+    if (leite && leite.total > 0 && leite.denom === 'g') {
+      imp.style.display = '';
+      var newAvg = (OLD_STOCK_G * OLD_AVG + leite.price) / (OLD_STOCK_G + leite.total);
+      document.getElementById('impacto-novo').textContent = rate(newAvg).replace('R$ ', '');
+      var pth = document.querySelector('#impacto-direcao svg path');
+      var txt = document.getElementById('impacto-texto');
+      var diff = newAvg - OLD_AVG;
+      if (diff < -0.00004) { pth.setAttribute('d', 'm6 9 6 6 6-6'); txt.textContent = 'Cai um pouco com o preço novo'; }
+      else if (diff > 0.00004) { pth.setAttribute('d', 'm6 15 6-6 6 6'); txt.textContent = 'Sobe um pouco com o preço novo'; }
+      else { pth.setAttribute('d', 'M5 12h14'); txt.textContent = 'Média praticamente igual'; }
+    } else {
+      imp.style.display = 'none';
+    }
+  }
+
+  /* ---------------- selecao de cards ---------------- */
+  function setCard(cardEl, on) {
+    var key = cardEl.getAttribute('data-card');
+    selection[key] = on;
+    cardEl.classList.toggle('is-selected', on);
+    cardEl.setAttribute('aria-pressed', on ? 'true' : 'false');
+    update();
+  }
+
+  /* ---------------- busca ---------------- */
+  var busca = document.getElementById('busca-compra');
+  function applySearch() {
+    var q = busca.value.trim().toLowerCase();
+    var cards = document.querySelectorAll('#lista-escolha .list-card');
+    var shown = 0;
+    cards.forEach(function (c) {
+      var name = (c.getAttribute('data-name') || '').toLowerCase();
+      var ok = !q || name.indexOf(q) !== -1;
+      c.style.display = ok ? '' : 'none';
+      if (ok) shown++;
+    });
+    document.getElementById('sem-resultado').hidden = shown > 0;
+  }
+
+  /* ---------------- stepper / chips de gramas ---------------- */
+  function stepValue(targetId, delta) {
+    var el = document.getElementById(targetId);
+    if (!el) return;
+    var n = parseInt(String(el.value).replace(',', '.'), 10) || 0;
+    n = Math.min(999, Math.max(1, n + delta));
+    el.value = n;
+  }
+
+  /* ---------------- sheet ---------------- */
+  var sheet = document.getElementById('sheet-cadastro');
+  function openSheet() {
+    sheet.hidden = false;
+    requestAnimationFrame(function () { sheet.classList.add('sheet--open'); });
+    document.getElementById('cad-nome').focus();
+  }
+  function closeSheet() {
+    sheet.classList.remove('sheet--open');
+    setTimeout(function () { sheet.hidden = true; }, 240);
+  }
+  function slug(s) {
+    return (s || 'insumo').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'insumo';
+  }
+
+  /* ---------------- eventos ---------------- */
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    var stepBtn = t.closest ? t.closest('.stepper__btn') : null;
+    if (stepBtn) {
+      stepValue(stepBtn.getAttribute('data-target'), parseInt(stepBtn.getAttribute('data-step'), 10));
+      update(); return;
+    }
+    var perChip = t.closest ? t.closest('.chip[data-per]') : null;
+    if (perChip) {
+      var inp = document.getElementById(perChip.getAttribute('data-target'));
+      if (inp) {
+        inp.value = perChip.getAttribute('data-per');
+        perChip.closest('.chip-row').querySelectorAll('.chip').forEach(function (c) { c.classList.remove('chip--selected'); });
+        perChip.classList.add('chip--selected');
+        update();
+      }
+      return;
+    }
+    var pick = t.closest ? t.closest('[data-pick]') : null;
+    if (pick) {
+      var card = document.querySelector('.list-card[data-card="' + pick.getAttribute('data-pick') + '"]');
+      if (card) { busca.value = ''; applySearch(); if (!selection[card.getAttribute('data-card')]) setCard(card, true); }
+      return;
+    }
+    var cardClick = t.closest ? t.closest('.list-card[data-card]') : null;
+    if (cardClick) { setCard(cardClick, !selection[cardClick.getAttribute('data-card')]); return; }
+    if (t.closest && t.closest('[data-close]')) { closeSheet(); return; }
+    if (t.closest && t.closest('#btn-cadastrar')) { openSheet(); return; }
+    if (t.closest && t.closest('#melissa-depois')) { document.getElementById('melissa-compra').classList.add('hide'); return; }
+
+    if (t.closest && t.closest('#cad-salvar')) {
+      var nome = document.getElementById('cad-nome').value.trim();
+      if (!nome) { document.getElementById('cad-nome').focus(); return; }
+      var forma = document.getElementById('cad-forma').value.trim() || 'unidade';
+      var preco = valOf('cad-preco');
+      var key = slug(nome) + '-' + Object.keys(CONF).length;
+      CONF[key] = { name: nome, denom: 'u', unitFixed: forma, perFixed: 1, built: false };
+      selection[key] = false;
+      dynState(key, 1, preco);
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'list-card';
+      btn.setAttribute('aria-pressed', 'false');
+      btn.setAttribute('data-card', key);
+      btn.setAttribute('data-name', nome.toLowerCase());
+      btn.setAttribute('data-od-id', 'card-escolha-' + slug(nome));
+      btn.innerHTML = '<span class="list-card__icon" aria-hidden="true">' + ICON_FALLBACK + '</span>' +
+        '<span class="list-card__body"><span class="list-card__title"></span>' +
+        '<span class="list-card__meta">' + forma + (preco > 0 ? ' · pago ' + money(preco) : ' · sem preço ainda') + '</span></span>' +
+        '<span class="list-card__side"><span class="list-card__price text-num">' + (preco > 0 ? money(preco) : '—') + '</span></span>';
+      btn.querySelector('.list-card__title').textContent = nome;
+      document.getElementById('sem-resultado').before(btn);
+      document.getElementById('cad-nome').value = '';
+      document.getElementById('cad-forma').value = '';
+      document.getElementById('cad-preco').value = '';
+      closeSheet();
+      applySearch();
+      return;
+    }
+
+    if (t.closest && t.closest('#btn-salvar')) {
+      document.getElementById('confira-corpo').hidden = true;
+      document.getElementById('bloco-salvo').hidden = false;
+      document.getElementById('pill-status-text').textContent = 'Compra registrada';
+      setWizard(2);
+      return;
+    }
+  });
+
+  document.addEventListener('input', function (e) {
+    if (e.target.id === 'busca-compra') { applySearch(); return; }
+    if (e.target.closest && e.target.closest('#passo-2')) update();
+  });
+  document.addEventListener('change', function (e) {
+    if (e.target.id === 'unid-leite' || e.target.id === 'unid-ovos') {
+      if (e.target.id === 'unid-leite') {
+        document.getElementById('porcampo-leite').style.display = e.target.value === 'kg' ? 'none' : '';
+      }
+      update();
+    }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !sheet.hidden) closeSheet();
+  });
+
+  /* ---------------- progresso do wizard (scroll-spy) ---------------- */
+  var lis = document.querySelectorAll('#wizard-progresso .wizard-progress__step');
+  function setWizard(idx) {
+    Array.prototype.forEach.call(lis, function (li, i) {
+      li.classList.toggle('is-done', i < idx);
+      li.classList.toggle('is-current', i === idx);
+      if (i === idx) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
+    });
+  }
+  var sections = document.querySelectorAll('.step');
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (en.isIntersecting) setWizard(Number(en.target.getAttribute('data-step-idx')));
+      });
+    }, { rootMargin: '-160px 0px -55% 0px', threshold: 0 });
+    Array.prototype.forEach.call(sections, function (s, i) {
+      s.setAttribute('data-step-idx', String(i));
+      io.observe(s);
+    });
+  }
+
+  update();
+  applySearch();
+})();
+</script>
+
+</body>
+</html>

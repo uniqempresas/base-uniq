@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Hoje — Base UNIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/tokens.css" />
+<link rel="stylesheet" href="assets/shared.css" />
+<style>
+  /* ajustes locais desta tela (sem cores novas) */
+  main { padding: var(--uniq-space-4) var(--uniq-space-4) var(--uniq-space-5); }
+
+  .saudacao { display: flex; align-items: center; justify-content: space-between; gap: var(--uniq-space-2); margin-bottom: var(--uniq-space-4); flex-wrap: wrap; }
+  .saudacao__title { font-size: var(--uniq-text-xl); font-weight: var(--uniq-weight-bold); letter-spacing: -0.02em; }
+  .saudacao__sub { font-size: var(--uniq-text-base); color: var(--uniq-ink-muted-on-bg); }
+
+  .hoje-segmented { margin-bottom: var(--uniq-space-3); }
+
+  /* Painel de atalhos trocado pelo segmented */
+  .atalhos { display: grid; grid-template-columns: 1fr 1fr; gap: var(--uniq-space-2); margin-bottom: var(--uniq-space-4); }
+  .atalho {
+    display: flex; flex-direction: column; align-items: flex-start; gap: var(--uniq-space-2);
+    min-height: var(--uniq-tap-min);
+    padding: var(--uniq-space-3);
+    background: var(--uniq-surface);
+    border: var(--uniq-border-w) solid var(--uniq-border-on-white);
+    border-radius: var(--uniq-radius-card);
+    box-shadow: var(--uniq-shadow-sm);
+    color: var(--uniq-ink);
+    text-decoration: none;
+    font-size: var(--uniq-text-base);
+    font-weight: var(--uniq-weight-semibold);
+  }
+  .atalho:hover { background: var(--uniq-surface-hover); }
+  .atalho:active { background: var(--uniq-accent-faint); }
+  .atalho .icon { color: var(--uniq-muted); }
+
+  .stack-list > * + * { margin-top: var(--uniq-space-3); }
+
+  .alerta-card { display: flex; align-items: center; gap: var(--uniq-space-3); width: 100%; min-height: 72px; padding: var(--uniq-space-3); background: var(--uniq-surface); border: var(--uniq-border-w) solid var(--uniq-border-on-white); border-radius: var(--uniq-radius-card); box-shadow: var(--uniq-shadow-sm); }
+  .alerta-card__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .alerta-card__title { font-size: var(--uniq-text-md); font-weight: var(--uniq-weight-semibold); }
+  .alerta-card__meta { font-size: var(--uniq-text-sm); color: var(--uniq-ink-muted); }
+  .btn--fit { min-height: var(--uniq-tap-min); padding: 0 var(--uniq-space-3); font-size: var(--uniq-text-base); flex-shrink: 0; }
+
+  .secao-label { font-size: var(--uniq-text-sm); font-weight: var(--uniq-weight-bold); letter-spacing: 0.06em; text-transform: uppercase; color: var(--uniq-ink-muted); margin: var(--uniq-space-5) 0 var(--uniq-space-2); }
+  .state-caption { font-size: var(--uniq-text-xs); font-weight: var(--uniq-weight-semibold); letter-spacing: 0.06em; text-transform: uppercase; color: var(--uniq-ink-muted-on-bg); margin: var(--uniq-space-4) 0 var(--uniq-space-2); }
+</style>
+</head>
+<body>
+<div class="app-shell" data-od-id="tela-hoje">
+
+  <!-- ============================ APP BAR ============================ -->
+  <header class="app-bar" data-od-id="hoje-app-bar">
+    <h1 class="app-bar__title" data-od-id="hoje-titulo">Hoje</h1>
+    <div class="app-bar__actions">
+      <span class="pill">
+        <svg class="icon icon--16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
+        Últimos 30 dias
+      </span>
+    </div>
+  </header>
+
+  <main>
+    <!-- ============================ SAUDAÇÃO ============================ -->
+    <div class="saudacao" data-od-id="hoje-saudacao">
+      <div>
+        <h2 class="saudacao__title" data-od-id="hoje-saudacao-titulo">Olá, Doceê</h2>
+        <p class="saudacao__sub">Veja o que precisa da sua atenção hoje.</p>
+      </div>
+    </div>
+
+    <!-- =================== SEGMENTED [Compro][Faço][Vendo] =================== -->
+    <div class="segmented hoje-segmented" role="group" aria-label="Modo da base" data-od-id="hoje-segmented">
+      <button type="button" class="segmented__btn" data-painel="atalhos-compro" aria-pressed="false" data-od-id="hoje-segmento-compro">Compro</button>
+      <button type="button" class="segmented__btn" data-painel="atalhos-faco" aria-pressed="false" data-od-id="hoje-segmento-faco">Faço</button>
+      <button type="button" class="segmented__btn" data-painel="atalhos-vendo" aria-pressed="false" data-od-id="hoje-segmento-vendo">Vendo</button>
+    </div>
+
+    <!-- Painéis de atalhos (só um visível por vez; padrão = nenhum) -->
+    <div class="atalhos hide" id="atalhos-compro" data-od-id="hoje-atalhos-compro">
+      <a class="atalho" href="insumos-lista.html" data-od-id="hoje-atalho-compro-insumos">
+        <svg class="icon icon--20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+        Meus insumos
+      </a>
+      <a class="atalho" href="nova-compra-mobile.html" data-od-id="hoje-atalho-compro-nova-compra">
+        <svg class="icon icon--20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+        Nova compra
+      </a>
+    </div>
+
+    <div class="atalhos hide" id="atalhos-faco" data-od-id="hoje-atalhos-faco">
+      <a class="atalho" href="receita-editor.html" data-od-id="hoje-atalho-faco-receitas">
+        <svg class="icon icon--20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+        Minhas receitas
+      </a>
+      <a class="atalho" href="producao.html" data-od-id="hoje-atalho-faco-producao">
+        <svg class="icon icon--20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>
+        Produção de hoje
+      </a>
+    </div>
+
+    <div class="atalhos hide" id="atalhos-vendo" data-od-id="hoje-atalhos-vendo">
+      <a class="atalho" href="margem.html" data-od-id="hoje-atalho-vendo-margem">
+        <svg class="icon icon--20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+        Margem
+      </a>
+      <a class="atalho" href="produto-simulador-preco.html" data-od-id="hoje-atalho-vendo-produtos">
+        <svg class="icon icon--20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+        Produtos e preço
+      </a>
+    </div>
+
+    <!-- ========================= ALERTAS DE HOJE ========================= -->
+    <h2 class="section-title" data-od-id="hoje-secao-alertas">Precisa de você hoje</h2>
+    <div class="stack-list" data-od-id="hoje-painel-hoje">
+
+      <div class="alerta-card" data-od-id="hoje-alerta-farinha">
+        <span class="list-card__icon" aria-hidden="true">
+          <svg class="icon icon--20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+        </span>
+        <div class="alerta-card__body">
+          <span class="badge badge--running-out" style="align-self: flex-start;">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+            está acabando
+          </span>
+          <p class="alerta-card__title">Farinha de trigo — restam 900 g</p>
+        </div>
+        <a class="btn btn--secondary btn--fit" href="nova-compra-mobile.html" data-od-id="hoje-acao-comprar-farinha">Comprar</a>
+      </div>
+
+      <div class="alerta-card" data-od-id="hoje-alerta-leite-condensado">
+        <span class="list-card__icon" aria-hidden="true">
+          <svg class="icon icon--20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>
+        </span>
+        <div class="alerta-card__body">
+          <span class="badge badge--running-out" style="align-self: flex-start;">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+            <span class="text-num">custo subiu 8%</span>
+          </span>
+          <p class="alerta-card__title">Leite condensado</p>
+          <p class="alerta-card__meta">3 receitas afetadas — o preço de venda continua o mesmo.</p>
+        </div>
+        <a class="btn btn--secondary btn--fit" href="insumo-detalhe.html" data-od-id="hoje-acao-ver-impacto-leite">Ver impacto</a>
+      </div>
+
+      <div class="alerta-card" data-od-id="hoje-alerta-torta-de-limao">
+        <span class="list-card__icon" aria-hidden="true">
+          <svg class="icon icon--20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+        </span>
+        <div class="alerta-card__body">
+          <span class="badge badge--running-out" style="align-self: flex-start;">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>
+            margem caiu
+          </span>
+          <p class="alerta-card__title">Torta de limão (fatia)</p>
+          <p class="alerta-card__meta text-num">Prejuízo de R$ -0,40 por fatia vendida.</p>
+        </div>
+        <a class="btn btn--secondary btn--fit" href="produto-simulador-preco.html" data-od-id="hoje-acao-ajustar-preco-torta">Ajustar preço</a>
+      </div>
+    </div>
+
+    <!-- ========================= COMPRAR DE NOVO ========================= -->
+    <h2 class="secao-label" data-od-id="hoje-secao-comprar-de-novo">Comprar de novo</h2>
+    <p class="saudacao__sub" style="margin-bottom: var(--uniq-space-2);">Os últimos insumos que você compôs na lista de compra.</p>
+    <div class="chip-row" data-od-id="hoje-chips-comprar-de-novo">
+      <a class="chip chip--suggest" href="nova-compra-mobile.html" data-od-id="hoje-chip-recompra-leite">
+        <svg class="icon icon--16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+        Leite condensado
+      </a>
+      <a class="chip chip--suggest" href="nova-compra-mobile.html" data-od-id="hoje-chip-recompra-farinha">
+        <svg class="icon icon--16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+        Farinha de trigo
+      </a>
+      <a class="chip chip--suggest" href="nova-compra-mobile.html" data-od-id="hoje-chip-recompra-ovos">
+        <svg class="icon icon--16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+        Ovos
+      </a>
+    </div>
+
+    <!-- ========================= CARD DA MELISSA ========================= -->
+    <aside class="melissa-card" data-od-id="hoje-melissa-card" style="margin-top: var(--uniq-space-5);">
+      <div class="melissa-card__glow" aria-hidden="true"></div>
+      <header class="melissa-card__head">
+        <img class="melissa-card__avatar" src="assets/avatar-MELISSA.png" alt="" width="34" height="34" style="border-radius:50%;object-fit:cover" />
+        <div>
+          <p class="melissa-card__name">Melissa</p>
+          <p class="melissa-card__role">IA Proativa</p>
+        </div>
+      </header>
+      <div class="melissa-card__bubble">
+        <p>Eu explico, você decide. <strong>Não vou mexer em nada sem você mandar.</strong></p>
+      </div>
+      <footer class="melissa-card__actions">
+        <a class="melissa-card__action" href="margem.html" data-od-id="hoje-melissa-acao-ver-margem">Ver margem de hoje</a>
+      </footer>
+    </aside>
+
+    <!-- ========================= ESTADOS DA TELA ========================= -->
+    <div class="divider" data-od-id="hoje-divisor-estados">Estados da tela</div>
+
+    <p class="state-caption" data-od-id="hoje-estado-loading-legenda">Carregando</p>
+    <div class="stack-list" aria-hidden="true">
+      <div class="skeleton skeleton--card"></div>
+      <div class="skeleton skeleton--card"></div>
+      <div class="skeleton skeleton--card"></div>
+      <div class="skeleton skeleton--pill"></div>
+    </div>
+
+    <p class="state-caption" data-od-id="hoje-estado-empty-legenda">Tudo em dia</p>
+    <div class="state-block" data-od-id="hoje-estado-empty">
+      <svg class="icon icon--48 state-block__illo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 12.01"/></svg>
+      <p class="state-block__title">Tudo em dia hoje</p>
+      <p class="state-block__text">Nenhum alerta para você. Sua cozinha está rodando lisa — aproveite e venda bastante.</p>
+    </div>
+
+    <p class="state-caption" data-od-id="hoje-estado-error-legenda">Falha ao carregar</p>
+    <div class="state-block" data-od-id="hoje-estado-error">
+      <svg class="icon icon--48 state-block__illo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+      <p class="state-block__title">Não foi possível carregar</p>
+      <p class="state-block__text">Veja se a internet está funcionando e tente de novo.</p>
+      <button type="button" class="btn btn--secondary" data-od-id="hoje-acao-tentar-de-novo">
+        <svg class="icon icon--18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+        Tente de novo
+      </button>
+    </div>
+  </main>
+
+  <script>
+    // Segmented funcional: troca o painel de atalhos abaixo, sem navegar.
+    var segmentos = document.querySelectorAll('.hoje-segmented .segmented__btn');
+    var paineis = ['atalhos-compro', 'atalhos-faco', 'atalhos-vendo'];
+
+    segmentos.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var alvo = btn.getAttribute('data-painel');
+        var jaAtivo = btn.getAttribute('aria-pressed') === 'true';
+
+        segmentos.forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
+        paineis.forEach(function (id) { document.getElementById(id).classList.add('hide'); });
+
+        if (!jaAtivo) {
+          btn.setAttribute('aria-pressed', 'true');
+          document.getElementById(alvo).classList.remove('hide');
+        }
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Margem — Base UNIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/tokens.css" />
+<link rel="stylesheet" href="assets/shared.css" />
+<style>
+  /* ajustes locais desta tela (sem cores novas) */
+  main { padding: var(--uniq-space-4) var(--uniq-space-4) var(--uniq-space-5); }
+  .margem-segmented { margin-bottom: var(--uniq-space-3); }
+
+  .subtabs {
+    display: flex;
+    gap: var(--uniq-space-2);
+    border-bottom: var(--uniq-border-w) solid var(--uniq-border-on-white);
+    margin: 0 calc(var(--uniq-space-4) * -1) var(--uniq-space-4);
+    padding: 0 var(--uniq-space-3);
+  }
+  .subtabs__tab {
+    min-height: var(--uniq-tap-min);
+    padding: 0 var(--uniq-space-3);
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: var(--uniq-text-base);
+    font-weight: var(--uniq-weight-medium);
+    color: var(--uniq-ink-muted-on-bg);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    border-radius: var(--uniq-radius-control) var(--uniq-radius-control) 0 0;
+  }
+  .subtabs__tab:hover { background: var(--uniq-accent-faint); color: var(--uniq-ink); }
+  .subtabs__tab[aria-current="page"] {
+    color: var(--uniq-ink);
+    font-weight: var(--uniq-weight-semibold);
+    border-bottom-color: var(--uniq-accent);
+  }
+
+  .period-row { display: flex; flex-direction: column; gap: var(--uniq-space-2); margin-bottom: var(--uniq-space-4); }
+  .period-row__head { display: flex; align-items: center; gap: 6px; font-size: var(--uniq-text-sm); font-weight: var(--uniq-weight-medium); color: var(--uniq-ink-muted-on-bg); }
+
+  .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--uniq-space-3); margin-bottom: var(--uniq-space-4); }
+  .kpi { display: flex; flex-direction: column; gap: var(--uniq-space-1); }
+  .kpi__label { font-size: var(--uniq-text-sm); font-weight: var(--uniq-weight-medium); color: var(--uniq-ink-muted); }
+  .kpi__value { font-size: 1.75rem; line-height: 1.15; font-weight: var(--uniq-weight-bold); letter-spacing: -0.02em; }
+  .kpi__unit { font-size: var(--uniq-text-sm); color: var(--uniq-ink-muted-on-bg); }
+  .kpi .badge { margin-top: var(--uniq-space-2); align-self: flex-start; }
+
+  .section-head {
+    font-size: var(--uniq-text-sm);
+    font-weight: var(--uniq-weight-bold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--uniq-ink-muted);
+    margin: var(--uniq-space-5) 0 var(--uniq-space-2);
+    display: flex; align-items: center; gap: var(--uniq-space-2);
+  }
+  .section-head .icon { color: var(--uniq-muted); }
+
+  .protege-card .list-card__spark { width: 100%; margin-top: var(--uniq-space-1); color: var(--uniq-success-ink); }
+  .spark-area { fill: color-mix(in srgb, var(--uniq-accent) 30%, transparent); }
+  .spark-line { fill: none; stroke: var(--uniq-success-ink); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  .fix-card {
+    display: flex; align-items: center; gap: var(--uniq-space-3);
+    width: 100%;
+    min-height: 72px;
+    padding: var(--uniq-space-3);
+    background: var(--uniq-surface);
+    border: var(--uniq-border-w) solid var(--uniq-border-on-white);
+    border-radius: var(--uniq-radius-card);
+    box-shadow: var(--uniq-shadow-sm);
+  }
+  .fix-card__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .fix-card__title { font-size: var(--uniq-text-md); font-weight: var(--uniq-weight-semibold); }
+  .fix-card__why { font-size: var(--uniq-text-base); color: var(--uniq-ink-muted); }
+  .fix-card__why strong { color: var(--uniq-ink); font-weight: var(--uniq-weight-medium); }
+  .btn--fit { min-height: var(--uniq-tap-min); padding: 0 var(--uniq-space-3); font-size: var(--uniq-text-base); flex-shrink: 0; }
+
+  .stack-list > * + * { margin-top: var(--uniq-space-3); }
+  .state-caption { font-size: var(--uniq-text-xs); font-weight: var(--uniq-weight-semibold); letter-spacing: 0.06em; text-transform: uppercase; color: var(--uniq-ink-muted-on-bg); margin: var(--uniq-space-4) 0 var(--uniq-space-2); }
+</style>
+</head>
+<body>
+<div class="app-shell" data-od-id="tela-margem">
+
+  <!-- ============================ APP BAR ============================ -->
+  <header class="app-bar" data-od-id="margem-app-bar">
+    <h1 class="app-bar__title" data-od-id="margem-titulo">Margem</h1>
+    <div class="app-bar__actions">
+      <a class="icon-btn" href="hoje-home.html" aria-label="Ir para Hoje" data-od-id="margem-acao-inicio">
+        <svg class="icon icon--20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <!-- =================== SEGMENTED [Compro][Faço][Vendo] =================== -->
+    <div class="segmented margem-segmented" role="group" aria-label="Modo da base" data-od-id="margem-segmented">
+      <button type="button" class="segmented__btn" data-href="insumos-lista.html" aria-pressed="false" data-od-id="margem-segmento-compro">Compro</button>
+      <button type="button" class="segmented__btn" data-href="producao.html" aria-pressed="false" data-od-id="margem-segmento-faco">Faço</button>
+      <button type="button" class="segmented__btn" aria-pressed="true" data-od-id="margem-segmento-vendo">Vendo</button>
+    </div>
+
+    <!-- ============================ SUB-TABS ============================ -->
+    <nav class="subtabs" aria-label="Seções de Vendo" data-od-id="margem-subtabs">
+      <a class="subtabs__tab" href="produto-simulador-preco.html" data-od-id="margem-subtab-produtos">
+        <svg class="icon icon--16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+        Produtos
+      </a>
+      <a class="subtabs__tab" href="margem.html" aria-current="page" data-od-id="margem-subtab-margem">
+        <svg class="icon icon--16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+        Margem
+      </a>
+    </nav>
+
+    <!-- ========================= SELETOR DE PERÍODO ========================= -->
+    <div class="period-row" data-od-id="margem-periodo">
+      <p class="period-row__head">
+        <svg class="icon icon--16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
+        Período
+      </p>
+      <div class="chip-row" role="group" aria-label="Escolher período" aria-live="polite">
+        <button type="button" class="chip" data-periodo="7" aria-pressed="false" data-od-id="margem-chip-7dias">7 dias</button>
+        <button type="button" class="chip chip--selected" data-periodo="30" aria-pressed="true" data-od-id="margem-chip-30dias">30 dias</button>
+        <button type="button" class="chip" data-periodo="90" aria-pressed="false" data-od-id="margem-chip-90dias">90 dias</button>
+      </div>
+    </div>
+
+    <!-- ============================ KPIs ============================ -->
+    <div class="kpi-grid" data-od-id="margem-kpis">
+      <div class="panel kpi" data-od-id="margem-kpi-sobra-media">
+        <p class="kpi__label">Sobra média</p>
+        <p class="kpi__value text-num" id="kpi-sobra-valor">R$ 4,72</p>
+        <p class="kpi__unit">por unidade vendida</p>
+        <span class="badge badge--success">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+          <span id="kpi-sobra-pct">59% do preço</span>
+        </span>
+      </div>
+      <div class="panel kpi" data-od-id="margem-kpi-no-vermelho">
+        <p class="kpi__label">No vermelho</p>
+        <p class="kpi__value text-num">2</p>
+        <p class="kpi__unit">produtos dando prejuízo</p>
+        <span class="badge badge--running-out">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+          resolver primeiro
+        </span>
+      </div>
+    </div>
+
+    <!-- ========================= CARD DA MELISSA ========================= -->
+    <aside class="melissa-card" data-od-id="margem-melissa-card" style="margin-bottom: var(--uniq-space-4);">
+      <div class="melissa-card__glow" aria-hidden="true"></div>
+      <header class="melissa-card__head">
+        <img class="melissa-card__avatar" src="assets/avatar-MELISSA.png" alt="" width="34" height="34" style="border-radius:50%;object-fit:cover" />
+        <div>
+          <p class="melissa-card__name">Melissa</p>
+          <p class="melissa-card__role">IA Proativa</p>
+        </div>
+      </header>
+      <div class="melissa-card__bubble">
+        <p>De cada R$ 100 vendidos, sobram <strong>R$ 62</strong> para você.</p>
+      </div>
+      <footer class="melissa-card__actions">
+        <a class="melissa-card__action" href="produto-simulador-preco.html" data-od-id="margem-melissa-acao-produtos">Ver produtos</a>
+        <button type="button" class="melissa-card__action melissa-card__action--ghost" id="margem-melissa-enti" data-od-id="margem-melissa-acao-enti">Entendi</button>
+      </footer>
+    </aside>
+
+    <!-- ========================= PROTEJA ESTES ========================= -->
+    <h2 class="section-head" data-od-id="margem-secao-proteja">
+      <svg class="icon icon--18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.8 7.6-7.7 7.45a12 12 0 0 1-.35 0C8 20.6 4 18 4 13c-1.5-4.5 2-9.5 2-9.5s4.5 3.5 8 3.5S22 3.5 22 3.5s3.5 5 2 9.5Z"/></svg>
+      Proteja estes
+    </h2>
+    <p class="kpi__unit" style="margin-bottom: var(--uniq-space-3);">Quem mais coloca dinheiro no seu bolso por unidade vendida.</p>
+
+    <div class="stack-list" data-od-id="margem-lista-proteja">
+      <a class="list-card protege-card" href="produto-simulador-preco.html" data-od-id="margem-card-protege-bolo-de-pote">
+        <div class="list-card__body">
+          <p class="list-card__title">Bolo de pote</p>
+          <p class="list-card__meta text-num">Vendido a R$ 12,00 · custo R$ 5,10</p>
+          <svg class="list-card__spark" viewBox="0 0 100 26" preserveAspectRatio="none" role="img" aria-label="Custo do bolo de pote ficou estável nos últimos 30 dias">
+            <path class="spark-area" d="M0,17 L12,16 25,18 37,15 50,17 62,14 75,16 87,13 100,14 L100,26 L0,26 Z"></path>
+            <polyline class="spark-line" points="0,17 12,16 25,18 37,15 50,17 62,14 75,16 87,13 100,14"></polyline>
+          </svg>
+        </div>
+        <div class="list-card__side">
+          <span class="badge badge--success">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+            <span class="text-num">R$ 6,90</span>
+          </span>
+          <p class="list-card__meta">sobra/un</p>
+        </div>
+      </a>
+
+      <a class="list-card protege-card" href="produto-simulador-preco.html" data-od-id="margem-card-protege-cone-de-limao">
+        <div class="list-card__body">
+          <p class="list-card__title">Cone de limão</p>
+          <p class="list-card__meta text-num">Vendido a R$ 8,50 · custo R$ 3,23</p>
+          <svg class="list-card__spark" viewBox="0 0 100 26" preserveAspectRatio="none" role="img" aria-label="Custo do cone de limão variou pouco nos últimos 30 dias">
+            <path class="spark-area" d="M0,15 L12,17 25,14 37,16 50,13 62,15 75,12 87,14 100,12 L100,26 L0,26 Z"></path>
+            <polyline class="spark-line" points="0,15 12,17 25,14 37,16 50,13 62,15 75,12 87,14 100,12"></polyline>
+          </svg>
+        </div>
+        <div class="list-card__side">
+          <span class="badge badge--success">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+            <span class="text-num">R$ 5,27</span>
+          </span>
+          <p class="list-card__meta">sobra/un</p>
+        </div>
+      </a>
+
+      <a class="list-card protege-card" href="produto-simulador-preco.html" data-od-id="margem-card-protege-brigadeiro">
+        <div class="list-card__body">
+          <p class="list-card__title">Brigadeiro</p>
+          <p class="list-card__meta text-num">Vendido a R$ 3,50 · custo R$ 1,48</p>
+          <svg class="list-card__spark" viewBox="0 0 100 26" preserveAspectRatio="none" role="img" aria-label="Custo do brigadeiro subiu de leve nos últimos 30 dias">
+            <path class="spark-area" d="M0,20 L12,19 25,20 37,18 50,18 62,17 75,17 87,15 100,16 L100,26 L0,26 Z"></path>
+            <polyline class="spark-line" points="0,20 12,19 25,20 37,18 50,18 62,17 75,17 87,15 100,16"></polyline>
+          </svg>
+        </div>
+        <div class="list-card__side">
+          <span class="badge badge--success">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+            <span class="text-num">R$ 2,02</span>
+          </span>
+          <p class="list-card__meta">sobra/un</p>
+        </div>
+      </a>
+    </div>
+
+    <!-- ========================= RESOLVA ESTES ========================= -->
+    <h2 class="section-head" data-od-id="margem-secao-resolva">
+      <svg class="icon icon--18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+      Resolva estes
+    </h2>
+    <p class="kpi__unit" style="margin-bottom: var(--uniq-space-3);">Estes estão vendendo abaixo do custo. Um ajuste de preço resolve.</p>
+
+    <div class="stack-list" data-od-id="margem-lista-resolva">
+      <div class="fix-card" data-od-id="margem-card-resolva-torta-de-limao">
+        <div class="fix-card__body">
+          <p class="fix-card__title">Torta de limão (fatia)</p>
+          <span class="badge badge--running-out" style="align-self: flex-start;">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>
+            <span class="text-num">no prejuízo R$ -0,40 por fatia</span>
+          </span>
+          <p class="fix-card__why"><strong>O leite condensado subiu 8%</strong> e o custo passou do preço.</p>
+        </div>
+        <a class="btn btn--secondary btn--fit" href="produto-simulador-preco.html" data-od-id="margem-acao-ajustar-torta">Ajustar preço</a>
+      </div>
+
+      <div class="fix-card" data-od-id="margem-card-resolva-pao-de-mel">
+        <div class="fix-card__body">
+          <p class="fix-card__title">Pão de mel</p>
+          <span class="badge badge--running-out" style="align-self: flex-start;">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>
+            <span class="text-num">no prejuízo R$ -0,30 por unidade</span>
+          </span>
+          <p class="fix-card__why"><strong>O chocolate subiu 5%</strong> desde a última compra.</p>
+        </div>
+        <a class="btn btn--secondary btn--fit" href="produto-simulador-preco.html" data-od-id="margem-acao-ajustar-pao-de-mel">Ajustar preço</a>
+      </div>
+    </div>
+
+    <!-- ========================= ESTADOS DA TELA ========================= -->
+    <div class="divider" data-od-id="margem-divisor-estados">Estados da tela</div>
+
+    <p class="state-caption" data-od-id="margem-estado-loading-legenda">Carregando</p>
+    <div class="kpi-grid" aria-hidden="true">
+      <div class="skeleton" style="height: 128px; border-radius: var(--uniq-radius-card);"></div>
+      <div class="skeleton" style="height: 128px; border-radius: var(--uniq-radius-card);"></div>
+    </div>
+    <div class="stack-list" aria-hidden="true">
+      <div class="skeleton skeleton--card"></div>
+      <div class="skeleton skeleton--card"></div>
+      <div class="skeleton skeleton--card"></div>
+    </div>
+
+    <p class="state-caption" data-od-id="margem-estado-empty-legenda">Sem vendas no período</p>
+    <div class="state-block" data-od-id="margem-estado-empty">
+      <svg class="icon icon--48 state-block__illo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m7 14 4-4 4 4 5-5"/></svg>
+      <p class="state-block__title">Nada vendido neste período</p>
+      <p class="state-block__text">Assim que registrar as vendas, a sobra de cada doce aparece aqui.</p>
+    </div>
+
+    <p class="state-caption" data-od-id="margem-estado-error-legenda">Falha ao carregar</p>
+    <div class="state-block" data-od-id="margem-estado-error">
+      <svg class="icon icon--48 state-block__illo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+      <p class="state-block__title">Não foi possível carregar</p>
+      <p class="state-block__text">Veja se a internet está funcionando e tente de novo.</p>
+      <button type="button" class="btn btn--secondary" data-od-id="margem-acao-tentar-de-novo">
+        <svg class="icon icon--18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+        Tente de novo
+      </button>
+    </div>
+  </main>
+
+  <script>
+    // Segmented: Compro/Faço navegam; Vendo é a tela atual.
+    document.querySelectorAll('.segmented__btn[data-href]').forEach(function (btn) {
+      btn.addEventListener('click', function () { window.location.href = btn.getAttribute('data-href'); });
+    });
+
+    // Seletor de período — dados demo coerentes por período.
+    var dadosPeriodo = {
+      '7':  { valor: 'R$ 4,85', pct: '60% do preço' },
+      '30': { valor: 'R$ 4,72', pct: '59% do preço' },
+      '90': { valor: 'R$ 4,48', pct: '57% do preço' }
+    };
+    var chips = document.querySelectorAll('.chip[data-periodo]');
+    chips.forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        chips.forEach(function (c) {
+          c.setAttribute('aria-pressed', 'false');
+          c.classList.remove('chip--selected');
+        });
+        chip.setAttribute('aria-pressed', 'true');
+        chip.classList.add('chip--selected');
+        var d = dadosPeriodo[chip.getAttribute('data-periodo')];
+        document.getElementById('kpi-sobra-valor').textContent = d.valor;
+        document.getElementById('kpi-sobra-pct').textContent = d.pct;
+      });
+    });
+
+    // Melissa: "Entendi" fecha o card.
+    document.getElementById('margem-melissa-enti').addEventListener('click', function () {
+      document.querySelector('[data-od-id="margem-melissa-card"]').classList.add('hide');
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Bolo de pote — Simulador de preço — Base UNIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/tokens.css" />
+<link rel="stylesheet" href="assets/shared.css" />
+<style>
+  /* ajustes locais desta tela (sem cores novas) */
+  main { padding: var(--uniq-space-4) var(--uniq-space-4) var(--uniq-space-5); }
+
+  .hero-card { display: flex; flex-direction: column; gap: var(--uniq-space-3); }
+  .hero-row { display: flex; align-items: center; justify-content: space-between; gap: var(--uniq-space-2); flex-wrap: wrap; }
+  .hero-row__label { font-size: var(--uniq-text-sm); font-weight: var(--uniq-weight-medium); color: var(--uniq-ink-muted); }
+  .hero-row__value { font-size: var(--uniq-text-xl); font-weight: var(--uniq-weight-bold); letter-spacing: -0.01em; }
+  .hero-hairline { height: var(--uniq-border-w); background: var(--uniq-border-on-white); border: 0; margin: 2px 0; }
+
+  .sugerido {
+    background: var(--uniq-accent-faint);
+    border: var(--uniq-border-w) solid color-mix(in oklab, var(--uniq-accent) 45%, var(--uniq-surface));
+    border-radius: var(--uniq-radius-card);
+    padding: var(--uniq-space-4);
+    display: flex; flex-direction: column; gap: var(--uniq-space-2);
+  }
+  .sugerido__caption { font-size: var(--uniq-text-sm); font-weight: var(--uniq-weight-semibold); color: var(--uniq-success-ink); display: flex; align-items: center; gap: 6px; }
+  .sugerido__text { font-size: var(--uniq-text-md); line-height: 1.5; }
+  .sugerido__text strong { font-weight: var(--uniq-weight-bold); }
+
+  .comp-toggle-row { display: flex; align-items: center; justify-content: space-between; gap: var(--uniq-space-2); flex-wrap: wrap; }
+  .btn--mini-link { min-height: var(--uniq-tap-min); }
+  .chev { transition: transform 160ms ease; }
+  .btn--mini-link[aria-expanded="true"] .chev { transform: rotate(180deg); }
+  .receipt { width: 100%; }
+  .receipt__line { display: flex; justify-content: space-between; gap: var(--uniq-space-3); }
+  .receipt__total { display: flex; justify-content: space-between; gap: var(--uniq-space-3); border-top: var(--uniq-border-w) dashed var(--uniq-dark-hairline); margin-top: var(--uniq-space-2); padding-top: var(--uniq-space-2); font-weight: var(--uniq-weight-bold); }
+
+  /* Slider de margem */
+  .slider-panel { margin-top: var(--uniq-space-4); }
+  .slider-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--uniq-space-2); margin-bottom: var(--uniq-space-1); }
+  .slider-head output { font-size: var(--uniq-text-xl); font-weight: var(--uniq-weight-bold); color: var(--uniq-success-ink); }
+  input[type="range"].margem-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    min-height: var(--uniq-tap-min);
+    background: transparent;
+    margin: 0;
+    padding: 0;
+  }
+  input[type="range"].margem-slider::-webkit-slider-runnable-track {
+    height: 10px;
+    border-radius: var(--uniq-radius-pill);
+    background: var(--uniq-accent-soft);
+    border: var(--uniq-border-w) solid var(--uniq-border-on-white);
+  }
+  input[type="range"].margem-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 30px; height: 30px;
+    margin-top: -11px;
+    border-radius: 50%;
+    background: var(--uniq-accent);
+    border: 2px solid var(--uniq-fg);
+    box-shadow: var(--uniq-shadow-sm);
+    cursor: grab;
+  }
+  input[type="range"].margem-slider::-moz-range-track {
+    height: 10px;
+    border-radius: var(--uniq-radius-pill);
+    background: var(--uniq-accent-soft);
+    border: var(--uniq-border-w) solid var(--uniq-border-on-white);
+  }
+  input[type="range"].margem-slider::-moz-range-progress {
+    height: 10px;
+    border-radius: var(--uniq-radius-pill);
+    background: var(--uniq-accent);
+  }
+  input[type="range"].margem-slider::-moz-range-thumb {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--uniq-accent);
+    border: 2px solid var(--uniq-fg);
+    box-shadow: var(--uniq-shadow-sm);
+    cursor: grab;
+  }
+  .slider-scale { display: flex; justify-content: space-between; font-size: var(--uniq-text-xs); color: var(--uniq-ink-muted); margin-top: 2px; }
+
+  .nota-info {
+    margin-top: var(--uniq-space-4);
+    display: flex; gap: var(--uniq-space-3);
+    background: var(--uniq-surface-sunken);
+    border-color: var(--uniq-border-on-white);
+  }
+  .nota-info .icon { color: var(--uniq-muted); margin-top: 2px; }
+  .nota-info p { font-size: var(--uniq-text-base); color: var(--uniq-ink-muted-on-bg); line-height: 1.55; }
+  .nota-info strong { color: var(--uniq-ink); font-weight: var(--uniq-weight-semibold); }
+
+  .state-caption { font-size: var(--uniq-text-xs); font-weight: var(--uniq-weight-semibold); letter-spacing: 0.06em; text-transform: uppercase; color: var(--uniq-ink-muted-on-bg); margin: var(--uniq-space-4) 0 var(--uniq-space-2); }
+  .stack-list > * + * { margin-top: var(--uniq-space-3); }
+</style>
+</head>
+<body>
+<div class="app-shell app-shell--has-bottom" data-od-id="tela-simulador">
+
+  <!-- ============================ APP BAR ============================ -->
+  <header class="app-bar" data-od-id="simulador-app-bar">
+    <a class="icon-btn" href="margem.html" aria-label="Voltar para Margem" data-od-id="simulador-acao-voltar">
+      <svg class="icon icon--20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+    </a>
+    <h1 class="app-bar__title" data-od-id="simulador-titulo">Bolo de pote</h1>
+    <div class="app-bar__actions">
+      <span class="pill">
+        <svg class="icon icon--16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+        Vendo
+      </span>
+    </div>
+  </header>
+
+  <main>
+    <!-- ============================ HERÓI ============================ -->
+    <section class="panel hero-card" data-od-id="simulador-bloco-heroi" aria-label="Resumo do produto">
+      <div>
+        <div class="comp-toggle-row">
+          <div>
+            <p class="hero-row__label">Custo por unidade (custo médio)</p>
+            <p class="hero-row__value text-num">R$ 5,10</p>
+          </div>
+          <button type="button" class="btn btn--link btn--mini-link" id="btn-composicao" aria-expanded="false" aria-controls="recibo-composicao" data-od-id="simulador-acao-ver-composicao">
+            Ver composição
+            <svg class="icon icon--18 chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+        </div>
+        <div class="receipt hide" id="recibo-composicao" data-od-id="simulador-recibo" role="region" aria-label="Composição do custo">
+          <p class="receipt__label">Custo de 1 bolo de pote</p>
+          <p class="receipt__line"><span>Farinha + açúcar</span><span>R$ 1,20</span></p>
+          <p class="receipt__line"><span>Ovos</span><span>R$ 1,00</span></p>
+          <p class="receipt__line"><span>Leite condensado</span><span>R$ 1,67</span></p>
+          <p class="receipt__line"><span>Embalagem</span><span>R$ 1,23</span></p>
+          <p class="receipt__total"><span>Total</span><span class="receipt__result">R$ 5,10</span></p>
+          <p class="receipt__detail">Custo médio das últimas compras. Atualizado hoje.</p>
+        </div>
+      </div>
+
+      <hr class="hero-hairline" />
+
+      <div class="hero-row">
+        <p class="hero-row__label">Preço praticado hoje</p>
+        <p class="hero-row__value text-num">R$ 12,00</p>
+      </div>
+      <span class="badge badge--success" style="align-self: flex-start;">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+        <span class="text-num">sobram 58% hoje · R$ 6,90</span>
+      </span>
+
+      <div class="sugerido" data-od-id="simulador-preco-sugerido" role="status" aria-live="polite">
+        <p class="sugerido__caption">
+          <svg class="icon icon--18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.8c.6.5 1 1.3 1 2.2h6c0-.9.4-1.7 1-2.2A7 7 0 0 0 12 2Z"/></svg>
+          Sugestão para você
+        </p>
+        <p class="sugerido__text">Se você cobrar <strong class="text-num" id="out-preco">R$ 12,75</strong>, sobram <strong class="text-num" id="out-sobra">R$ 7,65</strong> por bolo — <strong class="text-num" id="out-pct">60%</strong></p>
+      </div>
+    </section>
+
+    <!-- ========================= SLIDER DE MARGEM ========================= -->
+    <section class="panel slider-panel" data-od-id="simulador-bloco-slider" aria-label="Simulador de margem">
+      <div class="slider-head">
+        <label class="field__label" for="margem-slider">Margem desejada</label>
+        <output id="out-margem" class="text-num" for="margem-slider">60%</output>
+      </div>
+      <input type="range" class="margem-slider" id="margem-slider" min="20" max="80" step="1" value="60"
+             aria-describedby="slider-ajuda" data-od-id="simulador-slider-margem" />
+      <div class="slider-scale" aria-hidden="true"><span>20%</span><span>50%</span><span>80%</span></div>
+      <p class="field__help" id="slider-ajuda" style="margin-top: var(--uniq-space-2);">Arraste para ver o preço mudar na hora. Preço = custo ÷ (1 − margem).</p>
+    </section>
+
+    <!-- ============================ NOTA CURTA ============================ -->
+    <section class="panel nota-info" data-od-id="simulador-nota-margem-markup">
+      <svg class="icon icon--20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      <p>Margem é o que sobra de cada R$ 100. Markup multiplica o custo. <strong>Não são a mesma coisa.</strong></p>
+    </section>
+
+    <!-- ========================= CARD DA MELISSA ========================= -->
+    <aside class="melissa-card" data-od-id="simulador-melissa-card" style="margin-top: var(--uniq-space-4);">
+      <div class="melissa-card__glow" aria-hidden="true"></div>
+      <header class="melissa-card__head">
+        <img class="melissa-card__avatar" src="assets/avatar-MELISSA.png" alt="" width="34" height="34" style="border-radius:50%;object-fit:cover" />
+        <div>
+          <p class="melissa-card__name">Melissa</p>
+          <p class="melissa-card__role">IA Proativa</p>
+        </div>
+      </header>
+      <div class="melissa-card__bubble">
+        <p>A torta de limão deixou <strong>R$ -0,40</strong> por fatia. O leite condensado subiu 8%.</p>
+      </div>
+      <footer class="melissa-card__actions">
+        <a class="melissa-card__action" href="margem.html" data-od-id="simulador-melissa-acao-ajustar-torta">Ajustar torta</a>
+        <button type="button" class="melissa-card__action melissa-card__action--ghost" id="simulador-melissa-enti" data-od-id="simulador-melissa-acao-enti">Entendi</button>
+      </footer>
+    </aside>
+
+    <!-- ========================= ESTADOS DA TELA ========================= -->
+    <div class="divider" data-od-id="simulador-divisor-estados">Estados da tela</div>
+
+    <p class="state-caption" data-od-id="simulador-estado-loading-legenda">Carregando</p>
+    <div class="stack-list" aria-hidden="true">
+      <div class="skeleton" style="height: 168px; border-radius: var(--uniq-radius-card);"></div>
+      <div class="skeleton skeleton--card"></div>
+    </div>
+
+    <p class="state-caption" data-od-id="simulador-estado-empty-legenda">Custo ainda sem registro</p>
+    <div class="state-block" data-od-id="simulador-estado-empty">
+      <svg class="icon icon--48 state-block__illo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M14 8H8"/><path d="M16 12H8"/><path d="M14 16H8"/></svg>
+      <p class="state-block__title">Sem custo calculado ainda</p>
+      <p class="state-block__text">Registre a receita com os ingredientes e a Melissa monta o custo desta tela para você.</p>
+    </div>
+
+    <p class="state-caption" data-od-id="simulador-estado-error-legenda">Falha ao carregar</p>
+    <div class="state-block" data-od-id="simulador-estado-error">
+      <svg class="icon icon--48 state-block__illo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+      <p class="state-block__title">Não foi possível carregar</p>
+      <p class="state-block__text">Veja se a internet está funcionando e tente de novo.</p>
+      <button type="button" class="btn btn--secondary" data-od-id="simulador-acao-tentar-de-novo">
+        <svg class="icon icon--18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+        Tente de novo
+      </button>
+    </div>
+  </main>
+
+  <!-- ============================ BOTTOM BAR ============================ -->
+  <div class="bottom-bar" data-od-id="simulador-bottom-bar">
+    <div class="bottom-bar__hint">
+      <span>Novo preço: <strong class="text-num" id="hint-preco">R$ 12,75</strong></span>
+      <span>Sobra: <strong class="text-num" id="hint-sobra">R$ 7,65</strong></span>
+    </div>
+    <button type="button" class="btn btn--primary btn--block btn--lg" id="btn-aplicar" data-od-id="simulador-cta-aplicar-preco">Aplicar preço sugerido</button>
+    <div class="hide" id="aplicar-feedback" role="status" style="display: none; align-items: center; justify-content: center; gap: var(--uniq-space-2); min-height: var(--uniq-btn-primary-h); background: var(--uniq-accent-faint); border: var(--uniq-border-w) solid color-mix(in oklab, var(--uniq-accent) 45%, var(--uniq-surface)); border-radius: var(--uniq-radius-control); font-weight: var(--uniq-weight-semibold); color: var(--uniq-success-ink);">
+      <svg class="icon icon--20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 12.01"/></svg>
+      <span id="aplicar-feedback-texto">Preço aplicado.</span>
+    </div>
+  </div>
+
+  <script>
+    var CUSTO = 5.10;
+
+    function brl(n) {
+      return 'R$ ' + n.toFixed(2).replace('.', ',');
+    }
+
+    var slider = document.getElementById('margem-slider');
+
+    function atualizar() {
+      var m = Number(slider.value) / 100;
+      var preco = Math.round((CUSTO / (1 - m)) * 100) / 100;
+      var sobra = Math.round((preco - CUSTO) * 100) / 100;
+      var pct = Math.round((sobra / preco) * 100);
+
+      document.getElementById('out-margem').textContent = slider.value + '%';
+      document.getElementById('out-preco').textContent = brl(preco);
+      document.getElementById('out-sobra').textContent = brl(sobra);
+      document.getElementById('out-pct').textContent = pct + '%';
+      document.getElementById('hint-preco').textContent = brl(preco);
+      document.getElementById('hint-sobra').textContent = brl(sobra);
+      slider.setAttribute('aria-valuetext', slider.value + '% de margem, preço ' + brl(preco));
+    }
+
+    slider.addEventListener('input', atualizar);
+    atualizar();
+
+    // Recibo de composição (expande/recolhe)
+    var btnComp = document.getElementById('btn-composicao');
+    var recibo = document.getElementById('recibo-composicao');
+    btnComp.addEventListener('click', function () {
+      var aberto = btnComp.getAttribute('aria-expanded') === 'true';
+      btnComp.setAttribute('aria-expanded', String(!aberto));
+      recibo.classList.toggle('hide', aberto);
+    });
+
+    // Aplicar preço → feedback inline (sem navegar)
+    var btnAplicar = document.getElementById('btn-aplicar');
+    var feedback = document.getElementById('aplicar-feedback');
+    btnAplicar.addEventListener('click', function () {
+      document.getElementById('aplicar-feedback-texto').textContent =
+        'Preço de ' + document.getElementById('hint-preco').textContent + ' aplicado ao Bolo de pote.';
+      btnAplicar.style.display = 'none';
+      feedback.classList.remove('hide');
+      feedback.style.display = 'flex';
+      window.setTimeout(function () {
+        feedback.classList.add('hide');
+        feedback.style.display = 'none';
+        btnAplicar.style.display = '';
+      }, 4000);
+    });
+
+    // Melissa: "Entendi" fecha o card.
+    document.getElementById('simulador-melissa-enti').addEventListener('click', function () {
+      document.querySelector('[data-od-id="simulador-melissa-card"]').classList.add('hide');
+    });
+  </script>
+</body>
+</html>

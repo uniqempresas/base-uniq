@@ -1602,3 +1602,60 @@ Commit `e0e7926` · entry servido `index-CEVpvBSP.js` · chunk `ComprasPage-ooQG
 **Verificação:** `npx tsc --noEmit` **0 erros** · `npm run build` OK · commits do lote pendem de validação do fundador na Vercel (guia: `tracking/GUIA_TESTE_VERCEL_20-10-2026.md`).
 
 **⚠️ Ressalva (pré-existente, não mexida):** digitar **decimais** num input por-receita da ficha ("60,5") perde o separador (o value controlado re-arma o número a cada tecla) — se o fundador reclamar de casas decimaies na ficha, é outro fix (state de texto local por input).
+
+---
+
+## 🏭 ESTOQUE V2 — Compro/Faço/Vendo: redesign observável (21–25/10/2026) · RECONCILIADO 29/10
+
+**Status geral:** ✅ implementado e pushado — `master` = `origin/master`, 15 commits acumulados desde o lote de 20/10. O TRACKING registrava até 20/10; esta seção reconcilia o que veio depois. **Falta validação do fundador na Vercel** — o estoque-v2 inteiro foi construído sem passagem formal de validação (WIRE pelo artefato do OpenDesign, implementação direta).
+
+### 1) Fase 4a — Estorno de OP (21/10 · commit `11ed6f3`)
+
+| Item | Resultado |
+|---|---|
+| Banco | RPC `estornar_producao` (modelo compensatório com restauração **exata do custo do acabado** por telescopagem) + status OP `ATIVA`/`ESTORNADA` |
+| Front | hooks `use-estornar-producao` / `use-ordens-producao`, ações **Estornar/Corrigir** no histórico da aba Produção |
+| Prova no banco | OK — estoque + custo restaurados; guards `INVALID_STATUS` e `ACABADO_INSUFICIENTE` |
+| SDD | `tracking/ANALISE_ESTOQUE_ESTORNO_OP.md` + `tracking/plans/PRD-Producao-EstornoOP.md` + `tracking/specs/SPEC-…` + `tracking/wireframe/WIRE-…` |
+| Migration | **versionada** — `supabase/migrations/20261021090000_estorno_ordem_producao.sql` |
+
+### 2) Caminho de design — OpenDesign (21–24/10)
+
+- Brief: `tracking/PROMPT_OPENDESIGN_FLUXO_ESTOQUE_PRODUCAO.md` (persona sem jargão — nunca "fator", "CMV", "BOM" na UI; modelo mental reduzido a **3 áreas + segmented control: `[Compro] [Faço] [Vendo]`**; regra "Receita e Produto Final são o mesmo objeto em 2 estágios").
+- Artefatos gerados: `tracking/Redesign_ComproVendoFaco/` (mockups HTML por tela: nova-compra mobile/desktop, insumos lista/detalhe, margem, produção, receita-editor, simulador de preço, hoje-home, brand).
+
+### 3) Implementação v2 (24–25/10 · 14 commits)
+
+**Decisão estrutural:** redesign observável — rotas espelho **`/estoque-v2/*`** conectadas ao banco real (`me_produto`, `est_compra`, `est_ficha_tecnica`, `est_ordem_producao`) **sem substituir** o `/estoque` atual.
+
+| Rodada | Commits | Conteúdo |
+|---|---|---|
+| 1 (24/10) | `5ca7ff1` | rotas espelho `/estoque-v2` ligadas ao banco real — nova compra (wizard 3 passos com recibo de conversão), insumos lista+detalhe, Hoje, Margem, simulador de preço, receita, produção; card da Melissa contextual (padrão dashboard); CSS escopado `.eq2` |
+| 2 (24/10) | `07eb9f2` | módulo **Estoque_02** na sidebar (rail+subnav, prefixo `/estoque-v2` core) · seletor de fornecedor opcional (fast em rascunho) · peso final real na produção (entrada pesada, custo na estimativa, divergência na observação da OP) |
+| — | `978c28e` | docs da apresentação: Alpha no eixo visual + **decisão de cobrança do setup na Onda 1** (R$ 500 na entrega do MVP, não na assinatura) |
+| 3 (24/10) | `d2b1e26` · `6e46d02` | feedbacks fundador round 2: valor unitário × preço total **bidirecional** · "salvar e receber agora" (reusa RPC `receber_compra`, aritmética v1 preservada) · fornecedor NULL de verdade (sem fallback "Assai") · lista de Receitas com rota · tela Margem branca (hook travava em `authLoading`) · segmented Compro-Faço-Vendo em todas as telas · gaps do audit OpenDesign fechados (editar insumo, comprar de novo, "onde é usado" clicável, atalhos no Hoje) |
+| 4 (24/10) | `54f5fad` · `4c70d62` | modal **Nova Receita** próprio (nome + rendimento + toggle venda, SKU auto; sem jargão de produto composto) · editor sem barra fixa de rodapé (custo/lote/margem migram para o card da Melissa) · **dashboard fusion v1+v2** (`/estoque-v2/dashboard`, comparativo sem substituir) · margem restrita a "vendo isso" (`exibir_vitrine`) com empty state orientando · recompra real com `?insumo=` pre-select |
+| 5 (25/10) | `4b6ffb2` · `96e4e43` | modal **Novo insumo** dedicado (pergunta "como compra / quanto tem em cada embalagem", recibo "1 lata × 395 g", anti-inversão v1 preservada) · **categorias separadas por escopo** (`me_categoria.escopo` produto\|insumo) + tela Configurações v2 com abas Produtos\|Insumos (criar/renomear/cor/arquivar com contagem de uso) |
+| 6 (25/10) | `6303d54` · `dbed378` · `5afa561` · `d8b7cea` | "Comprar de novo" sai da bottom bar fixa → pill flutuante ≥900px → botão em fluxo no fim do conteúdo (padrão "+ Cadastrar insumo novo") · filtro por nome de receita na Produção (tolerante a acentos) · **tela Produtos (Vendo)**: semáforo de margem, estoque, badges, busca/chips + **modal Novo produto em 2 etapas** (Simples vs Feito em casa/receita, seguindo veredito BOM multinível) |
+
+### 🚨 Drift de migrations (padrão B16 — NOVO)
+
+Os commits `96e4e43` (`me_categoria.escopo` produto|insumo) e `d2b1e26` (`fornecedor_id` nullable, sem fallback) **citam migrations na mensagem mas nenhum `.sql` entrou no repo** (verificado por `git show --name-only`). Estão aplicadas no banco de produção; **versionamento pendente**: escrever migrations catch-up **verificando o schema real antes** (regra registrada no incidente do B9 — inferir estrutura é bloqueio, não oportunidade).
+
+### 4) Emenda no modal Novo Produto (29/10 · commitada nesta reconciliação)
+
+- 🐞 **painel não clicava:** o painel herdava `pointer-events: none` do wrapper — fix `pointerEvents: "auto"` (relato do fundador).
+- **mudança de forma (decisão do fundador):** no desktop o modal vira **centralizado** (480px, raio 16) em vez de painel lateral 440px ancorado à direita. Mobile intocado.
+
+### 5) Lado de negócio em paralelo (24/10)
+
+- `tracking/CONTEXTO_PROJETO.md` atualizado (Onda 1 = 2 co-fundadores em 2026; setup R$ 500 na entrega do MVP, até 60 dias; Onda 2 só com a 1ª entregue e o sistema fechado).
+- **`tracking/PLANO_7_DIAS_COFUNDADORES.md` em vigor** — meta: **2 conversas até 30/10, ≥1 realizada até 31/10**. Gate de sábado 31/10 no fundador. Integral ao checklist de demo: **não abrir `/dashboard` na demo (mock)** — entrar por `/crm/dashboard`.
+
+### ⏳ Pendências acumuladas (registradas, não feitas)
+
+1. **Validação do fundador** do estoque-v2 completo na Vercel (todas as telas `/estoque-v2/*`) + da emenda do modal.
+2. **Drift de migrations** acima → escrever catch-up com schema verificado (pode virar B18).
+3. **Stash órfão** `stash@{0}` (WIP pré-`07eb9f2`, 3 arquivos de compra v2, +300/−69) — provavelmente superseded pelos commits de round 2–3; decidir drop ou reaproveitar antes de virar tumba.
+4. **Registro no `TRACKING_ESTOQUE.md`** — ponteiro para esta seção (adicionado nesta reconciliação).
+5. Wave E (ESLint, mocks órfãos, agenda/CompromissosPage latente) segue aguardando decisão do fundador desde 21/09.

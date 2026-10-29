@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nova compra — Base UNIQ</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/tokens.css" />
+<link rel="stylesheet" href="assets/shared.css" />
+
+<style>
+/* ==========================================================================
+   Tela 1 — Nova Compra (wizard em 3 passos)
+   Extra além do shared.css. Regra: zero cor fora das âncoras --uniq-*;
+   tudo derivado por color-mix/oklch. Nada de hex/rgb/hsl novo aqui.
+   ========================================================================== */
+
+/* Garante que [hidden] vença os display: do shared.css (.bottom-bar, .btn, etc.) */
+[hidden] { display: none !important; }
+
+/* ---- barra de progresso colada no header ---- */
+.wizard-head {
+  position: sticky;
+  top: var(--uniq-appbar-h);
+  z-index: var(--uniq-z-sticky);
+  background: var(--uniq-bg);
+  border-bottom: var(--uniq-border-w) solid color-mix(in oklab, var(--uniq-muted) 14%, var(--uniq-bg));
+}
+.wizard-progress__step.is-done { cursor: pointer; }
+.wizard-progress__step.is-done:hover .wizard-progress__dot { background: var(--uniq-accent-soft); }
+.wizard-progress__dot .icon { width: 14px; height: 14px; }
+
+/* ---- passos ---- */
+.step { padding: var(--uniq-space-2) var(--uniq-space-4) var(--uniq-space-6); }
+.step > * + * { margin-top: var(--uniq-space-3); }
+.step__heading {
+  font-size: var(--uniq-text-xl);
+  font-weight: var(--uniq-weight-semibold);
+  letter-spacing: -0.02em;
+  outline: none;
+}
+.step__sub { font-size: var(--uniq-text-sm); color: var(--uniq-ink-muted); }
+
+.step.is-entering { animation: passo-entrar 220ms ease both; }
+@keyframes passo-entrar {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .step.is-entering { animation: none; }
+}
+
+/* ---- passo 1: lista de insumos ---- */
+.insumo-stockline {
+  display: flex;
+  align-items: center;
+  gap: var(--uniq-space-2);
+  flex-wrap: wrap;
+  font-size: var(--uniq-text-sm);
+  color: var(--uniq-ink-muted);
+}
+.insumo-last {
+  font-size: var(--uniq-text-xs);
+  color: var(--uniq-ink-muted);
+}
+.list-card__price .price-unit {
+  font-size: var(--uniq-text-xs);
+  font-weight: var(--uniq-weight-medium);
+  color: var(--uniq-ink-muted);
+}
+.price--na {
+  font-size: var(--uniq-text-xs);
+  font-weight: var(--uniq-weight-medium);
+  color: var(--uniq-ink-muted);
+  text-align: right;
+}
+.add-insumo-card {
+  border-style: dashed;
+  border-color: var(--uniq-border-strong);
+  color: var(--uniq-success-ink);
+  justify-content: center;
+  min-height: var(--uniq-control-h);
+  box-shadow: none;
+}
+.add-insumo-card:hover { background: var(--uniq-accent-faint); color: var(--uniq-ink); border-color: var(--uniq-accent); }
+.add-insumo-card:active { background: var(--uniq-accent-soft); }
+
+.no-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--uniq-space-2);
+  padding: var(--uniq-space-4);
+  text-align: center;
+  font-size: var(--uniq-text-sm);
+  color: var(--uniq-ink-muted);
+}
+
+/* ---- bottom-bar: estado "ainda não pode continuar" (nunca cinza morto) ---- */
+.btn--await[aria-disabled="true"] {
+  opacity: 1;
+  pointer-events: auto;
+  cursor: pointer;
+  background: var(--uniq-accent-faint);
+  color: var(--uniq-success-ink);
+  border-color: var(--uniq-accent-soft);
+}
+.btn--await[aria-disabled="true"]:hover {
+  background: var(--uniq-accent-soft);
+  color: var(--uniq-success-ink);
+}
+.btn--await.is-nudge { animation: empurrar 260ms ease; }
+@keyframes empurrar {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  60% { transform: translateX(3px); }
+}
+@media (prefers-reduced-motion: reduce) { .btn--await.is-nudge { animation: none; } }
+.bar-error { min-height: 0; padding: 0; }
+
+.bottom-bar__row { display: flex; gap: var(--uniq-space-2); }
+.bottom-bar__row .btn--secondary { flex: 0 0 auto; }
+.bottom-bar__row .btn--primary { flex: 1; }
+
+/* ---- passo 2: navegação de itens + campos ---- */
+.item-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--uniq-space-2);
+}
+.item-nav__label {
+  flex: 1;
+  text-align: center;
+  font-size: var(--uniq-text-sm);
+  font-weight: var(--uniq-weight-semibold);
+  color: var(--uniq-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+.icon-btn[disabled] { opacity: 0.35; pointer-events: none; }
+
+.item-hero { display: flex; align-items: center; gap: var(--uniq-space-3); }
+.item-hero__name { font-size: var(--uniq-text-md); font-weight: var(--uniq-weight-semibold); }
+.item-hero__meta { font-size: var(--uniq-text-sm); color: var(--uniq-ink-muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+.qty-row { display: flex; gap: var(--uniq-space-2); align-items: stretch; }
+.qty-row .stepper { flex: 1; min-width: 0; }
+.qty-row .select--unit { flex: 0 0 auto; }
+
+/* ---- recibo ---- */
+.receipt .receipt__line + .receipt__line { margin-top: 2px; }
+
+/* ---- passo 3: revisão + total ---- */
+.review-card { display: flex; flex-direction: column; gap: 6px; }
+.review-card__top { display: flex; justify-content: space-between; align-items: baseline; gap: var(--uniq-space-2); }
+.review-card__name { font-weight: var(--uniq-weight-semibold); min-width: 0; }
+.review-card__total { font-weight: var(--uniq-weight-bold); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.review-card__meta { font-size: var(--uniq-text-sm); color: var(--uniq-ink-muted); font-variant-numeric: tabular-nums; }
+.review-card__add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 3px 8px;
+  border-radius: var(--uniq-radius-pill);
+  background: var(--uniq-accent-faint);
+  border: var(--uniq-border-w) solid color-mix(in oklab, var(--uniq-accent) 45%, var(--uniq-surface));
+  color: var(--uniq-success-ink);
+  font-size: var(--uniq-text-xs);
+  font-weight: var(--uniq-weight-semibold);
+}
+.review-card__add .icon { width: 14px; height: 14px; }
+
+.sum-panel { display: flex; flex-direction: column; gap: var(--uniq-space-1); }
+.sum-panel__label {
+  font-size: var(--uniq-text-sm);
+  font-weight: var(--uniq-weight-semibold);
+  color: var(--uniq-ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.sum-panel__row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--uniq-space-3); }
+.big-sum {
+  font-size: 2rem;
+  font-weight: var(--uniq-weight-bold);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.big-sum .cur { font-size: var(--uniq-text-md); font-weight: var(--uniq-weight-semibold); color: var(--uniq-ink-muted); margin-right: 4px; }
+.sum-panel__meta { font-size: var(--uniq-text-sm); color: var(--uniq-ink-muted); }
+
+/* ---- sucesso pós-salvar ---- */
+.success-panel { display: flex; align-items: flex-start; gap: var(--uniq-space-3); border-color: var(--uniq-accent); }
+.success-panel__icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: var(--uniq-accent-soft);
+  color: var(--uniq-success-ink);
+  flex-shrink: 0;
+}
+.success-panel__title { font-size: var(--uniq-text-lg); font-weight: var(--uniq-weight-semibold); }
+.success-panel__text { font-size: var(--uniq-text-sm); color: var(--uniq-ink-muted); margin-top: 2px; }
+
+.spin { animation: girar 0.9s linear infinite; }
+@keyframes girar { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation-duration: 2.4s; } }
+
+/* ---- avatar real da Melissa dentro do padrão .melissa-card ---- */
+.melissa-card__avatar { overflow: hidden; }
+.melissa-card__avatar img { width: 100%; height: 100%; }
+
+/* ---- sheet ---- */
+.sheet__footer {
+  display: flex;
+  gap: var(--uniq-space-2);
+  margin-top: var(--uniq-space-4);
+}
+.sheet__footer .btn { flex: 1; }
+.sheet__intro { font-size: var(--uniq-text-sm); color: var(--uniq-ink-muted); margin: calc(var(--uniq-space-3) * -1 + 4px) 0 var(--uniq-space-4); }
+
+.recipe-list { list-style: none; margin: 0; padding: 0; }
+.recipe-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--uniq-space-2);
+  padding: var(--uniq-space-3) 0;
+  border-bottom: var(--uniq-border-w) solid var(--uniq-border-on-white);
+}
+.recipe-list li:last-child .recipe-row { border-bottom: 0; }
+.recipe-row__body { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.recipe-row__name { font-weight: var(--uniq-weight-semibold); font-size: var(--uniq-text-base); }
+.recipe-row__price { font-size: var(--uniq-text-sm); color: var(--uniq-ink-muted); font-variant-numeric: tabular-nums; }
+
+/* ---- Melissa citada fora do card (estado vazio) ---- */
+.melissa-quote {
+  max-width: 34ch;
+  padding: var(--uniq-space-2) var(--uniq-space-3);
+  background: var(--uniq-surface-sunken);
+  border-left: 3px solid var(--uniq-accent);
+  border-radius: var(--uniq-radius-control);
+  font-size: var(--uniq-text-sm);
+  color: var(--uniq-ink);
+  text-align: left;
+}
+.melissa-quote__name {
+  display: block;
+  font-size: var(--uniq-text-xs);
+  font-weight: var(--uniq-weight-bold);
+  color: var(--uniq-success-ink);
+  letter-spacing: 0.04em;
+}
+
+/* ---- zona de estados ---- */
+.states-zone { padding: 0 var(--uniq-space-4) calc(var(--uniq-bottombar-h) + var(--uniq-safe-bottom) + var(--uniq-space-5)); }
+.states-zone .divider { margin-top: var(--uniq-space-6); }
+.illo-64 { width: 64px; height: 64px; }
+.illo-48 { width: 48px; height: 48px; }
+.skeleton--search { height: var(--uniq-control-h); }
+.mini-skeleton { display: flex; flex-direction: column; gap: var(--uniq-space-2); width: 100%; max-width: 280px; }
+</style>
+</head>
+
+<body>
+<div class="app-shell app-shell--has-bottom">
+
+  <!-- ================= HEADER FIXO ================= -->
+  <header class="app-bar" data-od-id="barra-topo-nova-compra">
+    <button class="icon-btn" id="btn-voltar-appbar" data-od-id="btn-voltar-appbar" type="button" aria-label="Voltar">
+      <svg class="icon icon--20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+    </button>
+    <h1 class="app-bar__title" id="titulo-app-bar" data-od-id="titulo-app-bar">Nova compra</h1>
+    <span class="pill" id="pill-status" data-od-id="pill-rascunho">
+      <svg class="icon icon--16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+      <span id="pill-texto">Rascunho salvo</span>
+    </span>
+  </header>
+
+  <!-- ================= PROGRESSO DO WIZARD ================= -->
+  <div class="wizard-head">
+    <ol class="wizard-progress" id="wizard-progresso" data-od-id="wizard-progresso" aria-label="Progresso da compra">
+      <li class="wizard-progress__step is-current" data-step-go="1" aria-current="step">
+        <span class="wizard-progress__dot" data-dot="1">1</span>
+        <span class="wizard-progress__label">Insumos</span>
+      </li>
+      <li class="wizard-progress__step" data-step-go="2">
+        <span class="wizard-progress__dot" data-dot="2">2</span>
+        <span class="wizard-progress__label">Quantidades</span>
+      </li>
+      <li class="wizard-progress__step" data-step-go="3">
+        <span class="wizard-progress__dot" data-dot="3">3</span>
+        <span class="wizard-progress__label">Conferir</span>
+      </li>
+    </ol>
+  </div>
+
+  <!-- ================= PASSO 1 — O QUE VOCÊ COMPROU? ================= -->
+  <section class="step" id="passo-insumos" data-od-id="passo-insumos">
+    <h2 class="step__heading" id="titulo-passo-1" data-od-id="titulo-passo-1" tabindex="-1">O que você comprou?</h2>
+    <p class="step__sub">Toque nos insumos que entraram nesta compra. Você escolhe as quantidades depois.</p>
+
+    <div class="search" data-od-id="bloco-busca">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input class="input" type="search" id="campo-busca-insumos" data-od-id="campo-busca-insumos" placeholder="Buscar insumo…" aria-label="Buscar insumo" autocomplete="off">
+    </div>
+
+    <div>
+      <p class="section-title" id="titulo-ultimas-compras" data-od-id="titulo-ultimas-compras">Últimas compras</p>
+      <div class="chip-row" id="chips-ultimas" data-od-id="chips-ultimas-compras" role="group" aria-labelledby="titulo-ultimas-compras">
+        <button class="chip" type="button" id="chip-ultimas-leite-condensado" data-od-id="chip-ultimas-leite-condensado" data-target="leite-condensado" aria-pressed="false">
+          <svg class="icon icon--16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6"/><path d="M3 12h18"/><path d="M7 12V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v6"/></svg>
+          Leite condensado
+        </button>
+        <button class="chip" type="button" id="chip-ultimas-farinha" data-od-id="chip-ultimas-farinha" data-target="farinha-de-trigo" aria-pressed="false">Farinha</button>
+        <button class="chip" type="button" id="chip-ultimas-ovos" data-od-id="chip-ultimas-ovos" data-target="ovos" aria-pressed="false">Ovos</button>
+      </div>
+    </div>
+
+    <div>
+      <p class="section-title" id="titulo-lista-insumos" data-od-id="titulo-lista-insumos">Todos os insumos</p>
+      <div class="stack" id="insumos-lista" data-od-id="lista-insumos" role="group" aria-labelledby="titulo-lista-insumos"></div>
+      <div class="no-result hide" id="busca-sem-resultado">
+        <p id="busca-sem-resultado-texto">Nada encontrado.</p>
+        <button class="btn btn--link" type="button" id="btn-cadastrar-da-busca" data-od-id="btn-cadastrar-da-busca">Cadastrar esse insumo novo</button>
+      </div>
+    </div>
+
+    <button class="list-card add-insumo-card" type="button" id="btn-cadastrar-insumo-novo" data-od-id="btn-cadastrar-insumo-novo">
+      <svg class="icon icon--20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+      Cadastrar insumo novo
+    </button>
+  </section>
+
+  <!-- ================= PASSO 2 — QUANTO E POR QUANTO? ================= -->
+  <section class="step" id="passo-quantidades" data-od-id="passo-quantidades" hidden>
+    <nav class="item-nav" id="nav-item-passo-2" data-od-id="indicador-item-passo-2" aria-label="Navegar entre os itens da compra">
+      <button class="icon-btn" type="button" id="btn-item-anterior" data-od-id="btn-item-anterior" aria-label="Item anterior">
+        <svg class="icon icon--20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+      <p class="item-nav__label">Item <span id="idx-atual">1</span> de <span id="idx-total">2</span></p>
+      <button class="icon-btn" type="button" id="btn-item-proximo" data-od-id="btn-item-proximo" aria-label="Próximo item">
+        <svg class="icon icon--20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+    </nav>
+
+    <h2 class="step__heading" id="titulo-passo-2" data-od-id="titulo-passo-2" tabindex="-1">Quanto e por quanto?</h2>
+
+    <div class="panel item-hero" id="hero-insumo" data-od-id="hero-insumo-passo-2">
+      <span class="list-card__icon" id="hero-icon" aria-hidden="true"></span>
+      <div style="flex:1;min-width:0">
+        <p class="item-hero__name" id="hero-nome">—</p>
+        <p class="item-hero__meta" id="hero-estoque">—</p>
+      </div>
+    </div>
+
+    <label class="field" for="input-quantidade">
+      <span class="field__label">Quantas você comprou?</span>
+      <div class="qty-row">
+        <div class="stepper" data-od-id="stepper-quantidade-passo-2">
+          <button class="stepper__btn" type="button" id="btn-q-menos" data-od-id="btn-quantidade-menos" aria-label="Diminuir quantidade">
+            <svg class="icon icon--20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/></svg>
+          </button>
+          <input class="input" type="text" id="input-quantidade" inputmode="numeric" autocomplete="off" value="1" aria-label="Quantidade comprada">
+          <button class="stepper__btn" type="button" id="btn-q-mais" data-od-id="btn-quantidade-mais" aria-label="Aumentar quantidade">
+            <svg class="icon icon--20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+          </button>
+        </div>
+        <select class="select select--unit" id="select-unidade" data-od-id="select-unidade-passo-2" aria-label="Unidade de compra">
+          <option value="lata">lata</option>
+          <option value="pacote">pacote</option>
+          <option value="caixa">caixa</option>
+          <option value="dúzia">dúzia</option>
+          <option value="kg">kg</option>
+          <option value="un">un</option>
+        </select>
+      </div>
+    </label>
+
+    <div class="field" data-od-id="campo-grama-passo-2">
+      <label class="field__label" for="input-gramas">Quanto tem em cada uma?</label>
+      <div class="input-group">
+        <input class="input" type="text" id="input-gramas" inputmode="decimal" autocomplete="off" value="395" aria-describedby="afix-basis">
+        <span class="input-group__affix" id="afix-basis">g</span>
+      </div>
+      <div class="chip-row" id="chips-sugestao" role="group" aria-label="Sugestões rápidas"></div>
+    </div>
+
+    <label class="field" for="input-preco" data-od-id="campo-preco-total-passo-2">
+      <span class="field__label">Preço total</span>
+      <div class="input-group">
+        <span class="input-group__affix">R$</span>
+        <input class="input" type="text" id="input-preco" inputmode="decimal" autocomplete="off" value="5,49" aria-label="Preço total pago nesta compra">
+      </div>
+      <span class="field__help">Quanto você pagou no total, somando todas as unidades.</span>
+    </label>
+
+    <div class="receipt" id="recibo-conta" data-od-id="recibo-conta-passo-2">
+      <p class="receipt__label">Recibo da conta</p>
+      <p class="receipt__line" id="recibo-r1">1 lata × 395 g = 395 g</p>
+      <p class="receipt__line" id="recibo-r2">R$ 5,49 ÷ 395 g = <span class="receipt__result" id="recibo-result">R$ 0,0139/g</span></p>
+      <div class="receipt__detail" id="recibo-detalhe" hidden>
+        <div id="recibo-detalhe-body"></div>
+      </div>
+    </div>
+
+    <aside class="melissa-card" data-od-id="melissa-card-quantidades">
+      <div class="melissa-card__glow" aria-hidden="true"></div>
+      <header class="melissa-card__head">
+        <span class="melissa-card__avatar" aria-hidden="true"><img src="assets/avatar-MELISSA.png" alt="" width="34" height="34" style="border-radius:50%;object-fit:cover"></span>
+        <div>
+          <p class="melissa-card__name">Melissa</p>
+          <p class="melissa-card__role">IA Proativa</p>
+        </div>
+      </header>
+      <div class="melissa-card__bubble">
+        <p id="melissa-texto-p2" aria-live="polite">Você comprou <strong>1 lata</strong> → entraram <strong>395 g</strong> no estoque. Isso deu <strong>R$ 13,90 por quilo</strong>.</p>
+      </div>
+      <footer class="melissa-card__actions">
+        <button class="melissa-card__action" type="button" id="acao-ver-calculo" data-od-id="acao-ver-calculo" aria-expanded="false" aria-controls="recibo-detalhe">Ver cálculo</button>
+        <button class="melissa-card__action melissa-card__action--ghost" type="button" id="acao-entendi-passo-2" data-od-id="acao-entendi-passo-2">Entendi</button>
+      </footer>
+    </aside>
+  </section>
+
+  <!-- ================= PASSO 3 — CONFIRA ================= -->
+  <section class="step" id="passo-conferir" data-od-id="passo-conferir" hidden>
+    <h2 class="step__heading" id="titulo-passo-3" data-od-id="titulo-passo-3" tabindex="-1">Confira</h2>
+    <p class="step__sub">Dá uma olhada antes de salvar. Nada muda no estoque até você tocar em “Salvar compra”.</p>
+
+    <div class="panel success-panel" id="painel-sucesso" data-od-id="painel-sucesso" hidden>
+      <span class="success-panel__icon" aria-hidden="true">
+        <svg class="icon icon--20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 9 9 20l-5-5"/></svg>
+      </span>
+      <div>
+        <p class="success-panel__title" id="success-titulo">Compra salva!</p>
+        <p class="success-panel__text" id="success-texto" aria-live="polite">—</p>
+      </div>
+    </div>
+
+    <div class="stack" id="lista-revisao" data-od-id="lista-revisao"></div>
+
+    <div class="panel sum-panel" data-od-id="painel-total-compra">
+      <p class="sum-panel__label">Total da compra</p>
+      <div class="sum-panel__row">
+        <p class="big-sum" id="sum-total"><span class="cur">R$</span>15,07</p>
+        <span class="badge badge--success" id="sum-count"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 9 9 20l-5-5"/></svg> 2 itens</span>
+      </div>
+      <p class="sum-panel__meta" id="sum-meta">Soma do que você pagou em cada item.</p>
+    </div>
+
+    <aside class="melissa-card" id="melissa-card-impacto" data-od-id="melissa-card-impacto">
+      <div class="melissa-card__glow" aria-hidden="true"></div>
+      <header class="melissa-card__head">
+        <span class="melissa-card__avatar" aria-hidden="true"><img src="assets/avatar-MELISSA.png" alt="" width="34" height="34" style="border-radius:50%;object-fit:cover"></span>
+        <div>
+          <p class="melissa-card__name">Melissa</p>
+          <p class="melissa-card__role">IA Proativa</p>
+        </div>
+      </header>
+      <div class="melissa-card__bubble">
+        <p id="melissa-texto-p3">O leite condensado subiu 8%. <strong>3 receitas ficaram 2% mais caras.</strong> Quer ver?</p>
+      </div>
+      <footer class="melissa-card__actions">
+        <button class="melissa-card__action" type="button" id="acao-ver-receitas" data-od-id="acao-ver-receitas">
+          <svg class="icon icon--16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="4"/><path d="M2 21c0-4.4 3.6-8 8-8"/><path d="M17 3v4"/><path d="M15 5h4"/></svg>
+          Ver receitas
+        </button>
+        <button class="melissa-card__action melissa-card__action--ghost" type="button" id="acao-entendi-passo-3" data-od-id="acao-entendi-passo-3">Entendi</button>
+      </footer>
+    </aside>
+    <p class="step__sub" id="impacto-descartado" hidden>Aviso da Melissa guardado. Você pode revisar as receitas em “Hoje”, quando quiser.</p>
+  </section>
+
+  <!-- ================= ESTADOS DA TELA (referência estática) ================= -->
+  <div class="states-zone" data-od-id="zona-estados">
+    <h2 class="divider" id="titulo-estados" data-od-id="titulo-estados">Estados da tela</h2>
+
+    <!-- carregando -->
+    <div class="stack" id="estado-skeleton" data-od-id="estado-skeleton" aria-hidden="true">
+      <p class="section-title">Carregando o passo 1</p>
+      <div class="skeleton skeleton--search"></div>
+      <div class="chip-row">
+        <div class="skeleton skeleton--pill"></div>
+        <div class="skeleton skeleton--pill"></div>
+        <div class="skeleton skeleton--pill"></div>
+      </div>
+      <div class="stack">
+        <div class="skeleton skeleton--card"></div>
+        <div class="skeleton skeleton--card"></div>
+        <div class="skeleton skeleton--card"></div>
+      </div>
+    </div>
+
+    <!-- vazio -->
+    <div class="state-block" id="estado-vazio" data-od-id="estado-vazio">
+      <svg class="icon illo-64 state-block__illo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 3" aria-hidden="true"><path d="M3 9l9-5 9 5v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M3 9h18"/></svg>
+      <h3 class="state-block__title">Nenhum insumo ainda</h3>
+      <p class="state-block__text">Comece cadastrando o que você guarda na despensa.</p>
+      <p class="melissa-quote"><span class="melissa-quote__name">Melissa</span>“Cadastre o primeiro insumo. Eu cuido da conversão pra você.”</p>
+      <button class="btn btn--primary" type="button" id="btn-estado-cadastrar" data-od-id="btn-estado-cadastrar">
+        <svg class="icon icon--20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+        Cadastrar insumo
+      </button>
+    </div>
+
+    <!-- erro -->
+    <div class="state-block" id="estado-erro" data-od-id="estado-erro">
+      <svg class="icon illo-48 state-block__illo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+      <h3 class="state-block__title">Não foi possível carregar</h3>
+      <p class="state-block__text">Sua conexão caiu no meio do caminho. Nada foi perdido: o rascunho continua salvo.</p>
+      <div class="mini-skeleton stack" id="erro-skeleton" aria-hidden="true" hidden>
+        <div class="skeleton skeleton--card"></div>
+        <div class="skeleton skeleton--card"></div>
+      </div>
+      <button class="btn btn--secondary" type="button" id="btn-estado-tentar-de-novo" data-od-id="btn-estado-tentar-de-novo">
+        <svg class="icon icon--18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+        Tente de novo
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= BOTTOM BARS (uma por passo) ================= -->
+  <div class="bottom-bar" id="barra-passo-1" data-od-id="barra-inferior-passo-1">
+    <p class="bar-error field__error hide" id="bar1-erro" role="alert">
+      <svg class="icon icon--16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+      <span>Escolha pelo menos 1 insumo pra continuar.</span>
+    </p>
+    <p class="bottom-bar__hint"><span id="bar1-count">Nada selecionado ainda</span><span id="bar1-right">Toque nos cards para marcar</span></p>
+    <button class="btn btn--primary btn--block btn--lg btn--await" type="button" id="btn-continuar-passo-1" data-od-id="btn-continuar-passo-1" aria-disabled="true">
+      <span>Continuar</span>
+      <svg class="icon icon--20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+    </button>
+  </div>
+
+  <div class="bottom-bar" id="barra-passo-2" data-od-id="barra-inferior-passo-2" hidden>
+    <p class="bottom-bar__hint"><span id="bar2-hint">Item 1 de 2</span><span>Preencha e continue</span></p>
+    <div class="bottom-bar__row">
+      <button class="btn btn--secondary" type="button" id="btn-voltar-passo-1" data-od-id="btn-voltar-passo-1">
+        <svg class="icon icon--18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+        <span>Voltar</span>
+      </button>
+      <button class="btn btn--primary btn--lg" type="button" id="btn-continuar-passo-2" data-od-id="btn-continuar-passo-2">
+        <span id="btn-continuar-passo-2-label">Próximo item</span>
+        <svg class="icon icon--20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="bottom-bar" id="barra-passo-3" data-od-id="barra-inferior-passo-3" hidden>
+    <p class="bottom-bar__hint"><span id="bar3-hint">2 itens · total R$ 15,07</span><span>O estoque só muda quando você salvar</span></p>
+    <button class="btn btn--primary btn--block btn--lg" type="button" id="btn-salvar-compra" data-od-id="btn-salvar-compra">Salvar compra</button>
+    <a class="btn btn--primary btn--block btn--lg" id="btn-voltar-hoje" data-od-id="btn-voltar-hoje" href="hoje-home.html" hidden>
+      <svg class="icon icon--20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .78-1.58l7.9-6.04a2 2 0 0 1 2.44 0l7.9 6.04A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>
+      Voltar para hoje
+    </a>
+  </div>
+</div>
+
+<!-- ================= SHEET: NOVO INSUMO ================= -->
+<div class="sheet" id="sheet-novo" data-od-id="sheet-novo-insumo" hidden aria-hidden="true">
+  <div class="sheet__overlay" id="sheet-novo-overlay"></div>
+  <div class="sheet__panel" role="dialog" aria-modal="true" aria-labelledby="sheet-novo-title">
+    <span class="sheet__handle" aria-hidden="true"></span>
+    <h2 class="sheet__title" id="sheet-novo-title" data-od-id="sheet-novo-title">Cadastrar insumo novo</h2>
+    <div class="stack stack--loose">
+      <label class="field" for="novo-nome">
+        <span class="field__label">Nome</span>
+        <input class="input" type="text" id="novo-nome" data-od-id="input-novo-nome" placeholder="Ex.: Fermento químico" autocomplete="off">
+        <span class="field__error hide" id="novo-nome-erro" role="alert">
+          <svg class="icon icon--16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+          <span>Dá um nome pro insumo.</span>
+        </span>
+      </label>
+      <label class="field" for="novo-unidade">
+        <span class="field__label">Como você compra?</span>
+        <select class="select" id="novo-unidade" data-od-id="select-novo-insumo-unidade">
+          <option value="lata">lata</option>
+          <option value="pacote">pacote</option>
+          <option value="caixa">caixa</option>
+          <option value="dúzia">dúzia</option>
+          <option value="kg">kg</option>
+          <option value="un">un</option>
+        </select>
+        <span class="field__help">Depois, no passo 2, você ajusta quanto tem em cada um.</span>
+      </label>
+    </div>
+    <div class="sheet__footer">
+      <button class="btn btn--ghost" type="button" id="sheet-novo-cancelar" data-od-id="btn-cancelar-insumo">Cancelar</button>
+      <button class="btn btn--primary" type="button" id="sheet-novo-adicionar" data-od-id="btn-adicionar-insumo">Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= SHEET: RECEITAS AFETADAS ================= -->
+<div class="sheet" id="sheet-receitas" data-od-id="sheet-receitas-afetadas" hidden aria-hidden="true">
+  <div class="sheet__overlay" id="sheet-receitas-overlay"></div>
+  <div class="sheet__panel" role="dialog" aria-modal="true" aria-labelledby="sheet-receitas-title">
+    <span class="sheet__handle" aria-hidden="true"></span>
+    <h2 class="sheet__title" id="sheet-receitas-title" data-od-id="sheet-receitas-title">3 receitas ficaram mais caras</h2>
+    <p class="sheet__intro">O leite condensado foi de <strong>R$ 5,08</strong> para <strong>R$ 5,49 a lata</strong>. O que muda no seu custo:</p>
+    <ul class="recipe-list">
+      <li>
+        <div class="recipe-row" data-od-id="receita-afetada-bolo-de-pote">
+          <div class="recipe-row__body">
+            <p class="recipe-row__name">Bolo de pote — chocolate</p>
+            <p class="recipe-row__price">R$ 6,10 → R$ 6,22 por unidade</p>
+          </div>
+          <span class="badge badge--running-out"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>+2% no custo</span>
+        </div>
+      </li>
+      <li>
+        <div class="recipe-row" data-od-id="receita-afetada-brigadeiro">
+          <div class="recipe-row__body">
+            <p class="recipe-row__name">Brigadeiro gourmet</p>
+            <p class="recipe-row__price">R$ 1,45 → R$ 1,48 por unidade</p>
+          </div>
+          <span class="badge badge--running-out"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>+2% no custo</span>
+        </div>
+      </li>
+      <li>
+        <div class="recipe-row" data-od-id="receita-afetada-torta-ganache">
+          <div class="recipe-row__body">
+            <p class="recipe-row__name">Torta de ganache (fatia)</p>
+            <p class="recipe-row__price">R$ 8,20 → R$ 8,36 por fatia</p>
+          </div>
+          <span class="badge badge--running-out"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>+2% no custo</span>
+        </div>
+      </li>
+    </ul>
+    <div class="sheet__footer">
+      <button class="btn btn--primary" type="button" id="sheet-receitas-fechar" data-od-id="btn-fechar-receitas">Entendi</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ============================ utilidades ============================ */
+  var $ = function (id) { return document.getElementById(id); };
+  var nf = function (min, max) {
+    return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: min, maximumFractionDigits: max });
+  };
+  var money = function (v) { return 'R$ ' + nf(2, 2).format(Math.max(0, v)); };
+  var pnum = function (s) {
+    s = String(s == null ? '' : s).trim();
+    if (!s) return 0;
+    s = s.indexOf(',') > -1 ? s.replace(/\./g, '').replace(',', '.') : s;
+    var v = parseFloat(s);
+    return isNaN(v) || v < 0 ? 0 : v;
+  };
+  var norm = function (s) {
+    return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  };
+  var plural = function (u, q) {
+    var m = { 'lata': 'latas', 'pacote': 'pacotes', 'caixa': 'caixas', 'dúzia': 'dúzias' };
+    return q > 1 ? (m[u] || u) : u;
+  };
+  var fmtG = function (v) {
+    return v >= 1000 ? nf(0, 3).format(v / 1000) + ' kg' : nf(0, 0).format(v) + ' g';
+  };
+  var fmtQty = function (v) { return nf(0, 3).format(v); };
+  var fmtPer = function (v, basis) {
+    if (basis === 'g') return fmtG(v);
+    return nf(0, 1).format(v) + ' un';
+  };
+  var fmtCost = function (v, basis) {
+    var dec = v >= 0.1 ? 2 : 4;
+    return 'R$ ' + nf(dec, dec).format(v) + (basis === 'g' ? '/g' : '/un');
+  };
+  var esc = function (s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  };
+
+  /* ============================ ícones (lucide-like) ============================ */
+  var S = '<svg class="icon icon--20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+  var ICONS = {
+    can:      S + '<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M6 8h12"/><path d="M6 17h12"/></svg>',
+    milk:     S + '<path d="M9 3h6"/><path d="M9 3v2.5L6.5 10v9A2 2 0 0 0 8.5 21h7a2 2 0 0 0 2-2v-9L15 5.5V3"/><path d="M6.8 12h10.4"/></svg>',
+    chocolate:S + '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 12h16"/><path d="M12 4v16"/></svg>',
+    bag:      S + '<path d="M8 2h8"/><path d="M9 2v4L6 9v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V9l-3-3V2"/><path d="M9 14h6"/></svg>',
+    egg:      S + '<path d="M12 3c-3.9 0-7 4.8-7 9a7 7 0 0 0 14 0c0-4.2-3.1-9-7-9Z"/></svg>',
+    cone:     S + '<path d="M8 10a4 4 0 0 1 0-8 4.2 4.2 0 0 1 3 1.5A4 4 0 0 1 18 10"/><path d="M7 9h10l-5 12Z"/></svg>',
+    box:      S + '<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></svg>',
+    plus:     S + '<path d="M5 12h14"/><path d="M12 5v14"/></svg>',
+    check:    S + '<path d="M20 9 9 20l-5-5"/></svg>',
+    sparkle:  S + '<path d="M9.9 5.5 11 2.5l1.1 3a1 1 0 0 0 .6.6l3 1.1-3 1.1a1 1 0 0 0-.6.6L11 12l-1.1-3a1 1 0 0 0-.6-.6l-3-1.1 3-1.1a1 1 0 0 0 .6-.6Z"/><path d="M17 15.5v3"/><path d="M15.5 17h3"/></svg>',
+    trend:    S + '<path d="M16 7h6v6"/><path d="m22 7-8.5 8.5-5-5L2 17"/></svg>',
+    alert:    S + '<circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>'
+  };
+
+  /* ============================ dados demo ============================ */
+  var UNITS = {
+    'lata':   { b: 'g',  n: 395 },
+    'pacote': { b: 'g',  n: 1000 },
+    'caixa':  { b: 'g',  n: 200 },
+    'kg':     { b: 'g',  n: 1000 },
+    'dúzia':  { b: 'un', n: 12 },
+    'un':     { b: 'un', n: 1 }
+  };
+
+  var INSUMOS = [
+    { id: 'leite-condensado', nome: 'Leite condensado', icon: 'can', unidade: 'lata', basis: 'g', perUnit: 395, preco: 5.49, stockVal: 2400, group: 0 },
+    { id: 'creme-de-leite', nome: 'Creme de leite', icon: 'milk', unidade: 'caixa', basis: 'g', perUnit: 200, preco: 2.89, stockVal: 1800, group: 0 },
+    { id: 'chocolate-ao-leite', nome: 'Chocolate ao leite', icon: 'chocolate', unidade: 'kg', basis: 'g', perUnit: 1000, preco: 48.90, stockVal: 3200, group: 0 },
+    { id: 'farinha-de-trigo', nome: 'Farinha de trigo', icon: 'bag', unidade: 'pacote', basis: 'g', perUnit: 1000, preco: 4.79, stockVal: 900, group: 0, low: true },
+    { id: 'ovos', nome: 'Ovos', icon: 'egg', unidade: 'dúzia', basis: 'un', perUnit: 12, preco: 12.00, stockVal: 60, group: 12, low: true },
+    { id: 'casquinha-de-sorvete', nome: 'Casquinha de sorvete', icon: 'cone', unidade: 'un', basis: 'un', perUnit: 1, preco: 0.35, stockVal: 120, group: 0 }
+  ];
+
+  var stockText = function (it, v) {
+    if (it.basis === 'g') return fmtG(v);
+    if (it.group) return nf(0, 1).format(v / it.group) + (it.group === 12 ? ' dúzias' : ' un');
+    return nf(0, 0).format(v) + ' un';
+  };
+
+  /* ============================ estado ============================ */
+  var state = new Map();
+  var find = function (id) { for (var i = 0; i < INSUMOS.length; i++) if (INSUMOS[i].id === id) return INSUMOS[i]; return null; };
+  var pick = function (id) {
+    var it = find(id);
+    if (it && !state.has(id)) {
+      state.set(id, {
+        qty: it.id === 'farinha-de-trigo' ? 2 : 1,
+        unidade: it.unidade,
+        basis: it.basis,
+        perUnit: it.perUnit,
+        preco: it.id === 'farinha-de-trigo' ? 9.58 : it.preco
+      });
+    }
+  };
+  pick('leite-condensado');
+  pick('farinha-de-trigo');
+
+  var current = 1, maxVisited = 1, itemOrder = [], itemIdx = 0, saved = false;
+
+  /* ============================ PASSO 1 — lista ============================ */
+  var listEl = $('insumos-lista');
+
+  var cardHtml = function (it) {
+    var st = state.get(it.id);
+    var sel = st ? ' is-selected' : '';
+    var pressed = st ? 'true' : 'false';
+    var price = it.preco > 0
+      ? '<span class="list-card__price">' + fmtCost(it.preco / it.perUnit, it.basis) + '</span>'
+      : '<span class="price--na">preço a<br>definir</span>';
+    var stock = '<span class="insumo-stockline">' + stockText(it, it.stockVal) + ' em estoque' +
+      (it.low ? ' <span class="badge badge--running-out">' + ICONS.alert.replace('icon--20', 'icon') + 'acabando</span>' : '') +
+      (it.preco <= 0 ? ' <span class="badge badge--estimate">' + ICONS.sparkle.replace('icon--20', 'icon') + 'novo</span>' : '') + '</span>';
+    var lastTxt;
+    if (it.preco <= 0) lastTxt = 'ainda sem última compra';
+    else if (it.basis === 'g') lastTxt = (it.unidade === 'kg' ? '1 kg' : it.unidade + ' de ' + fmtG(it.perUnit)) + ' por ' + money(it.preco);
+    else lastTxt = money(it.preco) + ' a ' + it.unidade;
+    var last = '<span class="insumo-last">última compra: ' + lastTxt + '</span>';
+    return '<button class="list-card' + sel + '" type="button" role="switch" aria-pressed="' + pressed + '" data-id="' + it.id + '" data-od-id="insumo-card-' + it.id + '">' +
+      '<span class="list-card__icon">' + ICONS[it.icon] + '</span>' +
+      '<span class="list-card__body">' +
+        '<span class="list-card__title">' + esc(it.nome) + '</span>' +
+        stock + last +
+      '</span>' +
+      '<span class="list-card__side">' + price +
+        '<span class="list-card__check" aria-hidden="true">' + ICONS.check + '</span>' +
+      '</span>' +
+    '</button>';
+  };
+
+  var renderList = function () {
+    var q = norm($('campo-busca-insumos').value);
+    var items = INSUMOS.filter(function (it) { return !q || norm(it.nome).indexOf(q) > -1; });
+    listEl.innerHTML = items.map(cardHtml).join('');
+    var empty = $('busca-sem-resultado');
+    if (items.length === 0) {
+      empty.classList.remove('hide');
+      $('busca-sem-resultado-texto').textContent = 'Nada encontrado para “' + $('campo-busca-insumos').value + '”.';
+    } else {
+      empty.classList.add('hide');
+    }
+    $('titulo-lista-insumos').textContent = 'Todos os insumos (' + INSUMOS.length + ')';
+    refreshChips();
+  };
+
+  var refreshChips = function () {
+    var chips = $('chips-ultimas').querySelectorAll('[data-target]');
+    for (var i = 0; i < chips.length; i++) {
+      chips[i].setAttribute('aria-pressed', state.has(chips[i].getAttribute('data-target')) ? 'true' : 'false');
+    }
+  };
+
+  var refreshBar1 = function () {
+    var n = state.size;
+    var btn = $('btn-continuar-passo-1');
+    btn.classList.toggle('btn--await', n === 0);
+    btn.setAttribute('aria-disabled', n === 0 ? 'true' : 'false');
+    if (n > 0) $('bar1-erro').classList.add('hide');
+    $('bar1-count').textContent = n === 0 ? 'Nada selecionado ainda' : n + (n === 1 ? ' insumo selecionado' : ' insumos selecionados');
+    $('bar1-right').textContent = n === 0 ? 'Toque nos cards para marcar' : 'Toque de novo para desmarcar';
+  };
+
+  var toggleItem = function (id) {
+    if (state.has(id)) state.delete(id); else pick(id);
+    renderList();
+    refreshBar1();
+  };
+
+  listEl.addEventListener('click', function (e) {
+    var card = e.target.closest('.list-card[data-id]');
+    if (card) toggleItem(card.getAttribute('data-id'));
+  });
+  $('chips-ultimas').addEventListener('click', function (e) {
+    var chip = e.target.closest('[data-target]');
+    if (chip) toggleItem(chip.getAttribute('data-target'));
+  });
+  $('campo-busca-insumos').addEventListener('input', renderList);
+  $('btn-cadastrar-da-busca').addEventListener('click', function () { openSheet('sheet-novo'); });
+
+  /* ============================ SHEETS ============================ */
+  var openSheet = function (id) {
+    var el = $(id);
+    el.hidden = false;
+    el.setAttribute('aria-hidden', 'false');
+    requestAnimationFrame(function () { el.classList.add('sheet--open'); });
+    var f = el.querySelector('input, select, button');
+    if (id === 'sheet-novo') f = $('novo-nome');
+    if (f) setTimeout(function () { f.focus(); }, 240);
+  };
+  var closeSheet = function (id) {
+    var el = $(id);
+    el.classList.remove('sheet--open');
+    el.setAttribute('aria-hidden', 'true');
+    setTimeout(function () { el.hidden = true; }, 240);
+  };
+  $('btn-cadastrar-insumo-novo').addEventListener('click', function () { openSheet('sheet-novo'); });
+  $('btn-estado-cadastrar').addEventListener('click', function () { openSheet('sheet-novo'); });
+  $('sheet-novo-overlay').addEventListener('click', function () { closeSheet('sheet-novo'); });
+  $('sheet-novo-cancelar').addEventListener('click', function () { closeSheet('sheet-novo'); });
+  $('sheet-receitas-overlay').addEventListener('click', function () { closeSheet('sheet-receitas'); });
+  $('sheet-receitas-fechar').addEventListener('click', function () { closeSheet('sheet-receitas'); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      if (!$('sheet-novo').hidden) closeSheet('sheet-novo');
+      if (!$('sheet-receitas').hidden) closeSheet('sheet-receitas');
+    }
+  });
+
+  $('sheet-novo-adicionar').addEventListener('click', function () {
+    var nome = $('novo-nome').value.trim();
+    if (!nome) {
+      $('novo-nome-erro').classList.remove('hide');
+      $('novo-nome').setAttribute('aria-invalid', 'true');
+      $('novo-nome').focus();
+      return;
+    }
+    $('novo-nome-erro').classList.add('hide');
+    $('novo-nome').removeAttribute('aria-invalid');
+    var unidade = $('novo-unidade').value;
+    var meta = UNITS[unidade];
+    var id = norm(nome).replace(/[^a-z0-9]+/g, '-');
+    if (find(id)) id = id + '-' + (INSUMOS.length + 1);
+    INSUMOS.push({
+      id: id, nome: nome, icon: 'box', unidade: unidade,
+      basis: meta.b, perUnit: meta.n, preco: 0, stockVal: 0, group: 0
+    });
+    pick(id);
+    $('novo-nome').value = '';
+    closeSheet('sheet-novo');
+    renderList();
+    refreshBar1();
+  });
+  $('novo-nome').addEventListener('input', function () {
+    $('novo-nome-erro').classList.add('hide');
+    $('novo-nome').removeAttribute('aria-invalid');
+  });
+
+  /* ============================ PASSO 2 — um item por vez ============================ */
+  var cur = function () {
+    var it = itemOrder[itemIdx];
+    return [it, state.get(it.id)];
+  };
+
+  var sugChips = function (st) {
+    var vals;
+    if (st.basis === 'g') {
+      vals = st.perUnit >= 1000 ? [st.perUnit, st.perUnit * 2] : [st.perUnit, 1000];
+    } else if (st.perUnit === 1) {
+      vals = [1, 10];
+    } else {
+      vals = [st.perUnit];
+    }
+    var seen = {};
+    return vals.filter(function (v) { if (seen[v]) return false; seen[v] = 1; return true; });
+  };
+
+  var buildSug = function () {
+    var st = state.get(cur()[0].id);
+    var wrap = $('chips-sugestao');
+    wrap.innerHTML = '';
+    sugChips(st).forEach(function (v) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip chip--suggest';
+      b.textContent = fmtPer(v, st.basis);
+      b.setAttribute('data-od-id', 'chip-sugestao-' + cur()[0].id + '-' + v);
+      b.addEventListener('click', function () {
+        $('input-gramas').value = nf(0, 0).format(v);
+        live();
+      });
+      wrap.appendChild(b);
+    });
+  };
+
+  var renderStep2 = function () {
+    var pair = cur(), it = pair[0], st = pair[1];
+    $('idx-atual').textContent = itemIdx + 1;
+    $('idx-total').textContent = itemOrder.length;
+    $('btn-item-anterior').disabled = itemIdx === 0;
+    $('btn-item-proximo').disabled = itemIdx === itemOrder.length - 1;
+    $('bar2-hint').textContent = 'Item ' + (itemIdx + 1) + ' de ' + itemOrder.length;
+    $('btn-continuar-passo-2-label').textContent = itemIdx === itemOrder.length - 1 ? 'Conferir' : 'Próximo item';
+
+    $('hero-icon').innerHTML = ICONS[it.icon];
+    $('hero-nome').textContent = it.nome;
+    $('hero-estoque').innerHTML = stockText(it, it.stockVal) + ' em estoque' +
+      (it.low ? ' <span class="badge badge--running-out">' + ICONS.alert.replace('icon--20', 'icon') + 'acabando</span>' : '');
+
+    $('input-quantidade').value = fmtQty(st.qty);
+    $('select-unidade').value = st.unidade;
+    $('input-gramas').value = st.perUnit > 0 ? nf(0, 0).format(st.perUnit) : '';
+    $('afix-basis').textContent = st.basis;
+    $('input-preco').value = st.preco > 0 ? nf(2, 2).format(st.preco) : '';
+    buildSug();
+
+    var det = $('recibo-detalhe');
+    det.hidden = true;
+    $('acao-ver-calculo').setAttribute('aria-expanded', 'false');
+
+    live();
+  };
+
+  var live = function () {
+    var pair = cur(), it = pair[0], st = pair[1];
+    st.qty = Math.round(pnum($('input-quantidade').value));
+    st.perUnit = pnum($('input-gramas').value);
+    st.preco = pnum($('input-preco').value);
+
+    var total = st.qty * st.perUnit;
+    var r1 = $('recibo-r1'), r2 = $('recibo-r2'), res = $('recibo-result'), mel = $('melissa-texto-p2');
+    var unitWord = plural(st.unidade, st.qty);
+
+    if (st.qty <= 0 || st.perUnit <= 0) {
+      r1.textContent = 'Me diz quantos você comprou e quanto tem em cada um.';
+      r2.textContent = 'Sem as medidas, eu não consigo fechar a conta.';
+      mel.innerHTML = 'Estou esperando as medidas — <strong>quantas unidades</strong> e <strong>quanto tem em cada uma</strong> — pra calcular o custo.';
+      updateDetalhe(it, st, total, 0);
+      return;
+    }
+
+    r1.textContent = fmtQty(st.qty) + ' ' + unitWord + ' × ' + fmtPer(st.perUnit, st.basis) + ' = ' + fmtPer(total, st.basis);
+    var cost = st.preco / total;
+    var costTxt = fmtCost(cost, st.basis);
+    r2.innerHTML = '';
+    r2.appendChild(document.createTextNode(st.preco > 0 ? money(st.preco) + ' ÷ ' + fmtPer(total, st.basis) + ' = ' : 'Me diz o preço total pra eu fechar a conta.'));
+    if (st.preco > 0) {
+      var sp = document.createElement('span');
+      sp.className = 'receipt__result';
+      sp.textContent = costTxt;
+      r2.appendChild(sp);
+    }
+
+    if (st.preco > 0) {
+      var perTxt = st.basis === 'g' ? money(cost * 1000) + ' por quilo' : money(cost) + ' por unidade';
+      mel.innerHTML = 'Você comprou <strong>' + fmtQty(st.qty) + ' ' + esc(unitWord) + '</strong> → entraram <strong>' + fmtPer(total, st.basis) + '</strong> no estoque. Isso deu <strong>' + perTxt + '</strong>.';
+    } else {
+      mel.innerHTML = 'Você comprou <strong>' + fmtQty(st.qty) + ' ' + esc(unitWord) + '</strong> → entraram <strong>' + fmtPer(total, st.basis) + '</strong> no estoque. Agora me diz <strong>o preço total</strong> pra eu achar o custo.';
+    }
+    updateDetalhe(it, st, total, cost);
+  };
+
+  var updateDetalhe = function (it, st, total, cost) {
+    if (cost <= 0 || $('recibo-detalhe').hidden) return;
+    var d = $('recibo-detalhe-body');
+    d.innerHTML =
+      '<p>Total que entrou: ' + fmtQty(st.qty) + ' × ' + fmtPer(st.perUnit, st.basis) + ' = ' + fmtPer(total, st.basis) + '</p>' +
+      '<p>Custo: ' + money(st.preco) + ' ÷ ' + fmtPer(total, st.basis) + ' = ' + fmtCost(cost, st.basis) + '</p>' +
+      (st.basis === 'g' ? '<p>Por quilo: ' + money(cost * 1000) + '</p>' : '');
+  };
+
+  $('input-quantidade').addEventListener('input', live);
+  $('input-gramas').addEventListener('input', live);
+  $('input-preco').addEventListener('input', live);
+  $('btn-q-menos').addEventListener('click', function () { stepQty(-1); });
+  $('btn-q-mais').addEventListener('click', function () { stepQty(1); });
+  function stepQty(delta) {
+    var st = cur()[1];
+    st.qty = Math.max(1, (st.qty || 1) + delta);
+    $('input-quantidade').value = fmtQty(st.qty);
+    live();
+  }
+  $('select-unidade').addEventListener('change', function () {
+    var st = cur()[1];
+    var meta = UNITS[this.value];
+    st.unidade = this.value;
+    if (meta) { st.basis = meta.b; st.perUnit = meta.n; }
+    $('input-gramas').value = nf(0, 0).format(st.perUnit);
+    $('afix-basis').textContent = st.basis;
+    buildSug();
+    live();
+  });
+  $('btn-item-anterior').addEventListener('click', function () { if (itemIdx > 0) { itemIdx--; renderStep2(); } });
+  $('btn-item-proximo').addEventListener('click', function () { if (itemIdx < itemOrder.length - 1) { itemIdx++; renderStep2(); } });
+
+  $('acao-ver-calculo').addEventListener('click', function () {
+    var det = $('recibo-detalhe');
+    det.hidden = !det.hidden;
+    this.setAttribute('aria-expanded', det.hidden ? 'false' : 'true');
+    if (!det.hidden) live();
+  });
+
+  $('acao-entendi-passo-2').addEventListener('click', function () {
+    var det = $('recibo-detalhe');
+    if (!det.hidden) {
+      det.hidden = true;
+      $('acao-ver-calculo').setAttribute('aria-expanded', 'false');
+    } else if (itemIdx < itemOrder.length - 1) {
+      itemIdx++; renderStep2();
+    } else {
+      goTo(3);
+    }
+  });
+
+  /* ============================ PASSO 3 — revisão ============================ */
+  var totals = function () {
+    var soma = 0, n = 0;
+    INSUMOS.forEach(function (it) {
+      var st = state.get(it.id);
+      if (!st) return;
+      n++;
+      soma += st.preco;
+    });
+    return { soma: soma, n: n };
+  };
+
+  var renderStep3 = function () {
+    var html = '';
+    INSUMOS.forEach(function (it) {
+      var st = state.get(it.id);
+      if (!st) return;
+      var total = st.qty * st.perUnit;
+      var cost = total > 0 ? st.preco / total : 0;
+      html += '<div class="panel review-card" data-od-id="item-revisao-' + it.id + '">' +
+        '<div class="review-card__top"><span class="review-card__name">' + esc(it.nome) + '</span>' +
+        '<span class="review-card__total">' + (st.preco > 0 ? money(st.preco) : 'preço a definir') + '</span></div>' +
+        '<div class="review-card__meta">' + fmtQty(st.qty) + ' ' + plural(st.unidade, st.qty) + ' de ' + fmtPer(st.perUnit, st.basis) +
+          (cost > 0 ? ' · ' + fmtCost(cost, st.basis) : '') + '</div>' +
+        '<span class="review-card__add">' + ICONS.trend.replace('icon--20', 'icon--16') + '<span>+ ' + fmtPer(total, st.basis) + ' no estoque</span></span>' +
+      '</div>';
+    });
+    $('lista-revisao').innerHTML = html;
+    var t = totals();
+    $('sum-total').innerHTML = '<span class="cur">R$</span>' + nf(2, 2).format(t.soma);
+    $('sum-count').innerHTML = ICONS.check.replace('icon--20', 'icon') + ' ' + t.n + (t.n === 1 ? ' item' : ' itens');
+    $('bar3-hint').textContent = t.n + (t.n === 1 ? ' item · total ' : ' itens · total ') + money(t.soma);
+  };
+
+  /* ============================ salvar ============================ */
+  $('btn-salvar-compra').addEventListener('click', function () {
+    if (saved) return;
+    var btn = this;
+    btn.disabled = true;
+    btn.innerHTML = '<svg class="icon icon--20 spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.21-8.56"/></svg><span>Salvando…</span>';
+    setTimeout(function () {
+      saved = true;
+      var parts = [];
+      INSUMOS.forEach(function (it) {
+        var st = state.get(it.id);
+        if (!st) return;
+        var before = it.stockVal;
+        it.stockVal += st.qty * st.perUnit;
+        parts.push('<strong>' + esc(it.nome) + '</strong>: ' + stockText(it, before) + ' → ' + stockText(it, it.stockVal));
+      });
+      var t = totals();
+      $('success-texto').innerHTML = t.n + (t.n === 1 ? ' item registrado' : ' itens registrados') + ' · ' +
+        money(t.soma) + ' · estoque atualizado — ' + parts.join(' · ') + '.';
+      $('painel-sucesso').hidden = false;
+      $('pill-status').classList.add('pill--success');
+      $('pill-texto').textContent = 'Compra salva';
+      btn.hidden = true;
+      $('btn-voltar-hoje').hidden = false;
+      $('barra-passo-3').querySelector('.bottom-bar__hint').innerHTML = '<span>Estoque atualizado agora</span><span>' + money(t.soma) + ' registrados</span>';
+      maxVisited = 3;
+      updateProgress(0);
+      window.scrollTo(0, 0);
+    }, 700);
+  });
+
+  /* ============================ navegação do wizard ============================ */
+  var sections = { 1: $('passo-insumos'), 2: $('passo-quantidades'), 3: $('passo-conferir') };
+  var bars = { 1: $('barra-passo-1'), 2: $('barra-passo-2'), 3: $('barra-passo-3') };
+  var checkSvg = ICONS.check.replace('icon--20', '');
+
+  var updateProgress = function (n) {
+    var steps = document.querySelectorAll('.wizard-progress__step');
+    for (var i = 0; i < steps.length; i++) {
+      var s = i + 1;
+      var dot = steps[i].querySelector('.wizard-progress__dot');
+      steps[i].classList.toggle('is-current', s === n);
+      steps[i].classList.toggle('is-done', s < n || n === 0);
+      dot.innerHTML = (s < n || n === 0) ? checkSvg : String(s);
+      steps[i].tabIndex = s < n && !saved ? 0 : -1;
+      if (s === n) steps[i].setAttribute('aria-current', 'step'); else steps[i].removeAttribute('aria-current');
+    }
+  };
+
+  var goTo = function (n) {
+    if (n === 2) {
+      itemOrder = INSUMOS.filter(function (it) { return state.has(it.id); });
+      if (!itemOrder.length) return;
+      if (itemIdx >= itemOrder.length) itemIdx = 0;
+      renderStep2();
+    }
+    if (n === 3) { itemOrder = INSUMOS.filter(function (it) { return state.has(it.id); }); renderStep3(); }
+
+    current = n;
+    if (n > maxVisited && !saved) maxVisited = n;
+    for (var k = 1; k <= 3; k++) {
+      sections[k].hidden = k !== n;
+      bars[k].hidden = k !== n;
+    }
+    updateProgress(saved ? 0 : n);
+    var sec = sections[n];
+    sec.classList.remove('is-entering');
+    void sec.offsetWidth;
+    if (!saved) sec.classList.add('is-entering');
+    window.scrollTo(0, 0);
+    var h = sec.querySelector('.step__heading');
+    if (h) h.focus({ preventScroll: true });
+  };
+
+  $('btn-continuar-passo-1').addEventListener('click', function () {
+    if (!state.size) {
+      $('bar1-erro').classList.remove('hide');
+      this.classList.remove('is-nudge');
+      void this.offsetWidth;
+      this.classList.add('is-nudge');
+      return;
+    }
+    itemIdx = 0;
+    goTo(2);
+  });
+  $('btn-voltar-passo-1').addEventListener('click', function () { goTo(1); });
+  $('btn-continuar-passo-2').addEventListener('click', function () {
+    if (itemIdx < itemOrder.length - 1) { itemIdx++; renderStep2(); window.scrollTo(0, 0); }
+    else goTo(3);
+  });
+
+  $('btn-voltar-appbar').addEventListener('click', function () {
+    if (current === 1) window.location.href = 'hoje-home.html';
+    else goTo(current === 2 ? 1 : 2);
+  });
+
+  var progressEl = $('wizard-progresso');
+  progressEl.addEventListener('click', function (e) {
+    var li = e.target.closest('.wizard-progress__step');
+    if (!li) return;
+    var s = parseInt(li.getAttribute('data-step-go'), 10);
+    if (!saved && s < current && s <= maxVisited && s >= 1) goTo(s);
+  });
+  progressEl.addEventListener('keydown', function (e) {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('.is-done')) {
+      e.preventDefault();
+      var s = parseInt(e.target.closest('.wizard-progress__step').getAttribute('data-step-go'), 10);
+      if (!saved && s < current) goTo(s);
+    }
+  });
+
+  /* ============================ estado de erro (demo) ============================ */
+  $('btn-estado-tentar-de-novo').addEventListener('click', function () {
+    $('estado-erro').querySelectorAll('h3, p, button').forEach(function (el) { el.style.visibility = 'hidden'; });
+    $('erro-skeleton').hidden = false;
+    setTimeout(function () {
+      $('erro-skeleton').hidden = true;
+      $('estado-erro').querySelectorAll('h3, p, button').forEach(function (el) { el.style.visibility = ''; });
+    }, 1200);
+  });
+
+  /* ============================ boot ============================ */
+  renderList();
+  refreshBar1();
+})();
+</script>
+</body>
+</html>

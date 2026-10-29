@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "receita-editor.html",
+  "entry": "receita-editor.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-10-24T18:45:50.424Z",
+  "updatedAt": "2026-10-24T18:45:50.424Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}

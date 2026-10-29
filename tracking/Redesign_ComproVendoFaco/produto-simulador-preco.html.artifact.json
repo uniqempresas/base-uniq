@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "produto-simulador-preco.html",
+  "entry": "produto-simulador-preco.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-10-24T18:37:46.325Z",
+  "updatedAt": "2026-10-24T18:37:46.325Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}

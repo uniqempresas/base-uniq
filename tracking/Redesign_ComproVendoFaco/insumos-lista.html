@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Insumos — UNIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/tokens.css" />
+<link rel="stylesheet" href="assets/shared.css" />
+<style>
+  /* ----- ajustes locais desta tela (só tokens e color-mix, zero hex novo) ----- */
+  /* garante que [hidden] vença os display: flex/grid das classes de componente */
+  [hidden] { display: none !important; }
+
+  .pad-fab { padding-bottom: calc(96px + var(--uniq-safe-bottom)); }
+  .content { padding: var(--uniq-space-4); display: grid; gap: var(--uniq-space-4); }
+
+  .segmented a.segmented__btn {
+    display: flex; align-items: center; justify-content: center; text-decoration: none;
+  }
+
+  .insumo-grid { display: grid; gap: var(--uniq-space-3); }
+
+  .insumo-card__titlerow {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0;
+  }
+  .insumo-card__rate {
+    font-size: var(--uniq-text-xl); font-weight: var(--uniq-weight-bold);
+    letter-spacing: -0.02em; line-height: 1.15; white-space: nowrap;
+  }
+  .insumo-card__unit {
+    font-size: var(--uniq-text-sm); font-weight: var(--uniq-weight-medium);
+    color: var(--uniq-ink-muted);
+  }
+  .insumo-card__rlabel {
+    font-size: var(--uniq-text-xs); color: var(--uniq-ink-muted); white-space: nowrap;
+  }
+  .list-card__side { align-items: flex-end; text-align: right; }
+
+  /* barra de nível de estoque (card de lista) */
+  .stock { display: grid; gap: 4px; width: 100%; margin-top: 4px; }
+  .stock__row {
+    display: flex; justify-content: space-between; align-items: baseline; gap: var(--uniq-space-2);
+    font-size: var(--uniq-text-xs); color: var(--uniq-ink-muted);
+  }
+  .stock__track {
+    display: block; height: 6px; border-radius: var(--uniq-radius-pill); overflow: hidden;
+    background: color-mix(in oklab, var(--uniq-muted) 16%, var(--uniq-surface));
+  }
+  .stock__fill {
+    display: block; height: 100%; border-radius: inherit;
+    background: color-mix(in oklab, var(--uniq-accent) 62%, var(--uniq-fg));
+  }
+  .stock--low .stock__fill { background: var(--uniq-warn); }
+  .stock--low .stock__value { color: var(--uniq-warn-ink); font-weight: var(--uniq-weight-semibold); }
+
+  /* skeleton que imita o card real (sem jump de layout) */
+  .skeleton-card {
+    display: flex; align-items: center; gap: var(--uniq-space-3);
+    padding: var(--uniq-space-3);
+    background: var(--uniq-surface);
+    border: var(--uniq-border-w) solid var(--uniq-border-on-white);
+    border-radius: var(--uniq-radius-card);
+  }
+  .skcol { flex: 1; min-width: 0; display: grid; gap: var(--uniq-space-2); align-content: center; }
+  .skcol--side { flex: 0 0 84px; justify-items: end; }
+
+  .estados { display: grid; gap: var(--uniq-space-4); }
+
+  .avatar-ring { overflow: hidden; }
+  .avatar-ring img { width: 100%; height: 100%; }
+
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+
+  /* ----- desktop: grid de 3 colunas ----- */
+  @media (min-width: 900px) {
+    .app-shell { max-width: 1080px; }
+    .content { padding: var(--uniq-space-5); gap: var(--uniq-space-5); }
+    .insumo-grid, .estados__skgrid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      align-items: stretch;
+    }
+    .fab { right: max(var(--uniq-space-5), calc(50% - 540px + var(--uniq-space-5))); }
+    .pad-fab { padding-bottom: calc(96px + var(--uniq-safe-bottom)); }
+  }
+</style>
+</head>
+<body>
+<div class="app-shell pad-fab" data-od-id="tela-lista-insumos">
+  <header class="app-bar" data-od-id="appbar-insumos">
+    <h1 class="app-bar__title" data-od-id="titulo-insumos">Insumos</h1>
+    <span class="pill" data-od-id="pill-contagem">
+      <svg class="icon icon--16" viewBox="0 0 24 24" aria-hidden="true"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></svg>
+      <span id="pill-contagem-texto">7 itens</span>
+    </span>
+  </header>
+
+  <main class="content">
+
+    <div class="segmented" role="group" aria-label="Modo de atividade" data-od-id="segmented-modos">
+      <button type="button" class="segmented__btn" aria-pressed="true" data-od-id="seg-compro">Compro</button>
+      <a class="segmented__btn" href="receita-editor.html" data-od-id="seg-faco">Faço</a>
+      <a class="segmented__btn" href="margem.html" data-od-id="seg-vendo">Vendo</a>
+    </div>
+
+    <div class="chip-row" role="group" aria-label="Navegação de Compro" data-od-id="subnav-compro">
+      <button type="button" class="chip chip--selected" aria-pressed="true" data-od-id="subnav-insumos">Insumos</button>
+      <a class="chip" href="nova-compra-mobile.html" data-od-id="subnav-compras">Compras</a>
+    </div>
+
+    <div class="search">
+      <label class="sr-only" for="busca-insumos">Buscar insumo</label>
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input class="input" id="busca-insumos" type="search" placeholder="Buscar insumo" autocomplete="off" data-od-id="controle-busca-insumos" />
+    </div>
+
+    <div class="chip-row" role="group" aria-label="Filtrar por categoria" data-od-id="chips-categorias">
+      <button type="button" class="chip" aria-pressed="true" data-cat="todos" data-od-id="chip-cat-todos">Todos</button>
+      <button type="button" class="chip" aria-pressed="false" data-cat="doces" data-od-id="chip-cat-doces">Doces</button>
+      <button type="button" class="chip" aria-pressed="false" data-cat="laticinios" data-od-id="chip-cat-laticinios">Laticínios</button>
+      <button type="button" class="chip" aria-pressed="false" data-cat="embalagens" data-od-id="chip-cat-embalagens">Embalagens</button>
+      <button type="button" class="chip" aria-pressed="false" data-cat="hortifruti" data-od-id="chip-cat-hortifruti">Hortifrúti</button>
+    </div>
+
+    <div class="insumo-grid" id="lista-insumos" data-od-id="lista-insumos">
+
+      <a class="list-card" href="insumo-detalhe.html" data-cat="laticinios" data-name="leite condensado" data-od-id="insumo-card-leite-condensado">
+        <span class="list-card__icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><rect x="7" y="4" width="10" height="16" rx="2"/><path d="M7 8h10"/><path d="M7 16h10"/></svg></span>
+        <span class="list-card__body">
+          <span class="insumo-card__titlerow"><span class="list-card__title">Leite condensado</span></span>
+          <span class="list-card__meta">lata 395 g · 4 receitas</span>
+          <span class="stock">
+            <span class="stock__row"><span>No estoque</span><span class="stock__value text-num">2,4 kg</span></span>
+            <span class="stock__track" role="progressbar" aria-valuenow="80" aria-valuemin="0" aria-valuemax="100" aria-label="Nível de estoque de leite condensado"><span class="stock__fill" style="width:80%"></span></span>
+          </span>
+        </span>
+        <span class="list-card__side">
+          <span class="insumo-card__rate text-num">R$ 0,0139<span class="insumo-card__unit">/g</span></span>
+          <span class="insumo-card__rlabel">custo médio</span>
+        </span>
+      </a>
+
+      <a class="list-card" href="insumo-detalhe.html" data-cat="laticinios" data-name="creme de leite" data-od-id="insumo-card-creme-de-leite">
+        <span class="list-card__icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><path d="M9 3h6l2 5H7Z"/><path d="M7 8h10v13H7Z"/><path d="M7 14h10"/></svg></span>
+        <span class="list-card__body">
+          <span class="insumo-card__titlerow"><span class="list-card__title">Creme de leite</span></span>
+          <span class="list-card__meta">caixa 200 g · 3 receitas</span>
+          <span class="stock">
+            <span class="stock__row"><span>No estoque</span><span class="stock__value text-num">1,8 kg</span></span>
+            <span class="stock__track" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100" aria-label="Nível de estoque de creme de leite"><span class="stock__fill" style="width:60%"></span></span>
+          </span>
+        </span>
+        <span class="list-card__side">
+          <span class="insumo-card__rate text-num">R$ 0,0145<span class="insumo-card__unit">/g</span></span>
+          <span class="insumo-card__rlabel">custo médio</span>
+        </span>
+      </a>
+
+      <a class="list-card" href="insumo-detalhe.html" data-cat="doces" data-name="chocolate ao leite" data-od-id="insumo-card-chocolate-ao-leite">
+        <span class="list-card__icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="14" rx="2"/><path d="M12 6v14"/><path d="M4 13h16"/></svg></span>
+        <span class="list-card__body">
+          <span class="insumo-card__titlerow"><span class="list-card__title">Chocolate ao leite</span></span>
+          <span class="list-card__meta">kg · 5 receitas</span>
+          <span class="stock">
+            <span class="stock__row"><span>No estoque</span><span class="stock__value text-num">3,2 kg</span></span>
+            <span class="stock__track" role="progressbar" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100" aria-label="Nível de estoque de chocolate ao leite"><span class="stock__fill" style="width:75%"></span></span>
+          </span>
+        </span>
+        <span class="list-card__side">
+          <span class="insumo-card__rate text-num">R$ 0,0489<span class="insumo-card__unit">/g</span></span>
+          <span class="insumo-card__rlabel">custo médio</span>
+        </span>
+      </a>
+
+      <a class="list-card" href="insumo-detalhe.html" data-cat="doces" data-name="farinha de trigo" data-od-id="insumo-card-farinha-de-trigo">
+        <span class="list-card__icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><path d="M9 4h6l2 6v10H7V10Z"/><path d="M9 4v6"/><path d="M15 4v6"/><path d="M7 14h10"/></svg></span>
+        <span class="list-card__body">
+          <span class="insumo-card__titlerow">
+            <span class="list-card__title">Farinha de trigo</span>
+            <span class="badge badge--running-out">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+              acabando
+            </span>
+          </span>
+          <span class="list-card__meta">pacote 1 kg · 6 receitas</span>
+          <span class="stock stock--low">
+            <span class="stock__row"><span>No estoque</span><span class="stock__value text-num">900 g</span></span>
+            <span class="stock__track" role="progressbar" aria-valuenow="15" aria-valuemin="0" aria-valuemax="100" aria-label="Nível de estoque de farinha de trigo, abaixo do mínimo"><span class="stock__fill" style="width:15%"></span></span>
+          </span>
+        </span>
+        <span class="list-card__side">
+          <span class="insumo-card__rate text-num">R$ 0,0048<span class="insumo-card__unit">/g</span></span>
+          <span class="insumo-card__rlabel">custo médio</span>
+        </span>
+      </a>
+
+      <a class="list-card" href="insumo-detalhe.html" data-cat="hortifruti" data-name="ovos" data-od-id="insumo-card-ovos">
+        <span class="list-card__icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><ellipse cx="9.5" cy="14" rx="4.5" ry="5.5"/><ellipse cx="15.5" cy="12.5" rx="4.5" ry="5.5"/></svg></span>
+        <span class="list-card__body">
+          <span class="insumo-card__titlerow"><span class="list-card__title">Ovos</span></span>
+          <span class="list-card__meta">dúzia · 4 receitas</span>
+          <span class="stock">
+            <span class="stock__row"><span>No estoque</span><span class="stock__value text-num">5 dúzias</span></span>
+            <span class="stock__track" role="progressbar" aria-valuenow="55" aria-valuemin="0" aria-valuemax="100" aria-label="Nível de estoque de ovos"><span class="stock__fill" style="width:55%"></span></span>
+          </span>
+        </span>
+        <span class="list-card__side">
+          <span class="insumo-card__rate text-num">R$ 1,00<span class="insumo-card__unit">/un</span></span>
+          <span class="insumo-card__rlabel">custo médio</span>
+        </span>
+      </a>
+
+      <a class="list-card" href="insumo-detalhe.html" data-cat="embalagens" data-name="casquinha de sorvete" data-od-id="insumo-card-casquinha-de-sorvete">
+        <span class="list-card__icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><path d="M8 9h8l-4 12Z"/><path d="M8 9a4 4 0 0 1 8 0"/><path d="M7 9h10"/></svg></span>
+        <span class="list-card__body">
+          <span class="insumo-card__titlerow"><span class="list-card__title">Casquinha de sorvete</span></span>
+          <span class="list-card__meta">unidade · 2 receitas</span>
+          <span class="stock">
+            <span class="stock__row"><span>No estoque</span><span class="stock__value text-num">120 un</span></span>
+            <span class="stock__track" role="progressbar" aria-valuenow="40" aria-valuemin="0" aria-valuemax="100" aria-label="Nível de estoque de casquinhas"><span class="stock__fill" style="width:40%"></span></span>
+          </span>
+        </span>
+        <span class="list-card__side">
+          <span class="insumo-card__rate text-num">R$ 0,35<span class="insumo-card__unit">/un</span></span>
+          <span class="insumo-card__rlabel">custo médio</span>
+        </span>
+      </a>
+
+      <a class="list-card" href="insumo-detalhe.html" data-cat="hortifruti" data-name="limao limão" data-od-id="insumo-card-limao">
+        <span class="list-card__icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="14" r="7"/><path d="M11 7c.5-2.5 2.5-3.5 4.5-3"/></svg></span>
+        <span class="list-card__body">
+          <span class="insumo-card__titlerow">
+            <span class="list-card__title">Limão</span>
+            <span class="badge badge--estimate">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+              estimado
+            </span>
+          </span>
+          <span class="list-card__meta">unidade · sem preço ainda</span>
+          <span class="stock stock--low">
+            <span class="stock__row"><span>No estoque</span><span class="stock__value text-num">8 un</span></span>
+            <span class="stock__track" role="progressbar" aria-valuenow="20" aria-valuemin="0" aria-valuemax="100" aria-label="Nível de estoque de limão"><span class="stock__fill" style="width:20%"></span></span>
+          </span>
+        </span>
+        <span class="list-card__side">
+          <span class="insumo-card__rate text-num">—</span>
+          <span class="insumo-card__rlabel">sem custo médio</span>
+        </span>
+      </a>
+
+      <div class="state-block" id="sem-busca" hidden data-od-id="estado-sem-resultados">
+        <svg class="icon icon--32 state-block__illo" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="m9.5 9.5 5 5"/><path d="m14.5 9.5-5 5"/></svg>
+        <p class="state-block__title">Nada encontrado</p>
+        <p class="state-block__text">Nenhum insumo bate com essa busca ou categoria.</p>
+        <button type="button" class="btn btn--link" id="btn-limpar-filtros" data-od-id="btn-limpar-filtros">Limpar filtros</button>
+      </div>
+    </div>
+
+    <section class="estados" data-od-id="secao-estados">
+      <h2 class="divider" data-od-id="divider-estados">Estados da tela</h2>
+
+      <p class="section-title" data-od-id="cap-estado-skeleton">Carregando insumos</p>
+      <div class="insumo-grid estados__skgrid" data-od-id="estado-skeleton" aria-hidden="true">
+        <div class="skeleton-card">
+          <span class="skeleton skeleton--circle"></span>
+          <span class="skcol">
+            <span class="skeleton skeleton--title"></span>
+            <span class="skeleton skeleton--line" style="width:45%"></span>
+            <span class="skeleton" style="height:6px; width:100%; border-radius: var(--uniq-radius-pill);"></span>
+          </span>
+          <span class="skcol skcol--side">
+            <span class="skeleton skeleton--line" style="width:76px; height:18px;"></span>
+            <span class="skeleton skeleton--line" style="width:52px;"></span>
+          </span>
+        </div>
+        <div class="skeleton-card">
+          <span class="skeleton skeleton--circle"></span>
+          <span class="skcol">
+            <span class="skeleton skeleton--title"></span>
+            <span class="skeleton skeleton--line" style="width:38%"></span>
+            <span class="skeleton" style="height:6px; width:100%; border-radius: var(--uniq-radius-pill);"></span>
+          </span>
+          <span class="skcol skcol--side">
+            <span class="skeleton skeleton--line" style="width:76px; height:18px;"></span>
+            <span class="skeleton skeleton--line" style="width:52px;"></span>
+          </span>
+        </div>
+        <div class="skeleton-card">
+          <span class="skeleton skeleton--circle"></span>
+          <span class="skcol">
+            <span class="skeleton skeleton--title"></span>
+            <span class="skeleton skeleton--line" style="width:42%"></span>
+            <span class="skeleton" style="height:6px; width:100%; border-radius: var(--uniq-radius-pill);"></span>
+          </span>
+          <span class="skcol skcol--side">
+            <span class="skeleton skeleton--line" style="width:76px; height:18px;"></span>
+            <span class="skeleton skeleton--line" style="width:52px;"></span>
+          </span>
+        </div>
+      </div>
+
+      <p class="section-title" data-od-id="cap-estado-vazio">Primeira vez — lista vazia</p>
+      <div class="panel" data-od-id="estado-vazio">
+        <aside class="melissa-card" data-od-id="melissa-card-cadastro">
+          <div class="melissa-card__glow" aria-hidden="true"></div>
+          <header class="melissa-card__head">
+            <span class="melissa-card__avatar avatar-ring" aria-hidden="true"><img src="assets/avatar-MELISSA.png" alt="" width="34" height="34" style="border-radius:50%;object-fit:cover" /></span>
+            <div>
+              <p class="melissa-card__name">Melissa</p>
+              <p class="melissa-card__role">IA Proativa</p>
+            </div>
+          </header>
+          <div class="melissa-card__bubble">
+            <p>Cadastre o primeiro insumo. <strong>Eu cuido da conversão pra você</strong> — lata vira grama, dúzia vira unidade, sem conta sua.</p>
+          </div>
+          <footer class="melissa-card__actions">
+            <button type="button" class="melissa-card__action" id="btn-estado-cadastro" data-od-id="melissa-acao-cadastrar">
+              <svg class="icon icon--16" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+              Cadastrar insumo
+            </button>
+          </footer>
+        </aside>
+      </div>
+
+      <p class="section-title" data-od-id="cap-estado-erro">Erro</p>
+      <div class="panel" data-od-id="estado-erro">
+        <div class="state-block">
+          <svg class="icon icon--32 state-block__illo" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--uniq-error-ink);"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+          <p class="state-block__title">Não foi possível carregar seus insumos</p>
+          <p class="state-block__text">Sua conexão caiu no meio do caminho. Nada foi perdido — tente de novo.</p>
+          <button type="button" class="btn btn--secondary btn--sm" data-od-id="btn-estado-retry">
+            <svg class="icon icon--16" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            Tentar de novo
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <button type="button" class="fab" id="fab-insumo" aria-label="Adicionar novo insumo" data-od-id="fab-novo-insumo">
+    <svg class="icon icon--32" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+  </button>
+
+<div class="sheet" id="sheet-insumo" hidden data-od-id="sheet-novo-insumo">
+  <div class="sheet__overlay" data-close></div>
+  <div class="sheet__panel" role="dialog" aria-modal="true" aria-labelledby="sheet-insumo-titulo">
+    <span class="sheet__handle" aria-hidden="true"></span>
+    <div style="display:flex; align-items:center; justify-content:space-between; gap: var(--uniq-space-2);">
+      <h3 class="sheet__title" id="sheet-insumo-titulo">Novo insumo</h3>
+      <button type="button" class="icon-btn" data-close aria-label="Fechar cadastro" data-od-id="btn-fechar-sheet-insumo">
+        <svg class="icon icon--20" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+    <div class="stack" style="margin-top: var(--uniq-space-2);">
+      <label class="field">
+        <span class="field__label">Nome do insumo</span>
+        <input class="input" id="ni-nome" placeholder="ex.: Essência de baunilha" data-od-id="campo-nome-novo-insumo" />
+      </label>
+      <label class="field">
+        <span class="field__label">Como você compra?</span>
+        <input class="input" id="ni-forma" placeholder="ex.: vidro de 25 ml" data-od-id="campo-forma-novo-insumo" />
+      </label>
+      <div class="field">
+        <label class="field__label" for="ni-preco">Quanto pagou da última vez?</label>
+        <div class="input-group">
+          <span class="input-group__affix">R$</span>
+          <input class="input text-num" id="ni-preco" placeholder="0,00" inputmode="decimal" data-od-id="campo-preco-novo-insumo" />
+        </div>
+        <span class="field__help">Sem preço, ele entra como "estimado" — a Melissa cobra depois, sem cobrança.</span>
+      </div>
+      <button type="button" class="btn btn--primary btn--block" id="ni-salvar" data-od-id="btn-confirmar-novo-insumo">Cadastrar insumo</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var nfBRL = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  function money(n) { return 'R$ ' + nfBRL.format(n); }
+
+  var busca = document.getElementById('busca-insumos');
+  var lista = document.getElementById('lista-insumos');
+  var chipsCat = Array.prototype.slice.call(document.querySelectorAll('[data-od-id="chips-categorias"] .chip'));
+  var semBusca = document.getElementById('sem-busca');
+  var pillText = document.getElementById('pill-contagem-texto');
+  var catAtiva = 'todos';
+
+  function cards() {
+    return Array.prototype.slice.call(lista.querySelectorAll('a.list-card'));
+  }
+
+  function aplicarFiltro() {
+    var q = busca.value.trim().toLowerCase();
+    var visiveis = 0;
+    cards().forEach(function (c) {
+      var nome = (c.getAttribute('data-name') || '').toLowerCase();
+      var catOk = catAtiva === 'todos' || c.getAttribute('data-cat') === catAtiva;
+      var nomeOk = !q || nome.indexOf(q) !== -1;
+      var ok = catOk && nomeOk;
+      c.style.display = ok ? '' : 'none';
+      if (ok) visiveis++;
+    });
+    semBusca.hidden = visiveis > 0;
+    pillText.textContent = visiveis === 1 ? '1 item' : visiveis + ' itens';
+  }
+
+  busca.addEventListener('input', aplicarFiltro);
+
+  chipsCat.forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      catAtiva = chip.getAttribute('data-cat');
+      chipsCat.forEach(function (c) {
+        var on = c === chip;
+        c.setAttribute('aria-pressed', on ? 'true' : 'false');
+        c.classList.toggle('chip--selected', on);
+      });
+      aplicarFiltro();
+    });
+  });
+
+  document.getElementById('btn-limpar-filtros').addEventListener('click', function () {
+    busca.value = '';
+    catAtiva = 'todos';
+    chipsCat.forEach(function (c) {
+      var on = c.getAttribute('data-cat') === 'todos';
+      c.setAttribute('aria-pressed', on ? 'true' : 'false');
+      c.classList.toggle('chip--selected', on);
+    });
+    aplicarFiltro();
+    busca.focus();
+  });
+
+  /* ---------------- sheet de cadastro ---------------- */
+  var sheet = document.getElementById('sheet-insumo');
+  function abrirSheet() {
+    sheet.hidden = false;
+    requestAnimationFrame(function () { sheet.classList.add('sheet--open'); });
+    document.getElementById('ni-nome').focus();
+  }
+  function fecharSheet() {
+    sheet.classList.remove('sheet--open');
+    setTimeout(function () { sheet.hidden = true; }, 240);
+  }
+  document.getElementById('fab-insumo').addEventListener('click', abrirSheet);
+  document.getElementById('btn-estado-cadastro').addEventListener('click', abrirSheet);
+  Array.prototype.slice.call(sheet.querySelectorAll('[data-close]')).forEach(function (el) {
+    el.addEventListener('click', fecharSheet);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !sheet.hidden) fecharSheet();
+  });
+
+  function slug(s) {
+    return (s || 'insumo').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'insumo';
+  }
+  function valPreco() {
+    var n = parseFloat(String(document.getElementById('ni-preco').value).replace(',', '.'));
+    return isNaN(n) || n < 0 ? 0 : n;
+  }
+
+  document.getElementById('ni-salvar').addEventListener('click', function () {
+    var nome = document.getElementById('ni-nome').value.trim();
+    if (!nome) { document.getElementById('ni-nome').focus(); return; }
+    var forma = document.getElementById('ni-forma').value.trim();
+    var preco = valPreco();
+    var key = slug(nome) + '-' + cards().length;
+
+    var card = document.createElement('a');
+    card.className = 'list-card';
+    card.href = 'insumo-detalhe.html';
+    card.setAttribute('data-cat', 'todos');
+    card.setAttribute('data-name', nome.toLowerCase());
+    card.setAttribute('data-od-id', 'insumo-card-' + key);
+
+    var estoqueMeta = document.createElement('span');
+    estoqueMeta.className = 'list-card__meta';
+    estoqueMeta.textContent = (forma || 'unidade') + (preco > 0 ? ' · pago ' + money(preco) : ' · sem preço ainda');
+
+    card.innerHTML =
+      '<span class="list-card__icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></svg></span>' +
+      '<span class="list-card__body">' +
+      '<span class="insumo-card__titlerow"><span class="list-card__title"></span>' +
+      (preco > 0 ? '' :
+        '<span class="badge badge--estimate"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>estimado</span>') +
+      '</span><span class="list-card__meta"></span>' +
+      '<span class="stock"><span class="stock__row"><span>No estoque</span><span class="stock__value text-num">0</span></span>' +
+      '<span class="stock__track" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"><span class="stock__fill" style="width:2%"></span></span></span>' +
+      '</span>' +
+      '<span class="list-card__side">' +
+      '<span class="insumo-card__rate text-num">' + (preco > 0 ? money(preco) : '—') + '</span>' +
+      '<span class="insumo-card__rlabel">' + (preco > 0 ? 'última compra' : 'sem custo médio') + '</span>' +
+      '</span>';
+    card.querySelector('.list-card__title').textContent = nome;
+    card.querySelector('.list-card__meta').textContent = estoqueMeta.textContent;
+
+    lista.insertBefore(card, semBusca);
+    document.getElementById('ni-nome').value = '';
+    document.getElementById('ni-forma').value = '';
+    document.getElementById('ni-preco').value = '';
+    fecharSheet();
+    busca.value = '';
+    aplicarFiltro();
+  });
+
+  aplicarFiltro();
+})();
+</script>
+
+</div>
+</body>
+</html>

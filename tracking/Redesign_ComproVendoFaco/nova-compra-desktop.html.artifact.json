@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "nova-compra-desktop.html",
+  "entry": "nova-compra-desktop.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-10-24T18:52:48.700Z",
+  "updatedAt": "2026-10-24T18:52:48.700Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}

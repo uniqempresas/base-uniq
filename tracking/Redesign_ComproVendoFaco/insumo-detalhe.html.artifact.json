@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "insumo-detalhe.html",
+  "entry": "insumo-detalhe.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-10-24T18:52:52.700Z",
+  "updatedAt": "2026-10-24T18:52:52.700Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}

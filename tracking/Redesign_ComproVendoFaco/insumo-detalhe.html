@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Leite condensado — UNIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/tokens.css" />
+<link rel="stylesheet" href="assets/shared.css" />
+<style>
+  /* ----- ajustes locais desta tela (só tokens e color-mix, zero hex novo) ----- */
+  /* garante que [hidden] vença os display: flex/grid das classes de componente */
+  [hidden] { display: none !important; }
+
+  .content { padding: var(--uniq-space-4); }
+
+  .hero__kicker {
+    font-size: var(--uniq-text-xs); font-weight: var(--uniq-weight-semibold);
+    letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--uniq-ink-muted); margin-bottom: var(--uniq-space-1);
+  }
+  .hero__name {
+    font-size: var(--uniq-text-xl); font-weight: var(--uniq-weight-bold);
+    letter-spacing: -0.01em; margin-bottom: var(--uniq-space-2);
+  }
+  .hero__rate {
+    font-size: 30px; font-weight: var(--uniq-weight-bold);
+    letter-spacing: -0.03em; line-height: 1.1;
+  }
+  .hero__rate-unit {
+    font-size: var(--uniq-text-lg); font-weight: var(--uniq-weight-medium);
+    color: var(--uniq-ink-muted); letter-spacing: 0;
+  }
+  .hero__labels {
+    display: flex; flex-wrap: wrap; gap: var(--uniq-space-2);
+    margin-top: var(--uniq-space-3);
+  }
+  .hero__label {
+    display: inline-flex; align-items: baseline; gap: 6px;
+    padding: 6px 12px; border-radius: var(--uniq-radius-pill);
+    background: var(--uniq-surface-sunken);
+    border: var(--uniq-border-w) solid var(--uniq-border-on-white);
+    font-size: var(--uniq-text-sm); color: var(--uniq-ink);
+  }
+  .hero__label-key { color: var(--uniq-ink-muted); font-weight: var(--uniq-weight-medium); }
+  .hero__stock {
+    display: flex; align-items: center; gap: 6px;
+    margin-top: var(--uniq-space-3);
+    font-size: var(--uniq-text-sm); color: var(--uniq-ink-muted);
+  }
+
+  .block-title {
+    font-size: var(--uniq-text-lg); font-weight: var(--uniq-weight-semibold);
+    margin-bottom: var(--uniq-space-3);
+  }
+  .receipt { margin-bottom: var(--uniq-space-2); }
+  .btn-ver-calculo .chev { transition: transform 160ms ease; }
+  .btn-ver-calculo[aria-expanded="true"] .chev { transform: rotate(180deg); }
+
+  .recipe-row__cost { font-weight: var(--uniq-weight-bold); white-space: nowrap; }
+  .recipe-row__qty {
+    font-size: var(--uniq-text-xs); color: var(--uniq-ink-muted); white-space: nowrap;
+  }
+  .usado-total {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding-top: var(--uniq-space-3); margin-top: var(--uniq-space-2);
+    border-top: var(--uniq-border-w) solid var(--uniq-border-strong);
+    font-size: var(--uniq-text-sm); color: var(--uniq-ink-muted);
+  }
+  .usado-total strong { color: var(--uniq-ink); font-size: var(--uniq-text-md); }
+
+  .spark-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: var(--uniq-space-2); margin-bottom: var(--uniq-space-3);
+  }
+  .spark svg { width: 100%; height: auto; display: block; }
+  .spark-line { fill: none; stroke: var(--uniq-success-ink); stroke-width: 2; stroke-linecap: round; }
+  .spark-area { fill: color-mix(in srgb, var(--uniq-accent) 30%, transparent); stroke: none; }
+  .spark-dot { fill: var(--uniq-fg); stroke: var(--uniq-surface); stroke-width: 2; }
+  .spark-legend {
+    display: flex; justify-content: space-between; align-items: baseline; gap: var(--uniq-space-2);
+    margin-top: var(--uniq-space-2); font-size: var(--uniq-text-xs); color: var(--uniq-ink-muted);
+  }
+
+  .bottom-bar__hint { flex-wrap: wrap; row-gap: 2px; }
+
+  .avatar-ring { overflow: hidden; }
+  .avatar-ring img { width: 100%; height: 100%; }
+
+  .skhero { display: grid; gap: var(--uniq-space-3); }
+</style>
+</head>
+<body>
+<div class="app-shell app-shell--has-bottom">
+  <header class="app-bar" data-od-id="appbar-insumo-detalhe">
+    <a class="icon-btn" href="insumos-lista.html" aria-label="Voltar para a lista de insumos" data-od-id="btn-voltar-lista">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+    </a>
+    <h1 class="app-bar__title" data-od-id="titulo-insumo">Leite condensado</h1>
+    <div class="app-bar__actions">
+      <button type="button" class="icon-btn" aria-label="Editar insumo" data-od-id="btn-editar-insumo">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="content stack stack--loose">
+
+    <!-- ================================== hero ================================== -->
+    <section class="panel" data-od-id="bloco-hero" aria-labelledby="nome-heroi">
+      <p class="hero__kicker">Laticínios · lata 395 g</p>
+      <h2 class="hero__name" id="nome-heroi" data-od-id="heading-nome">Leite condensado</h2>
+      <p class="hero__rate text-num" data-od-id="taxa-destaque">R$ 0,0139<span class="hero__rate-unit">/g</span></p>
+      <div class="hero__labels">
+        <span class="hero__label" data-od-id="rotulo-ultima-compra"><span class="hero__label-key">última compra</span> R$ 5,49/lata</span>
+        <span class="hero__label" data-od-id="rotulo-custo-medio"><span class="hero__label-key">custo médio</span> R$ 13,90/kg</span>
+      </div>
+      <p class="hero__stock">
+        <svg class="icon icon--16" viewBox="0 0 24 24" aria-hidden="true"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></svg>
+        2,4 kg no estoque agora
+      </p>
+    </section>
+
+    <!-- ============================ como você compra ============================ -->
+    <section data-od-id="bloco-como-voce-compra" aria-labelledby="titulo-compra">
+      <h3 class="block-title" id="titulo-compra" data-od-id="heading-como-compra">Como você compra</h3>
+      <div class="receipt" data-od-id="receipt-conversao">
+        <p class="receipt__label">Da prateleira pro estoque</p>
+        <p class="receipt__line">1 lata = 395 g = R$ 5,49</p>
+        <p class="receipt__result">R$ 0,0139 por grama</p>
+        <div class="receipt__detail" id="recibo-calc" hidden>
+          <p class="receipt__line">R$ 5,49 ÷ 395 g = R$ 0,0139/g</p>
+          <p class="receipt__line">R$ 0,0139/g × 1.000 = R$ 13,90/kg</p>
+        </div>
+      </div>
+      <button type="button" class="btn btn--link btn-ver-calculo" id="btn-ver-calculo" aria-expanded="false" aria-controls="recibo-calc" data-od-id="btn-ver-calculo">
+        <span id="btn-ver-calculo-texto">Ver cálculo</span>
+        <svg class="icon icon--16 chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+    </section>
+
+    <!-- ================================== Melissa ================================ -->
+    <aside class="melissa-card" id="melissa-alerta" data-od-id="melissa-card-alerta">
+      <div class="melissa-card__glow" aria-hidden="true"></div>
+      <header class="melissa-card__head">
+        <span class="melissa-card__avatar avatar-ring" aria-hidden="true"><img src="assets/avatar-MELISSA.png" alt="" width="34" height="34" style="border-radius:50%;object-fit:cover" /></span>
+        <div>
+          <p class="melissa-card__name">Melissa</p>
+          <p class="melissa-card__role">IA Proativa</p>
+        </div>
+      </header>
+      <div class="melissa-card__bubble">
+        <p>O leite condensado subiu 8%. <strong>3 receitas ficaram 2% mais caras.</strong> Quer ver?</p>
+      </div>
+      <footer class="melissa-card__actions">
+        <a class="melissa-card__action" href="#bloco-onde-usado" data-od-id="melissa-acao-ver-receitas">Ver receitas</a>
+        <button type="button" class="melissa-card__action melissa-card__action--ghost" id="melissa-entendi" data-od-id="melissa-acao-entendi">Entendi</button>
+      </footer>
+    </aside>
+
+    <!-- ================================ onde é usado ============================== -->
+    <section class="panel" id="bloco-onde-usado" data-od-id="bloco-onde-usado" aria-labelledby="titulo-usado">
+      <h3 class="block-title" id="titulo-usado" data-od-id="heading-onde-usado">Usado em 4 receitas</h3>
+      <div class="stack stack--tight" data-od-id="lista-receitas-uso">
+        <a class="list-card" href="receita-editor.html" data-od-id="receita-card-recheio-de-limao">
+          <span class="list-card__icon" aria-hidden="true"><svg class="icon icon--20" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span>
+          <span class="list-card__body">
+            <span class="list-card__title">Recheio de limão</span>
+            <span class="list-card__meta">55 g de leite condensado</span>
+          </span>
+          <span class="list-card__side">
+            <span class="recipe-row__cost text-num">R$ 0,76</span>
+            <span class="recipe-row__qty">na receita</span>
+          </span>
+        </a>
+
+        <a class="list-card" href="receita-editor.html" data-od-id="receita-card-brigadeiro">
+          <span class="list-card__icon" aria-hidden="true"><svg class="icon icon--20" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span>
+          <span class="list-card__body">
+            <span class="list-card__title">Brigadeiro</span>
+            <span class="list-card__meta">20 g de leite condensado</span>
+          </span>
+          <span class="list-card__side">
+            <span class="recipe-row__cost text-num">R$ 0,28</span>
+            <span class="recipe-row__qty">na receita</span>
+          </span>
+        </a>
+
+        <a class="list-card" href="receita-editor.html" data-od-id="receita-card-bolo-de-pote">
+          <span class="list-card__icon" aria-hidden="true"><svg class="icon icon--20" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span>
+          <span class="list-card__body">
+            <span class="list-card__title">Bolo de pote</span>
+            <span class="list-card__meta">80 g de leite condensado</span>
+          </span>
+          <span class="list-card__side">
+            <span class="recipe-row__cost text-num">R$ 1,11</span>
+            <span class="recipe-row__qty">na receita</span>
+          </span>
+        </a>
+
+        <a class="list-card" href="receita-editor.html" data-od-id="receita-card-torta-de-limao">
+          <span class="list-card__icon" aria-hidden="true"><svg class="icon icon--20" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span>
+          <span class="list-card__body">
+            <span class="list-card__title">Torta de limão</span>
+            <span class="list-card__meta">120 g de leite condensado</span>
+          </span>
+          <span class="list-card__side">
+            <span class="recipe-row__cost text-num">R$ 1,67</span>
+            <span class="recipe-row__qty">na receita</span>
+          </span>
+        </a>
+      </div>
+      <p class="usado-total" data-od-id="linha-total-uso">
+        <span>Leite condensado na última produção</span>
+        <strong class="text-num">R$ 3,82</strong>
+      </p>
+    </section>
+
+    <!-- ============================ histórico de preço ============================ -->
+    <section class="panel" data-od-id="bloco-preco-historico" aria-labelledby="titulo-spark">
+      <div class="spark-head">
+        <h3 class="block-title" id="titulo-spark" style="margin-bottom:0;" data-od-id="heading-historico">Preço do quilo</h3>
+        <span class="pill" data-od-id="pill-tendencia">
+          <svg class="icon icon--16" viewBox="0 0 24 24" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+          +8%
+        </span>
+      </div>
+      <div class="spark" data-od-id="sparkline-precos" role="img" aria-label="Gráfico do custo médio por quilo nos últimos 6 meses: de 12 reais e 80 centavos para 13 reais e 90 centavos">
+        <svg viewBox="0 0 280 100" aria-hidden="true">
+          <path class="spark-area" d="M8,76 C28,70 45,58 60.8,59.6 C78,61 95,70 113.6,67.8 C132,65 150,48 166.4,43.3 C184,38 202,27 219.2,24.2 C237,21 254,17 272,16 L272,92 L8,92 Z" />
+          <path class="spark-line" d="M8,76 C28,70 45,58 60.8,59.6 C78,61 95,70 113.6,67.8 C132,65 150,48 166.4,43.3 C184,38 202,27 219.2,24.2 C237,21 254,17 272,16" />
+          <circle class="spark-dot" cx="272" cy="16" r="4" />
+        </svg>
+        <div class="spark-legend">
+          <span class="text-num">R$ 12,80 · há 6 meses</span>
+          <span class="text-num">hoje R$ 13,90</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== estados da tela ============================== -->
+    <section data-od-id="secao-estados">
+      <h2 class="divider" data-od-id="divider-estados">Estados da tela</h2>
+
+      <p class="section-title" data-od-id="cap-estado-skeleton">Carregando detalhe</p>
+      <div class="panel skhero" data-od-id="estado-skeleton" aria-hidden="true">
+        <div class="skeleton skeleton--line" style="width:30%;"></div>
+        <div class="skeleton skeleton--title" style="width:55%; height:24px;"></div>
+        <div class="skeleton" style="height:30px; width:52%; border-radius: var(--uniq-radius-control);"></div>
+        <div class="chip-row">
+          <span class="skeleton skeleton--pill"></span>
+          <span class="skeleton skeleton--pill" style="width:110px;"></span>
+        </div>
+        <div class="skeleton" style="height:64px; border-radius: var(--uniq-radius-card);"></div>
+        <div class="skeleton skeleton--card"></div>
+        <div class="skeleton skeleton--card"></div>
+      </div>
+
+      <p class="section-title" data-od-id="cap-estado-vazio">Sem histórico de preço</p>
+      <div class="panel" data-od-id="estado-vazio">
+        <div class="state-block">
+          <svg class="icon icon--32 state-block__illo" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/></svg>
+          <p class="state-block__title">Ainda não há gráfico pra mostrar</p>
+          <p class="state-block__text">Registre uma compra pelo aplicativo e a Melissa monta o histórico de preço sozinha.</p>
+          <a class="btn btn--secondary btn--sm" href="nova-compra-mobile.html" data-od-id="btn-estado-comprar">Registrar compra</a>
+        </div>
+      </div>
+
+      <p class="section-title" data-od-id="cap-estado-erro">Erro</p>
+      <div class="panel" data-od-id="estado-erro">
+        <div class="state-block">
+          <svg class="icon icon--32 state-block__illo" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--uniq-error-ink);"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+          <p class="state-block__title">Não foi possível carregar este insumo</p>
+          <p class="state-block__text">Sua conexão caiu. O estoque não mudou — nada se perdeu.</p>
+          <button type="button" class="btn btn--secondary btn--sm" data-od-id="btn-estado-retry">
+            <svg class="icon icon--16" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            Tentar de novo
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <div class="bottom-bar" data-od-id="bottom-bar-detalhe">
+    <div class="bottom-bar__hint">
+      <span>Estoque atual: 2,4 kg</span>
+      <span>4 receitas usam este insumo</span>
+    </div>
+    <a class="btn btn--primary btn--block btn--lg" href="nova-compra-mobile.html" data-od-id="btn-comprar-de-novo">
+      <svg class="icon icon--20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+      Comprar de novo
+    </a>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* expande o detalhamento da conta dentro do recibo */
+  var btn = document.getElementById('btn-ver-calculo');
+  var detalhe = document.getElementById('recibo-calc');
+  var texto = document.getElementById('btn-ver-calculo-texto');
+  btn.addEventListener('click', function () {
+    var aberto = btn.getAttribute('aria-expanded') === 'true';
+    btn.setAttribute('aria-expanded', aberto ? 'false' : 'true');
+    detalhe.hidden = aberto;
+    texto.textContent = aberto ? 'Ver cálculo' : 'Ocultar cálculo';
+  });
+
+  /* Melissa: "Entendi" dispensa o card, que nunca cobre a bottom-bar */
+  document.getElementById('melissa-entendi').addEventListener('click', function () {
+    document.getElementById('melissa-alerta').classList.add('hide');
+  });
+})();
+</script>
+</div>
+</body>
+</html>

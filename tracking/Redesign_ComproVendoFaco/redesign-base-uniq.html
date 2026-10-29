@@ -1,0 +1,787 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Base UNIQ — Redesenho do fluxo de produção</title>
+  <meta name="description" content="Índice do redesenho do módulo de estoque/produção da Base UNIQ: 9 telas organizadas em Compro, Faço e Vendo." />
+
+  <!-- Fonte: Poppins via Google Fonts, com preconnect (padrão das telas do módulo) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="assets/tokens.css" />
+  <link rel="stylesheet" href="assets/shared.css" />
+
+  <style>
+    /* ======================================================================
+       Launcher do redesenho — estilos próprios sobre shared.css.
+       Cores: ZERO literal novo; tudo via var(--uniq-*) ou color-mix das
+       âncoras da paleta (regra 1 do tokens.css).
+       ====================================================================== */
+
+    .launcher {
+      max-width: 1060px;
+      margin-inline: auto;
+      padding: var(--uniq-space-5) var(--uniq-space-4) var(--uniq-space-4);
+    }
+    @media (min-width: 760px) {
+      .launcher { padding: var(--uniq-space-7) var(--uniq-space-5) var(--uniq-space-5); }
+    }
+
+    /* -------------------------------- cabeçalho --------------------------- */
+    .launcher__eyebrow { margin-bottom: var(--uniq-space-3); }
+
+    .launcher__title {
+      font-size: var(--uniq-text-2xl);
+      font-weight: var(--uniq-weight-bold);
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+      text-wrap: balance;
+    }
+    @media (min-width: 760px) {
+      .launcher__title { font-size: 2rem; }
+    }
+
+    .launcher__subtitle {
+      margin-top: var(--uniq-space-2);
+      color: var(--uniq-ink-muted-on-bg);
+      max-width: 62ch;
+    }
+
+    /* ------------------------------- fluxo --------------------------------
+       Três atalhos-âncora para as seções (Compro → Faço → Vendo).
+       flex-wrap garante zero scroll horizontal a 360px.                     */
+    .flow {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--uniq-space-2);
+      margin-top: var(--uniq-space-5);
+    }
+    .flow__step {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--uniq-space-2);
+      min-height: var(--uniq-tap-min);
+      padding: 0 var(--uniq-space-4);
+      background: var(--uniq-surface);
+      border: var(--uniq-border-w) solid var(--uniq-border-on-white);
+      border-radius: var(--uniq-radius-pill);
+      box-shadow: var(--uniq-shadow-sm);
+      color: var(--uniq-ink);
+      font-weight: var(--uniq-weight-semibold);
+      text-decoration: none;
+      transition: background 120ms ease, border-color 120ms ease;
+    }
+    .flow__step:hover {
+      background: var(--uniq-accent-faint);
+      border-color: var(--uniq-accent-soft);
+    }
+    .flow__step .icon { color: var(--uniq-ink-muted); }
+    .flow__step:hover .icon { color: var(--uniq-success-ink); }
+    .flow__arrow { color: var(--uniq-ink-muted-on-bg); }
+    @media (max-width: 419px) {
+      .flow__step { padding: 0 var(--uniq-space-3); font-size: var(--uniq-text-base); }
+      .flow__step .icon { display: none; }
+    }
+
+    /* ---------------------------- cabeçalho de seção ---------------------- */
+    .section-head {
+      display: flex;
+      align-items: center;
+      gap: var(--uniq-space-3);
+      margin: var(--uniq-space-6) 0 var(--uniq-space-3);
+    }
+    .section:first-of-type .section-head { margin-top: var(--uniq-space-5); }
+
+    .section-head__icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      flex-shrink: 0;
+      border-radius: var(--uniq-radius-control);
+      background: var(--uniq-surface);
+      border: var(--uniq-border-w) solid var(--uniq-border-on-white);
+      color: var(--uniq-ink-muted);
+    }
+    .section-head__title {
+      flex: 1;
+      min-width: 0;
+      font-size: var(--uniq-text-xl);
+      font-weight: var(--uniq-weight-semibold);
+      letter-spacing: -0.01em;
+    }
+    .section-head__count { flex-shrink: 0; }
+
+    /* ---------------------------- grid de telas ----------------------------
+       1 coluna no mobile → 2 a partir de 640px → 3 a partir de 960px.       */
+    .screen-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--uniq-space-3);
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    @media (min-width: 640px) {
+      .screen-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--uniq-space-4); }
+    }
+    @media (min-width: 960px) {
+      .screen-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+
+    /* ------------------------------- card-link ----------------------------- */
+    .screen-card {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: var(--uniq-space-2);
+      width: 100%;
+      min-height: var(--uniq-tap-min);
+      padding: var(--uniq-space-4);
+      background: var(--uniq-surface);
+      border: var(--uniq-border-w) solid var(--uniq-border-on-white);
+      border-radius: var(--uniq-radius-card);
+      box-shadow: var(--uniq-shadow-sm);
+      color: var(--uniq-ink);
+      text-decoration: none;
+      transition: background 120ms ease, border-color 120ms ease,
+                  box-shadow 120ms ease, translate 160ms ease;
+    }
+    .screen-card:hover {
+      background: var(--uniq-surface-hover);
+      box-shadow: var(--uniq-shadow-md);
+      translate: 0 -2px;
+    }
+    .screen-card:active { background: var(--uniq-accent-faint); }
+
+    .screen-card__top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--uniq-space-2);
+    }
+    .screen-card__num {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      flex-shrink: 0;
+      border-radius: var(--uniq-radius-control);
+      background: var(--uniq-surface-sunken);
+      color: var(--uniq-ink-muted);
+      font-size: var(--uniq-text-lg);
+      font-weight: var(--uniq-weight-bold);
+      font-variant-numeric: tabular-nums;
+      transition: background 120ms ease, color 120ms ease;
+    }
+    .screen-card:hover .screen-card__num {
+      background: var(--uniq-accent-faint);
+      color: var(--uniq-success-ink);
+    }
+
+    .screen-card__title {
+      font-size: var(--uniq-text-md);
+      font-weight: var(--uniq-weight-semibold);
+      line-height: 1.3;
+      overflow-wrap: anywhere;
+    }
+    .screen-card__desc {
+      font-size: var(--uniq-text-sm);
+      color: var(--uniq-ink-muted);
+      overflow-wrap: anywhere;
+    }
+
+    .screen-card__foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--uniq-space-2);
+      margin-top: auto;
+      padding-top: var(--uniq-space-1);
+    }
+    .screen-card__tags {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--uniq-space-2);
+      min-width: 0;
+    }
+    .screen-card__device { font-size: var(--uniq-text-xs); }
+    .screen-card__go { color: var(--uniq-ink-muted); transition: color 120ms ease; }
+    .screen-card:hover .screen-card__go { color: var(--uniq-ink); }
+
+    /* Badge de área (Compro/Faço/Vendo) — neutro, nunca cor nova */
+    .badge--area {
+      background: var(--uniq-surface-sunken);
+      color: var(--uniq-ink-muted);
+      border-color: var(--uniq-border-on-white);
+    }
+
+    /* Entrada recomendada: destaque SUTIL — só contorno mais vivo + pílula.
+       Único cluster de ênfase menta da página.                              */
+    .screen-card--recommended {
+      border-color: color-mix(in oklab, var(--uniq-accent) 45%, var(--uniq-surface));
+      box-shadow: var(--uniq-shadow-md);
+    }
+
+    /* --------------------------- padrões do redesign ----------------------- */
+    .standards__title {
+      font-size: var(--uniq-text-lg);
+      font-weight: var(--uniq-weight-semibold);
+      margin-bottom: var(--uniq-space-4);
+    }
+    .standards__list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+      gap: var(--uniq-space-4);
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .standards__item {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--uniq-space-3);
+    }
+    .standards__icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      flex-shrink: 0;
+      border-radius: var(--uniq-radius-control);
+      background: var(--uniq-surface-sunken);
+      color: var(--uniq-ink-muted);
+    }
+    .standards__text {
+      font-size: var(--uniq-text-base);
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+    }
+    .standards__text strong { font-weight: var(--uniq-weight-semibold); }
+
+    /* --------------------------------- rodapé ------------------------------ */
+    .launcher__footer {
+      margin-top: var(--uniq-space-6);
+      padding-top: var(--uniq-space-4);
+      border-top: var(--uniq-border-w) solid color-mix(in oklab, var(--uniq-muted) 22%, var(--uniq-bg));
+      font-size: var(--uniq-text-sm);
+      color: var(--uniq-ink-muted-on-bg);
+    }
+
+    /* ----------------- entrada com stagger (um único momento) -------------- */
+    @keyframes launcher-rise {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: none; }
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      .launcher__head, .flow, .screen-card { animation: launcher-rise 380ms ease both; }
+      .flow { animation-delay: 80ms; }
+      .screen-grid .screen-card:nth-child(1) { animation-delay: 40ms; }
+      .screen-grid .screen-card:nth-child(2) { animation-delay: 90ms; }
+      .screen-grid .screen-card:nth-child(3) { animation-delay: 140ms; }
+      .screen-grid .screen-card:nth-child(4) { animation-delay: 190ms; }
+      .screen-grid .screen-card:nth-child(5) { animation-delay: 240ms; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="launcher">
+
+    <!-- ============================= CABEÇALHO ============================= -->
+    <header class="launcher__head" data-od-id="launcher-cabecalho">
+      <span class="pill launcher__eyebrow">
+        <svg class="icon icon--16" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 2 2 7l10 5 10-5-10-5Z"/>
+          <path d="m2 17 10 5 10-5"/>
+          <path d="m2 12 10 5 10-5"/>
+        </svg>
+        Módulo estoque · produção — 9 telas
+      </span>
+
+      <h1 class="launcher__title" data-od-id="launcher-titulo">Base UNIQ — Redesenho do fluxo de produção</h1>
+      <p class="launcher__subtitle">Do insumo novo ao primeiro produto vendido · Compro → Faço → Vendo</p>
+
+      <nav class="flow" data-od-id="launcher-fluxo" aria-label="Áreas do módulo">
+        <a class="flow__step" href="#secao-compro" data-od-id="fluxo-link-compro">
+          <svg class="icon icon--20" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="8" cy="21" r="1"/>
+            <circle cx="19" cy="21" r="1"/>
+            <path d="M2 3h2l2.6 12.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.4L22 7H6"/>
+          </svg>
+          Compro
+        </a>
+        <svg class="icon icon--16 flow__arrow" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 12h14"/>
+          <path d="m12 5 7 7-7 7"/>
+        </svg>
+        <a class="flow__step" href="#secao-faco" data-od-id="fluxo-link-faco">
+          <svg class="icon icon--20" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M2 12h20"/>
+            <path d="M20 12a8 8 0 0 1-8 8 8 8 0 0 1-8-8"/>
+            <path d="M5 12V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/>
+            <path d="M8 3v3"/>
+            <path d="M12 3v3"/>
+            <path d="M16 3v3"/>
+          </svg>
+          Faço
+        </a>
+        <svg class="icon icon--16 flow__arrow" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 12h14"/>
+          <path d="m12 5 7 7-7 7"/>
+        </svg>
+        <a class="flow__step" href="#secao-vendo" data-od-id="fluxo-link-vendo">
+          <svg class="icon icon--20" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8Z"/>
+            <path d="M7 7h.01"/>
+          </svg>
+          Vendo
+        </a>
+      </nav>
+    </header>
+
+    <main data-od-id="launcher-telas">
+
+      <!-- =============================== COMPRO =============================== -->
+      <section id="secao-compro" class="section" aria-labelledby="compro-heading" data-od-id="secao-compro">
+        <div class="section-head">
+          <span class="section-head__icon" aria-hidden="true">
+            <svg class="icon" viewBox="0 0 24 24">
+              <circle cx="8" cy="21" r="1"/>
+              <circle cx="19" cy="21" r="1"/>
+              <path d="M2 3h2l2.6 12.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.4L22 7H6"/>
+            </svg>
+          </span>
+          <h2 class="section-head__title" id="compro-heading" data-od-id="compro-heading">Compro</h2>
+          <span class="pill section-head__count">5 telas</span>
+        </div>
+
+        <ul class="screen-grid" data-od-id="grid-compro">
+          <li>
+            <!-- 01 · entrada recomendada: destaque sutil (contorno + pílula menta suave) -->
+            <a class="screen-card screen-card--recommended" href="hoje-home.html" data-od-id="card-hoje-home">
+              <span class="screen-card__top">
+                <span class="screen-card__num" aria-hidden="true">01</span>
+                <span class="badge badge--area">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="8" cy="21" r="1"/>
+                    <circle cx="19" cy="21" r="1"/>
+                    <path d="M2 3h2l2.6 12.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.4L22 7H6"/>
+                  </svg>
+                  Compro
+                </span>
+              </span>
+              <h3 class="screen-card__title">Hoje (home do módulo)</h3>
+              <p class="screen-card__desc">Alertas do dia e compra rápida</p>
+              <span class="screen-card__foot">
+                <span class="screen-card__tags">
+                  <span class="pill screen-card__device">
+                    <svg class="icon icon--16" viewBox="0 0 24 24" aria-hidden="true">
+                      <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+                      <path d="M12 18h.01"/>
+                    </svg>
+                    mobile
+                  </span>
+                  <span class="badge badge--success">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M20 6 9 17l-5-5"/>
+                    </svg>
+                    Entrada recomendada
+                  </span>
+                </span>
+                <svg class="icon icon--18 screen-card__go" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 12h14"/>
+                  <path d="m12 5 7 7-7 7"/>
+                </svg>
+              </span>
+            </a>
+          </li>
+
+          <li>
+            <a class="screen-card" href="nova-compra-mobile.html" data-od-id="card-nova-compra-mobile">
+              <span class="screen-card__top">
+                <span class="screen-card__num" aria-hidden="true">02</span>
+                <span class="badge badge--area">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="8" cy="21" r="1"/>
+                    <circle cx="19" cy="21" r="1"/>
+                    <path d="M2 3h2l2.6 12.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.4L22 7H6"/>
+                  </svg>
+                  Compro
+                </span>
+              </span>
+              <h3 class="screen-card__title">Nova compra (mobile)</h3>
+              <p class="screen-card__desc">Wizard 3 passos, a tela mais importante</p>
+              <span class="screen-card__foot">
+                <span class="screen-card__tags">
+                  <span class="pill screen-card__device">
+                    <svg class="icon icon--16" viewBox="0 0 24 24" aria-hidden="true">
+                      <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+                      <path d="M12 18h.01"/>
+                    </svg>
+                    mobile
+                  </span>
+                </span>
+                <svg class="icon icon--18 screen-card__go" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 12h14"/>
+                  <path d="m12 5 7 7-7 7"/>
+                </svg>
+              </span>
+            </a>
+          </li>
+
+          <li>
+            <a class="screen-card" href="nova-compra-desktop.html" data-od-id="card-nova-compra-desktop">
+              <span class="screen-card__top">
+                <span class="screen-card__num" aria-hidden="true">03</span>
+                <span class="badge badge--area">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="8" cy="21" r="1"/>
+                    <circle cx="19" cy="21" r="1"/>
+                    <path d="M2 3h2l2.6 12.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.4L22 7H6"/>
+                  </svg>
+                  Compro
+                </span>
+              </span>
+              <h3 class="screen-card__title">Nova compra (desktop)</h3>
+              <p class="screen-card__desc">2 colunas com resumo sticky</p>
+              <span class="screen-card__foot">
+                <span class="screen-card__tags">
+                  <span class="pill screen-card__device">
+                    <svg class="icon icon--16" viewBox="0 0 24 24" aria-hidden="true">
+                      <rect x="2" y="3" width="20" height="14" rx="2"/>
+                      <path d="M8 21h8"/>
+                      <path d="M12 17v4"/>
+                    </svg>
+                    desktop
+                  </span>
+                </span>
+                <svg class="icon icon--18 screen-card__go" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 12h14"/>
+                  <path d="m12 5 7 7-7 7"/>
+                </svg>
+              </span>
+            </a>
+          </li>
+
+          <li>
+            <a class="screen-card" href="insumos-lista.html" data-od-id="card-insumos-lista">
+              <span class="screen-card__top">
+                <span class="screen-card__num" aria-hidden="true">04</span>
+                <span class="badge badge--area">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="8" cy="21" r="1"/>
+                    <circle cx="19" cy="21" r="1"/>
+                    <path d="M2 3h2l2.6 12.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.4L22 7H6"/>
+                  </svg>
+                  Compro
+                </span>
+              </span>
+              <h3 class="screen-card__title">Lista de insumos</h3>
+              <p class="screen-card__desc">R$/g, estoque, “acabando”</p>
+              <span class="screen-card__foot">
+                <span class="screen-card__tags">
+                  <span class="pill screen-card__device">
+                    <svg class="icon icon--16" viewBox="0 0 24 24" aria-hidden="true">
+                      <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+                      <path d="M12 18h.01"/>
+                    </svg>
+                    mobile
+                  </span>
+                </span>
+                <svg class="icon icon--18 screen-card__go" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 12h14"/>
+                  <path d="m12 5 7 7-7 7"/>
+                </svg>
+              </span>
+            </a>
+          </li>
+
+          <li>
+            <a class="screen-card" href="insumo-detalhe.html" data-od-id="card-insumo-detalhe">
+              <span class="screen-card__top">
+                <span class="screen-card__num" aria-hidden="true">05</span>
+                <span class="badge badge--area">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="8" cy="21" r="1"/>
+                    <circle cx="19" cy="21" r="1"/>
+                    <path d="M2 3h2l2.6 12.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.4L22 7H6"/>
+                  </svg>
+                  Compro
+                </span>
+              </span>
+              <h3 class="screen-card__title">Detalhe do insumo</h3>
+              <p class="screen-card__desc">Recibo de conversão, onde é usado, evolução de preço</p>
+              <span class="screen-card__foot">
+                <span class="screen-card__tags">
+                  <span class="pill screen-card__device">
+                    <svg class="icon icon--16" viewBox="0 0 24 24" aria-hidden="true">
+                      <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+                      <path d="M12 18h.01"/>
+                    </svg>
+                    mobile
+                  </span>
+                </span>
+                <svg class="icon icon--18 screen-card__go" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 12h14"/>
+                  <path d="m12 5 7 7-7 7"/>
+                </svg>
+              </span>
+            </a>
+          </li>
+        </ul>
+      </section>
+
+      <!-- ================================ FAÇO ================================ -->
+      <section id="secao-faco" class="section" aria-labelledby="faco-heading" data-od-id="secao-faco">
+        <div class="section-head">
+          <span class="section-head__icon" aria-hidden="true">
+            <svg class="icon" viewBox="0 0 24 24">
+              <path d="M2 12h20"/>
+              <path d="M20 12a8 8 0 0 1-8 8 8 8 0 0 1-8-8"/>
+              <path d="M5 12V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/>
+              <path d="M8 3v3"/>
+              <path d="M12 3v3"/>
+              <path d="M16 3v3"/>
+            </svg>
+          </span>
+          <h2 class="section-head__title" id="faco-heading" data-od-id="faco-heading">Faço</h2>
+          <span class="pill section-head__count">2 telas</span>
+        </div>
+
+        <ul class="screen-grid" data-od-id="grid-faco">
+          <li>
+            <a class="screen-card" href="receita-editor.html" data-od-id="card-receita-editor">
+              <span class="screen-card__top">
+                <span class="screen-card__num" aria-hidden="true">06</span>
+                <span class="badge badge--area">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M2 12h20"/>
+                    <path d="M20 12a8 8 0 0 1-8 8 8 8 0 0 1-8-8"/>
+                    <path d="M5 12V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/>
+                    <path d="M8 3v3"/>
+                    <path d="M12 3v3"/>
+                    <path d="M16 3v3"/>
+                  </svg>
+                  Faço
+                </span>
+              </span>
+              <h3 class="screen-card__title">Editor de receita</h3>
+              <p class="screen-card__desc">Ficha técnica com custo por linha ao vivo</p>
+              <span class="screen-card__foot">
+                <span class="screen-card__tags">
+                  <span class="pill screen-card__device">
+                    <svg class="icon icon--16" viewBox="0 0 24 24" aria-hidden="true">
+                      <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+                      <path d="M12 18h.01"/>
+                    </svg>
+                    mobile
+                  </span>
+                </span>
+                <svg class="icon icon--18 screen-card__go" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 12h14"/>
+                  <path d="m12 5 7 7-7 7"/>
+                </svg>
+              </span>
+            </a>
+          </li>
+
+          <li>
+            <a class="screen-card" href="producao.html" data-od-id="card-producao">
+              <span class="screen-card__top">
+                <span class="screen-card__num" aria-hidden="true">07</span>
+                <span class="badge badge--area">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M2 12h20"/>
+                    <path d="M20 12a8 8 0 0 1-8 8 8 8 0 0 1-8-8"/>
+                    <path d="M5 12V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/>
+                    <path d="M8 3v3"/>
+                    <path d="M12 3v3"/>
+                    <path d="M16 3v3"/>
+                  </svg>
+                  Faço
+                </span>
+              </span>
+              <h3 class="screen-card__title">Produção</h3>
+              <p class="screen-card__desc">Produzir lote, faltas em unidade comprável</p>
+              <span class="screen-card__foot">
+                <span class="screen-card__tags">
+                  <span class="pill screen-card__device">
+                    <svg class="icon icon--16" viewBox="0 0 24 24" aria-hidden="true">
+                      <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+                      <path d="M12 18h.01"/>
+                    </svg>
+                    mobile
+                  </span>
+                </span>
+                <svg class="icon icon--18 screen-card__go" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 12h14"/>
+                  <path d="m12 5 7 7-7 7"/>
+                </svg>
+              </span>
+            </a>
+          </li>
+        </ul>
+      </section>
+
+      <!-- ================================ VENDOS ============================== -->
+      <section id="secao-vendo" class="section" aria-labelledby="vendo-heading" data-od-id="secao-vendo">
+        <div class="section-head">
+          <span class="section-head__icon" aria-hidden="true">
+            <svg class="icon" viewBox="0 0 24 24">
+              <path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8Z"/>
+              <path d="M7 7h.01"/>
+            </svg>
+          </span>
+          <h2 class="section-head__title" id="vendo-heading" data-od-id="vendo-heading">Vendo</h2>
+          <span class="pill section-head__count">2 telas</span>
+        </div>
+
+        <ul class="screen-grid" data-od-id="grid-vendo">
+          <li>
+            <a class="screen-card" href="margem.html" data-od-id="card-margem">
+              <span class="screen-card__top">
+                <span class="screen-card__num" aria-hidden="true">08</span>
+                <span class="badge badge--area">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8Z"/>
+                    <path d="M7 7h.01"/>
+                  </svg>
+                  Vendo
+                </span>
+              </span>
+              <h3 class="screen-card__title">Margem</h3>
+              <p class="screen-card__desc">Proteja estes / resolva estes</p>
+              <span class="screen-card__foot">
+                <span class="screen-card__tags">
+                  <span class="pill screen-card__device">
+                    <svg class="icon icon--16" viewBox="0 0 24 24" aria-hidden="true">
+                      <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+                      <path d="M12 18h.01"/>
+                    </svg>
+                    mobile
+                  </span>
+                </span>
+                <svg class="icon icon--18 screen-card__go" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 12h14"/>
+                  <path d="m12 5 7 7-7 7"/>
+                </svg>
+              </span>
+            </a>
+          </li>
+
+          <li>
+            <a class="screen-card" href="produto-simulador-preco.html" data-od-id="card-produto-simulador-preco">
+              <span class="screen-card__top">
+                <span class="screen-card__num" aria-hidden="true">09</span>
+                <span class="badge badge--area">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8Z"/>
+                    <path d="M7 7h.01"/>
+                  </svg>
+                  Vendo
+                </span>
+              </span>
+              <h3 class="screen-card__title">Simulador de preço</h3>
+              <p class="screen-card__desc">Slider de margem, preço sugerido</p>
+              <span class="screen-card__foot">
+                <span class="screen-card__tags">
+                  <span class="pill screen-card__device">
+                    <svg class="icon icon--16" viewBox="0 0 24 24" aria-hidden="true">
+                      <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+                      <path d="M12 18h.01"/>
+                    </svg>
+                    mobile
+                  </span>
+                </span>
+                <svg class="icon icon--18 screen-card__go" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 12h14"/>
+                  <path d="m12 5 7 7-7 7"/>
+                </svg>
+              </span>
+            </a>
+          </li>
+        </ul>
+      </section>
+
+      <!-- =========================== PADRÕES DO REDESIGN ===================== -->
+      <section class="section" aria-labelledby="padroes-heading" data-od-id="secao-padroes">
+        <div class="section-head">
+          <span class="section-head__icon" aria-hidden="true">
+            <svg class="icon" viewBox="0 0 24 24">
+              <path d="M12 2 2 7l10 5 10-5-10-5Z"/>
+              <path d="m2 17 10 5 10-5"/>
+              <path d="m2 12 10 5 10-5"/>
+            </svg>
+          </span>
+          <h2 class="section-head__title" id="padroes-heading" data-od-id="padroes-heading">Padrões do redesign</h2>
+        </div>
+
+        <div class="panel">
+          <h3 class="standards__title" data-od-id="padroes-subtitulo">O que vale em todas as telas</h3>
+          <ul class="standards__list">
+            <li class="standards__item" data-od-id="padrao-3-areas">
+              <span class="standards__icon" aria-hidden="true">
+                <svg class="icon icon--20" viewBox="0 0 24 24">
+                  <rect x="3" y="3" width="7" height="7" rx="1"/>
+                  <rect x="14" y="3" width="7" height="7" rx="1"/>
+                  <rect x="14" y="14" width="7" height="7" rx="1"/>
+                  <rect x="3" y="14" width="7" height="7" rx="1"/>
+                </svg>
+              </span>
+              <p class="standards__text"><strong>3 áreas.</strong> Compro, Faço e Vendo — todo acesso ao módulo parte de uma delas.</p>
+            </li>
+            <li class="standards__item" data-od-id="padrao-conversao-recibo">
+              <span class="standards__icon" aria-hidden="true">
+                <svg class="icon icon--20" viewBox="0 0 24 24">
+                  <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/>
+                  <path d="M16 8H8"/>
+                  <path d="M16 12H8"/>
+                  <path d="M12 16H8"/>
+                </svg>
+              </span>
+              <p class="standards__text"><strong>Conversão como recibo.</strong> A conta aparece escrita, em números — nunca como campo “fator”.</p>
+            </li>
+            <li class="standards__item" data-od-id="padrao-custos-rotulados">
+              <span class="standards__icon" aria-hidden="true">
+                <svg class="icon icon--20" viewBox="0 0 24 24">
+                  <path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8Z"/>
+                  <path d="M7 7h.01"/>
+                </svg>
+              </span>
+              <p class="standards__text"><strong>Custos sempre rotulados.</strong> Todo valor informa a origem: “última compra” ou “custo médio”.</p>
+            </li>
+            <li class="standards__item" data-od-id="padrao-melissa-contextual">
+              <span class="standards__icon" aria-hidden="true">
+                <svg class="icon icon--20" viewBox="0 0 24 24">
+                  <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3Z"/>
+                  <path d="M5 3v4"/>
+                  <path d="M19 17v4"/>
+                  <path d="M3 5h4"/>
+                  <path d="M17 19h4"/>
+                </svg>
+              </span>
+              <p class="standards__text"><strong>Melissa contextual.</strong> No máximo 1 card de sugestão por tela, ligado ao que está na tela.</p>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ================================ RODAPÉ ================================ -->
+    <footer class="launcher__footer" data-od-id="rodape">
+      <p>Design system UNIQ · Poppins · paleta grafite + verde menta</p>
+    </footer>
+
+  </div>
+</body>
+</html>
