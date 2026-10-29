@@ -1654,7 +1654,7 @@ Os commits `96e4e43` (`me_categoria.escopo` produto|insumo) e `d2b1e26` (`fornec
 
 ### ⏳ Pendências acumuladas (registradas, não feitas)
 
-1. **Validação do fundador** do estoque-v2 completo na Vercel (todas as telas `/estoque-v2/*`) + da emenda do modal.
+1. **Validação do fundador** do estoque-v2 completo na Vercel (todas as telas `/estoque-v2/*`) + da emenda do modal. **Guia: `tracking/GUIA_TESTE_VERCEL_29-10-2026.md`** (deploy de `84d3cdb` verificado por conteúdo servido em 29/10 — assinatura do modal confirmada no chunk `ProdutosV2ListPage-ClcPri7W.js`).
 2. **Drift de migrations** acima → escrever catch-up com schema verificado (pode virar B18).
 3. **Stash órfão** `stash@{0}` (WIP pré-`07eb9f2`, 3 arquivos de compra v2, +300/−69) — provavelmente superseded pelos commits de round 2–3; decidir drop ou reaproveitar antes de virar tumba.
 4. **Registro no `TRACKING_ESTOQUE.md`** — ponteiro para esta seção (adicionado nesta reconciliação).
